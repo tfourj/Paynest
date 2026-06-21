@@ -14,9 +14,10 @@ Use `npm run ios` or `npm run android` to open the native app through Expo.
 ## Current MVP
 
 - Dashboard with monthly and yearly spending
-- Upcoming renewal and subscription lists
-- Add subscriptions with billing period and category
+- Persistent local subscription data
+- Add and remove subscriptions with billing period, category, and renewal date
 - Spending insight breakdown
+- Persistent reminder, theme, and currency preferences
 - Adaptive light and dark appearance
 
-The current app stores data in memory. SQLite sync, authentication, and notifications are planned next as described in `nc_PLAN.md`.
+Cloud sync, authentication, and native notification delivery still require Supabase and Expo notification configuration as described in `nc_PLAN.md`.
