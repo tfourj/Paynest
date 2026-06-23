@@ -15,12 +15,13 @@ type SettingsScreenProps = {
   settings: Settings;
   session: Session | null;
   onUpdate: (settings: Settings) => void;
+  onForceSync: () => Promise<void>;
   onReset: () => void;
 };
 
 type AuthMode = "login" | "create" | "forgot";
 
-export function SettingsScreen({ c, settings, session, onUpdate, onReset }: SettingsScreenProps) {
+export function SettingsScreen({ c, settings, session, onUpdate, onForceSync, onReset }: SettingsScreenProps) {
   const syncStatus = supabaseConfig.isConfigured
     ? session ? "Syncing with Supabase" : "Log in to enable sync"
     : "Add anon key to enable sync";
@@ -34,7 +35,7 @@ export function SettingsScreen({ c, settings, session, onUpdate, onReset }: Sett
       <ReminderSettings c={c} settings={settings} onUpdate={onUpdate} />
       <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
       <AppearanceSettings c={c} settings={settings} onUpdate={onUpdate} />
-      <SyncSettings c={c} session={session} syncStatus={syncStatus} />
+      <SyncSettings c={c} session={session} syncStatus={syncStatus} onForceSync={onForceSync} />
       <DataSettings c={c} onReset={onReset} />
       <Text style={[styles.version, { color: c.textSoft }]}>Paynest · Version 1.0.0</Text>
     </ScrollView>
@@ -307,11 +308,32 @@ function SyncSettings({
   c,
   session,
   syncStatus,
+  onForceSync,
 }: {
   c: Colors;
   session: Session | null;
   syncStatus: string;
+  onForceSync: () => Promise<void>;
 }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const canSync = supabaseConfig.isConfigured && Boolean(session) && !busy;
+
+  async function forceSync() {
+    if (!canSync) return;
+
+    setBusy(true);
+    setMessage("");
+    try {
+      await onForceSync();
+      setMessage("Sync complete");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Sync failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <Text style={[styles.settingsLabel, { color: c.textMuted }]}>SYNC</Text>
@@ -321,11 +343,26 @@ function SyncSettings({
           <View style={styles.rowText}>
             <Text style={[styles.rowName, { color: c.text }]}>Cloud sync</Text>
             <Text style={[styles.rowMeta, { color: c.textMuted }]}>{syncStatus}</Text>
-            <Text style={[styles.rowMeta, { color: c.textSoft }]} numberOfLines={1}>
-              {supabaseConfig.url}
-            </Text>
             <StatusPill c={c} label={session ? "Sync active" : "Local only"} />
           </View>
+        </View>
+        <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
+          <Pressable
+            disabled={!canSync}
+            onPress={() => void forceSync()}
+            style={[
+              styles.syncButton,
+              {
+                backgroundColor: canSync ? c.primary : c.surfaceMuted,
+              },
+            ]}
+          >
+            <Ionicons name="sync" size={18} color={canSync ? "#fff" : c.textSoft} />
+            <Text style={[styles.syncButtonText, { color: canSync ? "#fff" : c.textSoft }]}>
+              {busy ? "Syncing" : "Force sync"}
+            </Text>
+          </Pressable>
+          {message ? <Text style={[styles.statusText, { color: c.textMuted }]}>{message}</Text> : null}
         </View>
       </View>
     </>

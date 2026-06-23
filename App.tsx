@@ -153,6 +153,20 @@ export default function App() {
     }
   }
 
+  async function forceSync() {
+    const userId = session?.user.id;
+    if (!userId) throw new Error("Log in to sync your data.");
+
+    const synced = await syncAppData(userId, subscriptions, settings);
+    syncedUserId.current = userId;
+    setSubscriptions(synced.subscriptions);
+    setSettings(synced.settings);
+    await Promise.all([
+      saveSubscriptions(synced.subscriptions),
+      saveSettings(synced.settings),
+    ]);
+  }
+
   function resetData() {
     Alert.alert("Delete all local data?", "This removes all subscriptions and resets preferences on this device.", [
       { text: "Cancel", style: "cancel" },
@@ -218,6 +232,7 @@ export default function App() {
                 settings={settings}
                 session={session}
                 onUpdate={updateSettings}
+                onForceSync={forceSync}
                 onReset={resetData}
               />
             )}
