@@ -1,13 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { Session } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
 import { Chip, StatusPill } from "../components/common";
 import { clearIconCache } from "../iconCache";
 import { sendDebugNotification } from "../notifications";
 import { styles } from "../styles";
-import { supabase, supabaseConfig } from "../supabase";
+import {
+  createSupabaseClient,
+  resolveSupabaseConfig,
+  type SupabaseConnectionSettings,
+  type SupabaseResolvedConfig,
+} from "../supabase";
 import type { Colors } from "../theme";
 import type { Settings } from "../types";
 
@@ -15,28 +20,58 @@ type SettingsScreenProps = {
   c: Colors;
   settings: Settings;
   session: Session | null;
+  supabase: SupabaseClient | null;
+  supabaseConfig: SupabaseResolvedConfig;
+  supabaseConnection: SupabaseConnectionSettings;
   onUpdate: (settings: Settings) => void;
+  onUpdateSupabaseConnection: (settings: SupabaseConnectionSettings) => void;
   onForceSync: () => Promise<void>;
   onReset: () => void;
 };
 
 type AuthMode = "login" | "create" | "forgot";
 
-export function SettingsScreen({ c, settings, session, onUpdate, onForceSync, onReset }: SettingsScreenProps) {
+export function SettingsScreen({
+  c,
+  settings,
+  session,
+  supabase,
+  supabaseConfig,
+  supabaseConnection,
+  onUpdate,
+  onUpdateSupabaseConnection,
+  onForceSync,
+  onReset,
+}: SettingsScreenProps) {
   const syncStatus = supabaseConfig.isConfigured
     ? session ? "Syncing with Supabase" : "Log in to enable sync"
-    : "Add anon key to enable sync";
+    : supabaseConfig.provider === "custom"
+      ? "Add custom Supabase credentials"
+      : "Add anon key or choose Custom";
 
   return (
     <ScrollView contentContainerStyle={styles.screen}>
       <Text style={[styles.greeting, { color: c.textMuted }]}>Saved on this device</Text>
       <Text style={[styles.title, { color: c.text }]}>Settings</Text>
 
-      <AccountSettings c={c} session={session} />
+      <AccountSettings
+        c={c}
+        session={session}
+        supabase={supabase}
+        supabaseConnection={supabaseConnection}
+        supabaseConfig={supabaseConfig}
+        onUpdateSupabaseConnection={onUpdateSupabaseConnection}
+      />
       <NotificationSettings c={c} />
       <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
       <AppearanceSettings c={c} settings={settings} onUpdate={onUpdate} />
-      <SyncSettings c={c} session={session} syncStatus={syncStatus} onForceSync={onForceSync} />
+      <SyncSettings
+        c={c}
+        session={session}
+        supabaseConfig={supabaseConfig}
+        syncStatus={syncStatus}
+        onForceSync={onForceSync}
+      />
       <DataSettings c={c} onReset={onReset} />
       <Text style={[styles.version, { color: c.textSoft }]}>Paynest · Version 1.0.0</Text>
     </ScrollView>
@@ -77,7 +112,21 @@ function DataSettings({ c, onReset }: { c: Colors; onReset: () => void }) {
   );
 }
 
-function AccountSettings({ c, session }: { c: Colors; session: Session | null }) {
+function AccountSettings({
+  c,
+  session,
+  supabase,
+  supabaseConnection,
+  supabaseConfig,
+  onUpdateSupabaseConnection,
+}: {
+  c: Colors;
+  session: Session | null;
+  supabase: SupabaseClient | null;
+  supabaseConnection: SupabaseConnectionSettings;
+  supabaseConfig: SupabaseResolvedConfig;
+  onUpdateSupabaseConnection: (settings: SupabaseConnectionSettings) => void;
+}) {
   const [mode, setMode] = useState<AuthMode | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -94,17 +143,7 @@ function AccountSettings({ c, session }: { c: Colors; session: Session | null })
     <>
       <Text style={[styles.settingsLabel, { color: c.textMuted }]}>ACCOUNT</Text>
       <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-        {!supabaseConfig.isConfigured ? (
-          <View style={styles.settingRow}>
-            <Ionicons name="person-circle-outline" size={22} color={c.primary} />
-            <View style={styles.rowText}>
-              <Text style={[styles.rowName, { color: c.text }]}>Supabase Auth</Text>
-              <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-                Add your anon key in .env to enable sign in.
-              </Text>
-            </View>
-          </View>
-        ) : session ? (
+        {session ? (
           <View style={styles.settingOption}>
             <View style={styles.accountHeader}>
               <Ionicons name="person-circle-outline" size={24} color={c.primary} />
@@ -130,7 +169,9 @@ function AccountSettings({ c, session }: { c: Colors; session: Session | null })
         ) : (
           <View style={styles.settingOption}>
             <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-              Connect Paynest to your Supabase account.
+              {supabaseConfig.isConfigured
+                ? "Connect Paynest to your Supabase account."
+                : "Choose Paynest or add a custom Supabase project."}
             </Text>
             <View style={styles.authButtons}>
               <Pressable
@@ -149,7 +190,13 @@ function AccountSettings({ c, session }: { c: Colors; session: Session | null })
           </View>
         )}
       </View>
-      <AuthModal c={c} mode={mode} onModeChange={setMode} />
+      <AuthModal
+        c={c}
+        mode={mode}
+        supabaseConnection={supabaseConnection}
+        onModeChange={setMode}
+        onUpdateSupabaseConnection={onUpdateSupabaseConnection}
+      />
     </>
   );
 }
@@ -294,11 +341,13 @@ function AppearanceSettings({
 function SyncSettings({
   c,
   session,
+  supabaseConfig,
   syncStatus,
   onForceSync,
 }: {
   c: Colors;
   session: Session | null;
+  supabaseConfig: SupabaseResolvedConfig;
   syncStatus: string;
   onForceSync: () => Promise<void>;
 }) {
@@ -359,15 +408,24 @@ function SyncSettings({
 function AuthModal({
   c,
   mode,
+  supabaseConnection,
   onModeChange,
+  onUpdateSupabaseConnection,
 }: {
   c: Colors;
   mode: AuthMode | null;
+  supabaseConnection: SupabaseConnectionSettings;
   onModeChange: (mode: AuthMode | null) => void;
+  onUpdateSupabaseConnection: (settings: SupabaseConnectionSettings) => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [provider, setProvider] = useState<SupabaseConnectionSettings["provider"]>(
+    supabaseConnection.provider,
+  );
+  const [customUrl, setCustomUrl] = useState(supabaseConnection.customUrl);
+  const [customAnonKey, setCustomAnonKey] = useState(supabaseConnection.customAnonKey);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const title = mode === "create" ? "Create account" : mode === "forgot" ? "Reset password" : "Log in";
@@ -380,30 +438,69 @@ function AuthModal({
         : "Log in";
   const success = message.includes("Check") || message.includes("Signed") || message.includes("sent");
 
+  useEffect(() => {
+    if (!mode) return;
+
+    setProvider(supabaseConnection.provider);
+    setCustomUrl(supabaseConnection.customUrl);
+    setCustomAnonKey(supabaseConnection.customAnonKey);
+  }, [mode, supabaseConnection]);
+
   function close() {
     onModeChange(null);
     setEmail("");
     setPassword("");
     setConfirmPassword("");
+    setProvider(supabaseConnection.provider);
+    setCustomUrl(supabaseConnection.customUrl);
+    setCustomAnonKey(supabaseConnection.customAnonKey);
     setMessage("");
   }
 
+  function currentConnection(): SupabaseConnectionSettings {
+    return {
+      provider,
+      customUrl,
+      customAnonKey,
+    };
+  }
+
+  function validateConnection(connection: SupabaseConnectionSettings) {
+    const config = resolveSupabaseConfig(connection);
+    if (connection.provider === "custom") {
+      if (!connection.customUrl.trim()) return "Enter your Supabase URL.";
+      if (!connection.customAnonKey.trim()) return "Enter your Supabase anon key.";
+      if (!connection.customAnonKey.trim().startsWith("sb_")) {
+        return "Custom anon key must start with sb_.";
+      }
+    }
+    if (!config.isConfigured) return "Add Supabase credentials before signing in.";
+    return "";
+  }
+
   async function submit() {
-    if (!supabase) return setMessage("Add the Supabase anon key before signing in.");
+    const connection = currentConnection();
+    const validationError = validateConnection(connection);
+    if (validationError) return setMessage(validationError);
     if (!email.trim()) return setMessage("Enter your email address.");
     if (mode === "forgot") return resetPassword();
     if (password.length < 6) return setMessage("Enter a password with at least 6 characters.");
     if (mode === "create" && password !== confirmPassword) return setMessage("Passwords do not match.");
 
+    const config = resolveSupabaseConfig(connection);
+    const authClient = createSupabaseClient(config);
+    if (!authClient) return setMessage("Add Supabase credentials before signing in.");
+
     setBusy(true);
     setMessage("");
     const credentials = { email: email.trim(), password };
     const { data, error } = mode === "login"
-      ? await supabase.auth.signInWithPassword(credentials)
-      : await supabase.auth.signUp(credentials);
+      ? await authClient.auth.signInWithPassword(credentials)
+      : await authClient.auth.signUp(credentials);
     setBusy(false);
 
     if (error) return setMessage(error.message);
+    onUpdateSupabaseConnection(connection);
     setPassword("");
     setConfirmPassword("");
     if (data.session) return close();
@@ -411,13 +508,19 @@ function AuthModal({
   }
 
   async function resetPassword() {
-    if (!supabase) return setMessage("Add the Supabase anon key before resetting a password.");
+    const connection = currentConnection();
+    const validationError = validateConnection(connection);
+    if (validationError) return setMessage(validationError);
     if (!email.trim()) return setMessage("Enter your email to reset your password.");
+    const config = resolveSupabaseConfig(connection);
+    const authClient = createSupabaseClient(config);
+    if (!authClient) return setMessage("Add Supabase credentials before resetting a password.");
 
     setBusy(true);
     setMessage("");
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    const { error } = await authClient.auth.resetPasswordForEmail(email.trim());
     setBusy(false);
+    if (!error) onUpdateSupabaseConnection(connection);
     setMessage(error ? error.message : "Password reset email sent.");
   }
 
@@ -433,6 +536,51 @@ function AuthModal({
         </View>
 
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+          <Text style={[styles.formLabel, { color: c.textMuted }]}>PROVIDER</Text>
+          <View style={styles.chips}>
+            {(["paynest", "custom"] as const).map((item) => (
+              <Chip
+                key={item}
+                c={c}
+                label={item === "paynest" ? "Paynest" : "Custom"}
+                selected={provider === item}
+                onPress={() => setProvider(item)}
+              />
+            ))}
+          </View>
+
+          {provider === "custom" ? (
+            <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <TextInput
+                value={customUrl}
+                onChangeText={setCustomUrl}
+                placeholder="Supabase URL"
+                placeholderTextColor={c.textSoft}
+                style={[
+                  styles.input,
+                  {
+                    color: c.text,
+                    borderBottomColor: c.border,
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                  },
+                ]}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                textContentType="URL"
+              />
+              <TextInput
+                value={customAnonKey}
+                onChangeText={setCustomAnonKey}
+                placeholder="Anon key"
+                placeholderTextColor={c.textSoft}
+                style={[styles.input, { color: c.text }]}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          ) : null}
+
           <Text style={[styles.formLabel, { color: c.textMuted }]}>ACCOUNT</Text>
           <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
             <TextInput

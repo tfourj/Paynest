@@ -11,7 +11,14 @@ import { Dashboard } from "./src/screens/Dashboard";
 import { Insights } from "./src/screens/Insights";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { SubscriptionList } from "./src/screens/SubscriptionList";
-import { clearAppData, loadAppData, saveSettings, saveSubscriptions } from "./src/storage";
+import {
+  clearAppData,
+  loadAppData,
+  loadSupabaseConnection,
+  saveSettings,
+  saveSubscriptions,
+  saveSupabaseConnection,
+} from "./src/storage";
 import {
   deleteSubscriptionFromCloud,
   loadCloudAppData,
@@ -21,7 +28,12 @@ import {
   type SyncStrategy,
 } from "./src/sync";
 import { styles } from "./src/styles";
-import { supabase } from "./src/supabase";
+import {
+  createSupabaseClient,
+  defaultSupabaseConnection,
+  resolveSupabaseConfig,
+  type SupabaseConnectionSettings,
+} from "./src/supabase";
 import { darkColors, lightColors } from "./src/theme";
 import { defaultSettings, type Settings, type Subscription } from "./src/types";
 import {
@@ -71,23 +83,41 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("Dashboard");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [supabaseConnection, setSupabaseConnection] = useState<SupabaseConnectionSettings>(
+    defaultSupabaseConnection,
+  );
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [refreshingDashboard, setRefreshingDashboard] = useState(false);
   const syncedUserId = useRef<string | null>(null);
   const loginPromptUserId = useRef<string | null>(null);
+  const supabaseConfig = useMemo(
+    () => resolveSupabaseConfig(supabaseConnection),
+    [supabaseConnection],
+  );
+  const supabase = useMemo(
+    () => createSupabaseClient(supabaseConfig),
+    [supabaseConfig],
+  );
 
   useEffect(() => {
-    loadAppData().then(({ subscriptions: loadedSubscriptions, settings: loadedSettings }) => {
-      setSubscriptions(loadedSubscriptions);
-      setSettings(loadedSettings);
+    Promise.all([loadAppData(), loadSupabaseConnection()]).then(([appData, loadedSupabaseConnection]) => {
+      setSubscriptions(appData.subscriptions);
+      setSettings(appData.settings);
+      setSupabaseConnection(loadedSupabaseConnection);
       setReady(true);
     }).catch(() => setReady(true));
   }, []);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      setSession(null);
+      syncedUserId.current = null;
+      loginPromptUserId.current = null;
+      return;
+    }
+
     void supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (event === "SIGNED_IN" && nextSession?.user.id) {
@@ -96,7 +126,7 @@ export default function App() {
       setSession(nextSession);
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     if (!ready) return;
@@ -115,7 +145,7 @@ export default function App() {
     if (syncedUserId.current === userId) return;
 
     syncedUserId.current = userId;
-    loadCloudAppData(userId).then((cloud) => {
+    loadCloudAppData(supabase, userId).then((cloud) => {
       const canAskForChoice = loginPromptUserId.current === userId;
       const needsChoice = canAskForChoice
         && subscriptions.length > 0
@@ -156,7 +186,7 @@ export default function App() {
       syncedUserId.current = null;
       console.warn("Supabase sync failed", error);
     });
-  }, [ready, session?.user.id]);
+  }, [ready, session?.user.id, supabase]);
 
   const dark = settings.theme === "dark";
   const c = dark ? darkColors : lightColors;
@@ -191,7 +221,7 @@ export default function App() {
     setSubscriptions(next);
     await saveSubscriptions(next);
     if (session?.user.id) {
-      void upsertSubscriptions(session.user.id, [subscription]).catch((error) => {
+      void upsertSubscriptions(supabase, session.user.id, [subscription]).catch((error) => {
         console.warn("Supabase subscription sync failed", error);
       });
     }
@@ -206,7 +236,7 @@ export default function App() {
       return next;
     });
     if (session?.user.id) {
-      void deleteSubscriptionFromCloud(session.user.id, item.id).catch((error) => {
+      void deleteSubscriptionFromCloud(supabase, session.user.id, item.id).catch((error) => {
         console.warn("Supabase delete failed", error);
       });
     }
@@ -225,7 +255,7 @@ export default function App() {
       return next;
     });
     if (session?.user.id) {
-      void upsertSubscriptions(session.user.id, [updated]).catch((error) => {
+      void upsertSubscriptions(supabase, session.user.id, [updated]).catch((error) => {
         console.warn("Supabase subscription sync failed", error);
       });
     }
@@ -241,14 +271,22 @@ export default function App() {
     setSettings(next);
     void saveSettings(next);
     if (session?.user.id && shouldSyncSettings) {
-      void upsertSettings(session.user.id, next).catch((error) => {
+      void upsertSettings(supabase, session.user.id, next).catch((error) => {
         console.warn("Supabase settings sync failed", error);
       });
     }
   }
 
+  function updateSupabaseConnection(next: SupabaseConnectionSettings) {
+    setSupabaseConnection(next);
+    setSession(null);
+    syncedUserId.current = null;
+    loginPromptUserId.current = null;
+    void saveSupabaseConnection(next);
+  }
+
   async function syncUserData(userId: string, strategy: SyncStrategy) {
-    const synced = await syncAppData(userId, subscriptions, settings, strategy);
+    const synced = await syncAppData(supabase, userId, subscriptions, settings, strategy);
     syncedUserId.current = userId;
     if (loginPromptUserId.current === userId) loginPromptUserId.current = null;
     setSubscriptions(synced.subscriptions);
@@ -366,7 +404,11 @@ export default function App() {
                 c={c}
                 settings={settings}
                 session={session}
+                supabase={supabase}
+                supabaseConfig={supabaseConfig}
+                supabaseConnection={supabaseConnection}
                 onUpdate={updateSettings}
+                onUpdateSupabaseConnection={updateSupabaseConnection}
                 onForceSync={forceSync}
                 onReset={resetData}
               />

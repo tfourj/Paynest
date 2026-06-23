@@ -1,4 +1,5 @@
-import { supabase } from "./supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { defaultSettings, type BillingPeriod, type Settings, type Subscription, type ThemePreference } from "./types";
 
 type SubscriptionRow = {
@@ -123,7 +124,7 @@ function newerSubscription(a: Subscription, b: Subscription) {
   return new Date(a.updatedAt).getTime() >= new Date(b.updatedAt).getTime() ? a : b;
 }
 
-export async function loadCloudAppData(userId: string) {
+export async function loadCloudAppData(supabase: SupabaseClient | null, userId: string) {
   if (!supabase) return { subscriptions: [], settings: null };
   const [
     { data: cloudSubscriptions, error: subscriptionsError },
@@ -145,6 +146,7 @@ export async function loadCloudAppData(userId: string) {
 }
 
 export async function syncAppData(
+  supabase: SupabaseClient | null,
   userId: string,
   localSubscriptions: Subscription[],
   localSettings: Settings,
@@ -152,11 +154,11 @@ export async function syncAppData(
 ) {
   if (!supabase) return { subscriptions: localSubscriptions, settings: localSettings };
 
-  const cloud = await loadCloudAppData(userId);
+  const cloud = await loadCloudAppData(supabase, userId);
 
   if (strategy === "cloud") {
     const settings = { ...(cloud.settings ?? localSettings), theme: localSettings.theme };
-    if (!cloud.settings) await upsertSettings(userId, settings);
+    if (!cloud.settings) await upsertSettings(supabase, userId, settings);
     return { subscriptions: cloud.subscriptions, settings };
   }
 
@@ -166,8 +168,8 @@ export async function syncAppData(
 
     const subscriptions = [...localSubscriptions].sort((a, b) => a.name.localeCompare(b.name));
     await Promise.all([
-      upsertSubscriptions(userId, subscriptions),
-      upsertSettings(userId, localSettings),
+      upsertSubscriptions(supabase, userId, subscriptions),
+      upsertSettings(supabase, userId, localSettings),
     ]);
     return { subscriptions, settings: localSettings };
   }
@@ -183,14 +185,18 @@ export async function syncAppData(
   const settings = { ...(cloud.settings ?? localSettings), theme: localSettings.theme };
 
   await Promise.all([
-    upsertSubscriptions(userId, subscriptions),
-    upsertSettings(userId, settings),
+    upsertSubscriptions(supabase, userId, subscriptions),
+    upsertSettings(supabase, userId, settings),
   ]);
 
   return { subscriptions, settings };
 }
 
-export async function upsertSubscriptions(userId: string, subscriptions: Subscription[]) {
+export async function upsertSubscriptions(
+  supabase: SupabaseClient | null,
+  userId: string,
+  subscriptions: Subscription[],
+) {
   if (!supabase || subscriptions.length === 0) return;
   const { error } = await supabase
     .from("subscriptions")
@@ -198,7 +204,11 @@ export async function upsertSubscriptions(userId: string, subscriptions: Subscri
   if (error) throw error;
 }
 
-export async function deleteSubscriptionFromCloud(userId: string, localId: string) {
+export async function deleteSubscriptionFromCloud(
+  supabase: SupabaseClient | null,
+  userId: string,
+  localId: string,
+) {
   if (!supabase) return;
   const { error } = await supabase
     .from("subscriptions")
@@ -208,7 +218,11 @@ export async function deleteSubscriptionFromCloud(userId: string, localId: strin
   if (error) throw error;
 }
 
-export async function upsertSettings(userId: string, settings: Settings) {
+export async function upsertSettings(
+  supabase: SupabaseClient | null,
+  userId: string,
+  settings: Settings,
+) {
   if (!supabase) return;
   const { error } = await supabase
     .from("settings")
