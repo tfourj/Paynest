@@ -14,14 +14,14 @@ export const lightColors = {
 export type Colors = typeof lightColors;
 
 export const darkColors: Colors = {
-  background: "#0B0F14",
-  surface: "#111827",
-  surfaceMuted: "#1F2937",
+  background: "#101113",
+  surface: "#181A1D",
+  surfaceMuted: "#24272B",
   text: "#F9FAFB",
-  textMuted: "#9CA3AF",
-  textSoft: "#6B7280",
-  border: "#273142",
-  primary: "#60A5FA",
-  primarySoft: "#1E3A5F",
+  textMuted: "#A1A1AA",
+  textSoft: "#71717A",
+  border: "#30343A",
+  primary: "#7AA7D9",
+  primarySoft: "#2A3038",
   warning: "#FBBF24",
 };
