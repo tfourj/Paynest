@@ -4,6 +4,7 @@
     "slug": "paynest",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/paynest.png",
     "userInterfaceStyle": "automatic",
     "plugins": [
       [
@@ -14,10 +15,16 @@
       ]
     ],
     "ios": {
+      "icon": "./assets/paynest.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.tfourj.paynest"
     },
     "android": {
+      "icon": "./assets/paynest.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/paynest.png",
+        "backgroundColor": "#FFFFFF"
+      },
       "permissions": [
         "POST_NOTIFICATIONS",
         "POST_NOTIFICATIONS"
@@ -25,7 +32,8 @@
       "package": "com.tfourj.paynest"
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/paynest.png"
     }
   }
 }
