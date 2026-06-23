@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, StatusBar, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import type { Session } from "@supabase/supabase-js";
 
 import { TabBar } from "./src/components/common";
 import type { Tab } from "./src/constants";
 import { requestNotificationPermission, scheduleRenewalNotifications } from "./src/notifications";
+import {
+  createPocketBaseClient,
+  defaultPocketBaseConnection,
+  resolvePocketBaseConfig,
+  type PocketBaseConnectionSettings,
+  type PocketBaseSession,
+} from "./src/pocketbase";
 import { AddSubscription } from "./src/screens/AddSubscription";
 import { Dashboard } from "./src/screens/Dashboard";
 import { Insights } from "./src/screens/Insights";
@@ -14,10 +20,10 @@ import { SubscriptionList } from "./src/screens/SubscriptionList";
 import {
   clearAppData,
   loadAppData,
-  loadSupabaseConnection,
+  loadPocketBaseConnection,
   saveSettings,
   saveSubscriptions,
-  saveSupabaseConnection,
+  savePocketBaseConnection,
 } from "./src/storage";
 import {
   deleteSubscriptionFromCloud,
@@ -28,12 +34,6 @@ import {
   type SyncStrategy,
 } from "./src/sync";
 import { styles } from "./src/styles";
-import {
-  createSupabaseClient,
-  defaultSupabaseConnection,
-  resolveSupabaseConfig,
-  type SupabaseConnectionSettings,
-} from "./src/supabase";
 import { darkColors, lightColors } from "./src/theme";
 import { defaultSettings, type Settings, type Subscription } from "./src/types";
 import {
@@ -83,50 +83,50 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("Dashboard");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [supabaseConnection, setSupabaseConnection] = useState<SupabaseConnectionSettings>(
-    defaultSupabaseConnection,
+  const [pocketBaseConnection, setPocketBaseConnection] = useState<PocketBaseConnectionSettings>(
+    defaultPocketBaseConnection,
   );
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<PocketBaseSession | null>(null);
   const [ready, setReady] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [refreshingDashboard, setRefreshingDashboard] = useState(false);
   const syncedUserId = useRef<string | null>(null);
   const loginPromptUserId = useRef<string | null>(null);
-  const supabaseConfig = useMemo(
-    () => resolveSupabaseConfig(supabaseConnection),
-    [supabaseConnection],
+  const pocketBaseConfig = useMemo(
+    () => resolvePocketBaseConfig(pocketBaseConnection),
+    [pocketBaseConnection],
   );
-  const supabase = useMemo(
-    () => createSupabaseClient(supabaseConfig),
-    [supabaseConfig],
+  const pocketBase = useMemo(
+    () => createPocketBaseClient(pocketBaseConfig),
+    [pocketBaseConfig],
   );
 
   useEffect(() => {
-    Promise.all([loadAppData(), loadSupabaseConnection()]).then(([appData, loadedSupabaseConnection]) => {
+    Promise.all([loadAppData(), loadPocketBaseConnection()]).then(([appData, loadedPocketBaseConnection]) => {
       setSubscriptions(appData.subscriptions);
       setSettings(appData.settings);
-      setSupabaseConnection(loadedSupabaseConnection);
+      setPocketBaseConnection(loadedPocketBaseConnection);
       setReady(true);
     }).catch(() => setReady(true));
   }, []);
 
   useEffect(() => {
-    if (!supabase) {
+    if (!pocketBase) {
       setSession(null);
       syncedUserId.current = null;
       loginPromptUserId.current = null;
       return;
     }
 
-    void supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (event === "SIGNED_IN" && nextSession?.user.id) {
-        loginPromptUserId.current = nextSession.user.id;
-      }
-      setSession(nextSession);
+    let cancelled = false;
+    void pocketBase.loadSession().then((loadedSession) => {
+      if (!cancelled) setSession(loadedSession);
     });
-    return () => subscription.unsubscribe();
-  }, [supabase]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pocketBase]);
 
   useEffect(() => {
     if (!ready) return;
@@ -145,7 +145,7 @@ export default function App() {
     if (syncedUserId.current === userId) return;
 
     syncedUserId.current = userId;
-    loadCloudAppData(supabase, userId).then((cloud) => {
+    loadCloudAppData(pocketBase, session.token, userId).then((cloud) => {
       const canAskForChoice = loginPromptUserId.current === userId;
       const needsChoice = canAskForChoice
         && subscriptions.length > 0
@@ -184,9 +184,9 @@ export default function App() {
       );
     }).catch((error) => {
       syncedUserId.current = null;
-      console.warn("Supabase sync failed", error);
+      console.warn("PocketBase sync failed", error);
     });
-  }, [ready, session?.user.id, supabase]);
+  }, [ready, session?.token, session?.user.id, pocketBase]);
 
   const dark = settings.theme === "dark";
   const c = dark ? darkColors : lightColors;
@@ -221,8 +221,8 @@ export default function App() {
     setSubscriptions(next);
     await saveSubscriptions(next);
     if (session?.user.id) {
-      void upsertSubscriptions(supabase, session.user.id, [subscription]).catch((error) => {
-        console.warn("Supabase subscription sync failed", error);
+      void upsertSubscriptions(pocketBase, session.token, session.user.id, [subscription]).catch((error) => {
+        console.warn("PocketBase subscription sync failed", error);
       });
     }
     setShowAdd(false);
@@ -236,8 +236,8 @@ export default function App() {
       return next;
     });
     if (session?.user.id) {
-      void deleteSubscriptionFromCloud(supabase, session.user.id, item.id).catch((error) => {
-        console.warn("Supabase delete failed", error);
+      void deleteSubscriptionFromCloud(pocketBase, session.token, session.user.id, item.id).catch((error) => {
+        console.warn("PocketBase delete failed", error);
       });
     }
   }
@@ -255,8 +255,8 @@ export default function App() {
       return next;
     });
     if (session?.user.id) {
-      void upsertSubscriptions(supabase, session.user.id, [updated]).catch((error) => {
-        console.warn("Supabase subscription sync failed", error);
+      void upsertSubscriptions(pocketBase, session.token, session.user.id, [updated]).catch((error) => {
+        console.warn("PocketBase subscription sync failed", error);
       });
     }
   }
@@ -271,22 +271,45 @@ export default function App() {
     setSettings(next);
     void saveSettings(next);
     if (session?.user.id && shouldSyncSettings) {
-      void upsertSettings(supabase, session.user.id, next).catch((error) => {
-        console.warn("Supabase settings sync failed", error);
+      void upsertSettings(pocketBase, session.token, session.user.id, next).catch((error) => {
+        console.warn("PocketBase settings sync failed", error);
       });
     }
   }
 
-  function updateSupabaseConnection(next: SupabaseConnectionSettings) {
-    setSupabaseConnection(next);
+  function updatePocketBaseConnection(next: PocketBaseConnectionSettings) {
+    setPocketBaseConnection(next);
     setSession(null);
     syncedUserId.current = null;
     loginPromptUserId.current = null;
-    void saveSupabaseConnection(next);
+    void savePocketBaseConnection(next);
+  }
+
+  function completePocketBaseAuth(next: PocketBaseConnectionSettings, nextSession: PocketBaseSession) {
+    setPocketBaseConnection(next);
+    setSession(nextSession);
+    syncedUserId.current = null;
+    loginPromptUserId.current = nextSession.user.id;
+    void savePocketBaseConnection(next);
+  }
+
+  function signOutPocketBase() {
+    setSession(null);
+    syncedUserId.current = null;
+    loginPromptUserId.current = null;
   }
 
   async function syncUserData(userId: string, strategy: SyncStrategy) {
-    const synced = await syncAppData(supabase, userId, subscriptions, settings, strategy);
+    if (!session) throw new Error("Log in to sync your data.");
+
+    const synced = await syncAppData(
+      pocketBase,
+      session.token,
+      userId,
+      subscriptions,
+      settings,
+      strategy,
+    );
     syncedUserId.current = userId;
     if (loginPromptUserId.current === userId) loginPromptUserId.current = null;
     setSubscriptions(synced.subscriptions);
@@ -303,7 +326,7 @@ export default function App() {
     } catch (error) {
       if (loginPromptUserId.current === userId) loginPromptUserId.current = null;
       syncedUserId.current = null;
-      console.warn("Supabase sync failed", error);
+      console.warn("PocketBase sync failed", error);
     }
   }
 
@@ -404,11 +427,13 @@ export default function App() {
                 c={c}
                 settings={settings}
                 session={session}
-                supabase={supabase}
-                supabaseConfig={supabaseConfig}
-                supabaseConnection={supabaseConnection}
+                pocketBase={pocketBase}
+                pocketBaseConfig={pocketBaseConfig}
+                pocketBaseConnection={pocketBaseConnection}
                 onUpdate={updateSettings}
-                onUpdateSupabaseConnection={updateSupabaseConnection}
+                onUpdatePocketBaseConnection={updatePocketBaseConnection}
+                onAuthSuccess={completePocketBaseAuth}
+                onSignOut={signOutPocketBase}
                 onForceSync={forceSync}
                 onReset={resetData}
               />

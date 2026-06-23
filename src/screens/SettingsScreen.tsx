@@ -1,30 +1,33 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
 import { Chip, StatusPill } from "../components/common";
 import { clearIconCache } from "../iconCache";
 import { sendDebugNotification } from "../notifications";
-import { styles } from "../styles";
 import {
-  createSupabaseClient,
-  resolveSupabaseConfig,
-  type SupabaseConnectionSettings,
-  type SupabaseResolvedConfig,
-} from "../supabase";
+  createPocketBaseClient,
+  resolvePocketBaseConfig,
+  type PocketBaseClient,
+  type PocketBaseConnectionSettings,
+  type PocketBaseResolvedConfig,
+  type PocketBaseSession,
+} from "../pocketbase";
+import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Settings } from "../types";
 
 type SettingsScreenProps = {
   c: Colors;
   settings: Settings;
-  session: Session | null;
-  supabase: SupabaseClient | null;
-  supabaseConfig: SupabaseResolvedConfig;
-  supabaseConnection: SupabaseConnectionSettings;
+  session: PocketBaseSession | null;
+  pocketBase: PocketBaseClient | null;
+  pocketBaseConfig: PocketBaseResolvedConfig;
+  pocketBaseConnection: PocketBaseConnectionSettings;
   onUpdate: (settings: Settings) => void;
-  onUpdateSupabaseConnection: (settings: SupabaseConnectionSettings) => void;
+  onUpdatePocketBaseConnection: (settings: PocketBaseConnectionSettings) => void;
+  onAuthSuccess: (settings: PocketBaseConnectionSettings, session: PocketBaseSession) => void;
+  onSignOut: () => void;
   onForceSync: () => Promise<void>;
   onReset: () => void;
 };
@@ -35,19 +38,19 @@ export function SettingsScreen({
   c,
   settings,
   session,
-  supabase,
-  supabaseConfig,
-  supabaseConnection,
+  pocketBase,
+  pocketBaseConfig,
+  pocketBaseConnection,
   onUpdate,
-  onUpdateSupabaseConnection,
+  onUpdatePocketBaseConnection,
+  onAuthSuccess,
+  onSignOut,
   onForceSync,
   onReset,
 }: SettingsScreenProps) {
-  const syncStatus = supabaseConfig.isConfigured
-    ? session ? "Syncing with Supabase" : "Log in to enable sync"
-    : supabaseConfig.provider === "custom"
-      ? "Add custom Supabase credentials"
-      : "Add anon key or choose Custom";
+  const syncStatus = pocketBaseConfig.isConfigured
+    ? session ? "Syncing with PocketBase" : "Log in to enable sync"
+    : "Add your PocketBase URL";
 
   return (
     <ScrollView contentContainerStyle={styles.screen}>
@@ -57,10 +60,12 @@ export function SettingsScreen({
       <AccountSettings
         c={c}
         session={session}
-        supabase={supabase}
-        supabaseConnection={supabaseConnection}
-        supabaseConfig={supabaseConfig}
-        onUpdateSupabaseConnection={onUpdateSupabaseConnection}
+        pocketBase={pocketBase}
+        pocketBaseConnection={pocketBaseConnection}
+        pocketBaseConfig={pocketBaseConfig}
+        onUpdatePocketBaseConnection={onUpdatePocketBaseConnection}
+        onAuthSuccess={onAuthSuccess}
+        onSignOut={onSignOut}
       />
       <NotificationSettings c={c} />
       <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
@@ -68,7 +73,7 @@ export function SettingsScreen({
       <SyncSettings
         c={c}
         session={session}
-        supabaseConfig={supabaseConfig}
+        pocketBaseConfig={pocketBaseConfig}
         syncStatus={syncStatus}
         onForceSync={onForceSync}
       />
@@ -115,28 +120,32 @@ function DataSettings({ c, onReset }: { c: Colors; onReset: () => void }) {
 function AccountSettings({
   c,
   session,
-  supabase,
-  supabaseConnection,
-  supabaseConfig,
-  onUpdateSupabaseConnection,
+  pocketBase,
+  pocketBaseConnection,
+  pocketBaseConfig,
+  onUpdatePocketBaseConnection,
+  onAuthSuccess,
+  onSignOut,
 }: {
   c: Colors;
-  session: Session | null;
-  supabase: SupabaseClient | null;
-  supabaseConnection: SupabaseConnectionSettings;
-  supabaseConfig: SupabaseResolvedConfig;
-  onUpdateSupabaseConnection: (settings: SupabaseConnectionSettings) => void;
+  session: PocketBaseSession | null;
+  pocketBase: PocketBaseClient | null;
+  pocketBaseConnection: PocketBaseConnectionSettings;
+  pocketBaseConfig: PocketBaseResolvedConfig;
+  onUpdatePocketBaseConnection: (settings: PocketBaseConnectionSettings) => void;
+  onAuthSuccess: (settings: PocketBaseConnectionSettings, session: PocketBaseSession) => void;
+  onSignOut: () => void;
 }) {
   const [mode, setMode] = useState<AuthMode | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   async function signOut() {
-    if (!supabase) return;
+    if (!pocketBase) return;
     setBusy(true);
-    const { error } = await supabase.auth.signOut();
+    await pocketBase.signOut();
     setBusy(false);
-    if (error) setMessage(error.message);
+    onSignOut();
   }
 
   return (
@@ -169,9 +178,9 @@ function AccountSettings({
         ) : (
           <View style={styles.settingOption}>
             <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-              {supabaseConfig.isConfigured
-                ? "Connect Paynest to your Supabase account."
-                : "Choose Paynest or add a custom Supabase project."}
+              {pocketBaseConfig.isConfigured
+                ? "Connect Paynest to your PocketBase account."
+                : "Add your PocketBase server URL to enable sync."}
             </Text>
             <View style={styles.authButtons}>
               <Pressable
@@ -193,9 +202,10 @@ function AccountSettings({
       <AuthModal
         c={c}
         mode={mode}
-        supabaseConnection={supabaseConnection}
+        pocketBaseConnection={pocketBaseConnection}
         onModeChange={setMode}
-        onUpdateSupabaseConnection={onUpdateSupabaseConnection}
+        onUpdatePocketBaseConnection={onUpdatePocketBaseConnection}
+        onAuthSuccess={onAuthSuccess}
       />
     </>
   );
@@ -341,19 +351,19 @@ function AppearanceSettings({
 function SyncSettings({
   c,
   session,
-  supabaseConfig,
+  pocketBaseConfig,
   syncStatus,
   onForceSync,
 }: {
   c: Colors;
-  session: Session | null;
-  supabaseConfig: SupabaseResolvedConfig;
+  session: PocketBaseSession | null;
+  pocketBaseConfig: PocketBaseResolvedConfig;
   syncStatus: string;
   onForceSync: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const canSync = supabaseConfig.isConfigured && Boolean(session) && !busy;
+  const canSync = pocketBaseConfig.isConfigured && Boolean(session) && !busy;
 
   async function forceSync() {
     if (!canSync) return;
@@ -408,24 +418,22 @@ function SyncSettings({
 function AuthModal({
   c,
   mode,
-  supabaseConnection,
+  pocketBaseConnection,
   onModeChange,
-  onUpdateSupabaseConnection,
+  onUpdatePocketBaseConnection,
+  onAuthSuccess,
 }: {
   c: Colors;
   mode: AuthMode | null;
-  supabaseConnection: SupabaseConnectionSettings;
+  pocketBaseConnection: PocketBaseConnectionSettings;
   onModeChange: (mode: AuthMode | null) => void;
-  onUpdateSupabaseConnection: (settings: SupabaseConnectionSettings) => void;
+  onUpdatePocketBaseConnection: (settings: PocketBaseConnectionSettings) => void;
+  onAuthSuccess: (settings: PocketBaseConnectionSettings, session: PocketBaseSession) => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [provider, setProvider] = useState<SupabaseConnectionSettings["provider"]>(
-    supabaseConnection.provider,
-  );
-  const [customUrl, setCustomUrl] = useState(supabaseConnection.customUrl);
-  const [customAnonKey, setCustomAnonKey] = useState(supabaseConnection.customAnonKey);
+  const [url, setUrl] = useState(pocketBaseConnection.url);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const title = mode === "create" ? "Create account" : mode === "forgot" ? "Reset password" : "Log in";
@@ -441,40 +449,28 @@ function AuthModal({
   useEffect(() => {
     if (!mode) return;
 
-    setProvider(supabaseConnection.provider);
-    setCustomUrl(supabaseConnection.customUrl);
-    setCustomAnonKey(supabaseConnection.customAnonKey);
-  }, [mode, supabaseConnection]);
+    setUrl(pocketBaseConnection.url);
+  }, [mode, pocketBaseConnection]);
 
   function close() {
     onModeChange(null);
     setEmail("");
     setPassword("");
     setConfirmPassword("");
-    setProvider(supabaseConnection.provider);
-    setCustomUrl(supabaseConnection.customUrl);
-    setCustomAnonKey(supabaseConnection.customAnonKey);
+    setUrl(pocketBaseConnection.url);
     setMessage("");
   }
 
-  function currentConnection(): SupabaseConnectionSettings {
+  function currentConnection(): PocketBaseConnectionSettings {
     return {
-      provider,
-      customUrl,
-      customAnonKey,
+      url,
     };
   }
 
-  function validateConnection(connection: SupabaseConnectionSettings) {
-    const config = resolveSupabaseConfig(connection);
-    if (connection.provider === "custom") {
-      if (!connection.customUrl.trim()) return "Enter your Supabase URL.";
-      if (!connection.customAnonKey.trim()) return "Enter your Supabase anon key.";
-      if (!isValidSupabaseAnonKey(connection.customAnonKey.trim())) {
-        return "Enter a valid Supabase anon key.";
-      }
-    }
-    if (!config.isConfigured) return "Add Supabase credentials before signing in.";
+  function validateConnection(connection: PocketBaseConnectionSettings) {
+    const config = resolvePocketBaseConfig(connection);
+    if (!connection.url.trim()) return "Enter your PocketBase URL.";
+    if (!config.isConfigured) return "Add your PocketBase URL before signing in.";
     return "";
   }
 
@@ -487,24 +483,30 @@ function AuthModal({
     if (password.length < 6) return setMessage("Enter a password with at least 6 characters.");
     if (mode === "create" && password !== confirmPassword) return setMessage("Passwords do not match.");
 
-    const config = resolveSupabaseConfig(connection);
-    const authClient = createSupabaseClient(config);
-    if (!authClient) return setMessage("Add Supabase credentials before signing in.");
+    const config = resolvePocketBaseConfig(connection);
+    const authClient = createPocketBaseClient(config);
+    if (!authClient) return setMessage("Add your PocketBase URL before signing in.");
 
     setBusy(true);
     setMessage("");
-    const credentials = { email: email.trim(), password };
-    const { data, error } = mode === "login"
-      ? await authClient.auth.signInWithPassword(credentials)
-      : await authClient.auth.signUp(credentials);
-    setBusy(false);
+    try {
+      if (mode === "login") {
+        const nextSession = await authClient.signIn(email.trim(), password);
+        onAuthSuccess(connection, nextSession);
+        close();
+        return;
+      }
 
-    if (error) return setMessage(error.message);
-    onUpdateSupabaseConnection(connection);
-    setPassword("");
-    setConfirmPassword("");
-    if (data.session) return close();
-    setMessage("Check your email to confirm your account.");
+      await authClient.signUp(email.trim(), password);
+      onUpdatePocketBaseConnection(connection);
+      setPassword("");
+      setConfirmPassword("");
+      setMessage("Check your email to verify your account.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Authentication failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function resetPassword() {
@@ -512,16 +514,21 @@ function AuthModal({
     const validationError = validateConnection(connection);
     if (validationError) return setMessage(validationError);
     if (!email.trim()) return setMessage("Enter your email to reset your password.");
-    const config = resolveSupabaseConfig(connection);
-    const authClient = createSupabaseClient(config);
-    if (!authClient) return setMessage("Add Supabase credentials before resetting a password.");
+    const config = resolvePocketBaseConfig(connection);
+    const authClient = createPocketBaseClient(config);
+    if (!authClient) return setMessage("Add your PocketBase URL before resetting a password.");
 
     setBusy(true);
     setMessage("");
-    const { error } = await authClient.auth.resetPasswordForEmail(email.trim());
-    setBusy(false);
-    if (!error) onUpdateSupabaseConnection(connection);
-    setMessage(error ? error.message : "Password reset email sent.");
+    try {
+      await authClient.requestPasswordReset(email.trim());
+      onUpdatePocketBaseConnection(connection);
+      setMessage("Password reset email sent.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not send reset email");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -536,50 +543,20 @@ function AuthModal({
         </View>
 
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.formLabel, { color: c.textMuted }]}>PROVIDER</Text>
-          <View style={styles.chips}>
-            {(["paynest", "custom"] as const).map((item) => (
-              <Chip
-                key={item}
-                c={c}
-                label={item === "paynest" ? "Paynest" : "Custom"}
-                selected={provider === item}
-                onPress={() => setProvider(item)}
-              />
-            ))}
+          <Text style={[styles.formLabel, { color: c.textMuted }]}>SERVER</Text>
+          <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <TextInput
+              value={url}
+              onChangeText={setUrl}
+              placeholder="PocketBase URL"
+              placeholderTextColor={c.textSoft}
+              style={[styles.input, { color: c.text }]}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              textContentType="URL"
+            />
           </View>
-
-          {provider === "custom" ? (
-            <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <TextInput
-                value={customUrl}
-                onChangeText={setCustomUrl}
-                placeholder="Supabase URL"
-                placeholderTextColor={c.textSoft}
-                style={[
-                  styles.input,
-                  {
-                    color: c.text,
-                    borderBottomColor: c.border,
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                  },
-                ]}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-                textContentType="URL"
-              />
-              <TextInput
-                value={customAnonKey}
-                onChangeText={setCustomAnonKey}
-                placeholder="Anon key"
-                placeholderTextColor={c.textSoft}
-                style={[styles.input, { color: c.text }]}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-          ) : null}
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>ACCOUNT</Text>
           <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -656,8 +633,4 @@ function AuthModal({
       </View>
     </Modal>
   );
-}
-
-function isValidSupabaseAnonKey(value: string) {
-  return value.startsWith("sb_") || value.startsWith("eyJ");
 }

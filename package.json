@@ -8,16 +8,12 @@
     "web": "expo start --web",
     "ios": "expo run:ios",
     "android": "expo run:android",
-    "typecheck": "tsc --noEmit",
-    "db:link": "set -a; [ -f supabase/.env ] && . ./supabase/.env; set +a; : \"${SUPABASE_PROJECT_REF:?Set SUPABASE_PROJECT_REF in supabase/.env}\"; npx supabase link --project-ref \"$SUPABASE_PROJECT_REF\"",
-    "db:push": "set -a; [ -f supabase/.env ] && . ./supabase/.env; set +a; npx supabase db push",
-    "db:migrate": "npm run db:link && npm run db:push"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.5",
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "2.1.2",
-    "@supabase/supabase-js": "^2.108.2",
     "expo": "~53.0.22",
     "expo-asset": "~11.1.7",
     "expo-build-properties": "~0.14.8",

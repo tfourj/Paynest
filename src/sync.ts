@@ -1,10 +1,9 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
+import type { PocketBaseClient } from "./pocketbase";
 import { defaultSettings, type BillingPeriod, type Settings, type Subscription, type ThemePreference } from "./types";
 
-type SubscriptionRow = {
+type SubscriptionRecord = {
   id: string;
-  user_id: string;
+  user: string;
   local_id: string;
   name: string;
   category: string;
@@ -29,9 +28,10 @@ type SubscriptionRow = {
   updated_at: string;
 };
 
-type SettingsRow = {
-  user_id: string;
-  theme: ThemePreference;
+type SettingsRecord = {
+  id: string;
+  user: string;
+  theme?: ThemePreference | null;
   reminders_enabled: boolean;
   reminder_days: number;
   currency: string;
@@ -42,7 +42,7 @@ type SettingsRow = {
 
 export type SyncStrategy = "merge" | "cloud" | "local";
 
-function toSubscription(row: SubscriptionRow): Subscription {
+function toSubscription(row: SubscriptionRecord): Subscription {
   return {
     id: row.local_id || row.id,
     name: row.name,
@@ -51,7 +51,7 @@ function toSubscription(row: SubscriptionRow): Subscription {
     currency: row.currency,
     billingPeriod: row.billing_period,
     payDay: row.pay_day ?? undefined,
-    nextRenewalDate: row.next_renewal_date,
+    nextRenewalDate: dateOnly(row.next_renewal_date),
     reminderEnabled: row.reminder_enabled ?? false,
     reminderDays: row.reminder_days ?? 0,
     reminderTime: row.reminder_time ?? "09:00",
@@ -69,9 +69,9 @@ function toSubscription(row: SubscriptionRow): Subscription {
   };
 }
 
-function toSubscriptionRow(userId: string, item: Subscription) {
+function toSubscriptionRecord(userId: string, item: Subscription) {
   return {
-    user_id: userId,
+    user: userId,
     local_id: item.id,
     name: item.name,
     category: item.category,
@@ -97,7 +97,7 @@ function toSubscriptionRow(userId: string, item: Subscription) {
   };
 }
 
-function toSettings(row: SettingsRow): Settings {
+function toSettings(row: SettingsRecord): Settings {
   return {
     ...defaultSettings,
     theme: defaultSettings.theme,
@@ -109,14 +109,15 @@ function toSettings(row: SettingsRow): Settings {
   };
 }
 
-function toSettingsRow(userId: string, settings: Settings) {
+function toSettingsRecord(userId: string, settings: Settings) {
   return {
-    user_id: userId,
+    user: userId,
     reminders_enabled: settings.remindersEnabled,
     reminder_days: settings.reminderDays,
     currency: settings.currency,
     payday_enabled: settings.paydayEnabled,
     payday: settings.payday,
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -124,52 +125,46 @@ function newerSubscription(a: Subscription, b: Subscription) {
   return new Date(a.updatedAt).getTime() >= new Date(b.updatedAt).getTime() ? a : b;
 }
 
-export async function loadCloudAppData(supabase: SupabaseClient | null, userId: string) {
-  if (!supabase) return { subscriptions: [], settings: null };
-  const [
-    { data: cloudSubscriptions, error: subscriptionsError },
-    { data: cloudSettings, error: settingsError },
-  ] = await Promise.all([
-    supabase.from("subscriptions").select("*").eq("user_id", userId),
-    supabase.from("settings").select("*").eq("user_id", userId).maybeSingle(),
+export async function loadCloudAppData(client: PocketBaseClient | null, token: string, userId: string) {
+  if (!client) return { subscriptions: [], settings: null };
+  const [cloudSubscriptions, cloudSettings] = await Promise.all([
+    listUserSubscriptions(client, token, userId),
+    listUserSettings(client, token, userId),
   ]);
 
-  if (subscriptionsError) throw subscriptionsError;
-  if (settingsError) throw settingsError;
-
   return {
-    subscriptions: ((cloudSubscriptions ?? []) as SubscriptionRow[])
+    subscriptions: cloudSubscriptions
       .map(toSubscription)
       .sort((a, b) => a.name.localeCompare(b.name)),
-    settings: cloudSettings ? toSettings(cloudSettings as SettingsRow) : null,
+    settings: cloudSettings[0] ? toSettings(cloudSettings[0]) : null,
   };
 }
 
 export async function syncAppData(
-  supabase: SupabaseClient | null,
+  client: PocketBaseClient | null,
+  token: string,
   userId: string,
   localSubscriptions: Subscription[],
   localSettings: Settings,
   strategy: SyncStrategy = "merge",
 ) {
-  if (!supabase) return { subscriptions: localSubscriptions, settings: localSettings };
+  if (!client) return { subscriptions: localSubscriptions, settings: localSettings };
 
-  const cloud = await loadCloudAppData(supabase, userId);
+  const cloud = await loadCloudAppData(client, token, userId);
 
   if (strategy === "cloud") {
     const settings = { ...(cloud.settings ?? localSettings), theme: localSettings.theme };
-    if (!cloud.settings) await upsertSettings(supabase, userId, settings);
+    if (!cloud.settings) await upsertSettings(client, token, userId, settings);
     return { subscriptions: cloud.subscriptions, settings };
   }
 
   if (strategy === "local") {
-    const { error } = await supabase.from("subscriptions").delete().eq("user_id", userId);
-    if (error) throw error;
+    await deleteUserSubscriptions(client, token, userId);
 
     const subscriptions = [...localSubscriptions].sort((a, b) => a.name.localeCompare(b.name));
     await Promise.all([
-      upsertSubscriptions(supabase, userId, subscriptions),
-      upsertSettings(supabase, userId, localSettings),
+      upsertSubscriptions(client, token, userId, subscriptions),
+      upsertSettings(client, token, userId, localSettings),
     ]);
     return { subscriptions, settings: localSettings };
   }
@@ -185,47 +180,93 @@ export async function syncAppData(
   const settings = { ...(cloud.settings ?? localSettings), theme: localSettings.theme };
 
   await Promise.all([
-    upsertSubscriptions(supabase, userId, subscriptions),
-    upsertSettings(supabase, userId, settings),
+    upsertSubscriptions(client, token, userId, subscriptions),
+    upsertSettings(client, token, userId, settings),
   ]);
 
   return { subscriptions, settings };
 }
 
 export async function upsertSubscriptions(
-  supabase: SupabaseClient | null,
+  client: PocketBaseClient | null,
+  token: string,
   userId: string,
   subscriptions: Subscription[],
 ) {
-  if (!supabase || subscriptions.length === 0) return;
-  const { error } = await supabase
-    .from("subscriptions")
-    .upsert(subscriptions.map((item) => toSubscriptionRow(userId, item)), { onConflict: "user_id,local_id" });
-  if (error) throw error;
+  if (!client || subscriptions.length === 0) return;
+
+  const existingRecords = await listUserSubscriptions(client, token, userId);
+  const recordsByLocalId = new Map(existingRecords.map((record) => [record.local_id, record]));
+
+  await Promise.all(subscriptions.map((item) => {
+    const existing = recordsByLocalId.get(item.id);
+    const body = toSubscriptionRecord(userId, item);
+    return existing
+      ? client.updateRecord("subscriptions", existing.id, token, body)
+      : client.createRecord("subscriptions", token, body);
+  }));
 }
 
 export async function deleteSubscriptionFromCloud(
-  supabase: SupabaseClient | null,
+  client: PocketBaseClient | null,
+  token: string,
   userId: string,
   localId: string,
 ) {
-  if (!supabase) return;
-  const { error } = await supabase
-    .from("subscriptions")
-    .delete()
-    .eq("user_id", userId)
-    .eq("local_id", localId);
-  if (error) throw error;
+  if (!client) return;
+
+  const records = await listUserSubscriptions(client, token, userId, localId);
+  await Promise.all(records.map((record) => client.deleteRecord("subscriptions", record.id, token)));
 }
 
 export async function upsertSettings(
-  supabase: SupabaseClient | null,
+  client: PocketBaseClient | null,
+  token: string,
   userId: string,
   settings: Settings,
 ) {
-  if (!supabase) return;
-  const { error } = await supabase
-    .from("settings")
-    .upsert(toSettingsRow(userId, settings), { onConflict: "user_id" });
-  if (error) throw error;
+  if (!client) return;
+
+  const existing = await listUserSettings(client, token, userId);
+  const body = toSettingsRecord(userId, settings);
+  if (existing[0]) {
+    await client.updateRecord("settings", existing[0].id, token, body);
+    return;
+  }
+
+  await client.createRecord("settings", token, body);
+}
+
+async function listUserSubscriptions(
+  client: PocketBaseClient,
+  token: string,
+  userId: string,
+  localId?: string,
+) {
+  const localIdFilter = localId ? ` && local_id="${escapeFilterValue(localId)}"` : "";
+  return client.listRecords<SubscriptionRecord>("subscriptions", token, {
+    filter: `user="${escapeFilterValue(userId)}"${localIdFilter}`,
+    perPage: 500,
+    sort: "name",
+  });
+}
+
+function listUserSettings(client: PocketBaseClient, token: string, userId: string) {
+  return client.listRecords<SettingsRecord>("settings", token, {
+    filter: `user="${escapeFilterValue(userId)}"`,
+    perPage: 1,
+  });
+}
+
+async function deleteUserSubscriptions(client: PocketBaseClient, token: string, userId: string) {
+  const records = await listUserSubscriptions(client, token, userId);
+  await Promise.all(records.map((record) => client.deleteRecord("subscriptions", record.id, token)));
+}
+
+function escapeFilterValue(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+}
+
+function dateOnly(value: string) {
+  return value.slice(0, 10);
 }

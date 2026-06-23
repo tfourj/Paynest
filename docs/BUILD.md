@@ -48,32 +48,15 @@ Run the TypeScript check:
 npm run typecheck
 ```
 
-## Supabase
+## PocketBase
 
-Paynest works locally without signing in. Supabase is used for optional authentication and sync.
+Paynest works locally without signing in. PocketBase is used for optional authentication and sync.
 
-Set the public client values in `.env` when using a different Supabase project:
-
-```sh
-EXPO_PUBLIC_SUPABASE_URL=https://your-supabase-url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
-```
-
-Create the database tables and row-level security policies by running `supabase/schema.sql`
-in the Supabase SQL editor.
-
-If you are updating an older database, run the migrations in `supabase/migrations/` in order.
-Supabase CLI credentials live in `supabase/.env`; see `supabase/README.md` for details.
-
-Link and push Supabase migrations through the project scripts:
+Set a default PocketBase URL in `.env` if you want the app to prefill the server URL:
 
 ```sh
-npm run db:link
-npm run db:push
+EXPO_PUBLIC_POCKETBASE_URL=https://your-pocketbase-url
 ```
 
-Run both Supabase steps together:
-
-```sh
-npm run db:migrate
-```
+The server URL can also be entered in the app from Settings -> Account. Create the required
+PocketBase collections and API rules using [pocketbase/README.md](../pocketbase/README.md).

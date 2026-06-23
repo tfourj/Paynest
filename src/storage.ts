@@ -1,14 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
-  defaultSupabaseConnection,
-  type SupabaseConnectionSettings,
-} from "./supabase";
+  defaultPocketBaseConnection,
+  type PocketBaseConnectionSettings,
+} from "./pocketbase";
 import { defaultSettings, type Settings, type Subscription } from "./types";
 
 const subscriptionsKey = "paynest.subscriptions.v1";
 const settingsKey = "paynest.settings.v1";
-const supabaseConnectionKey = "paynest.supabaseConnection.v1";
+const pocketBaseConnectionKey = "paynest.pocketBaseConnection.v1";
 
 function readJson<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
@@ -33,9 +33,11 @@ export async function loadAppData(): Promise<{ subscriptions: Subscription[]; se
   };
 }
 
-export async function loadSupabaseConnection(): Promise<SupabaseConnectionSettings> {
-  const storedConnection = await AsyncStorage.getItem(supabaseConnectionKey);
-  return normalizeSupabaseConnection(readJson<SupabaseConnectionSettings>(storedConnection, defaultSupabaseConnection));
+export async function loadPocketBaseConnection(): Promise<PocketBaseConnectionSettings> {
+  const storedConnection = await AsyncStorage.getItem(pocketBaseConnectionKey);
+  return normalizePocketBaseConnection(
+    readJson<PocketBaseConnectionSettings>(storedConnection, defaultPocketBaseConnection),
+  );
 }
 
 export function saveSubscriptions(subscriptions: Subscription[]) {
@@ -46,8 +48,8 @@ export function saveSettings(settings: Settings) {
   return AsyncStorage.setItem(settingsKey, JSON.stringify(settings));
 }
 
-export function saveSupabaseConnection(settings: SupabaseConnectionSettings) {
-  return AsyncStorage.setItem(supabaseConnectionKey, JSON.stringify(normalizeSupabaseConnection(settings)));
+export function savePocketBaseConnection(settings: PocketBaseConnectionSettings) {
+  return AsyncStorage.setItem(pocketBaseConnectionKey, JSON.stringify(normalizePocketBaseConnection(settings)));
 }
 
 export function clearAppData() {
@@ -63,10 +65,8 @@ function normalizeSubscription(item: Subscription): Subscription {
   };
 }
 
-function normalizeSupabaseConnection(settings: SupabaseConnectionSettings): SupabaseConnectionSettings {
+function normalizePocketBaseConnection(settings: PocketBaseConnectionSettings): PocketBaseConnectionSettings {
   return {
-    provider: settings.provider === "custom" ? "custom" : "paynest",
-    customUrl: settings.customUrl ?? "",
-    customAnonKey: settings.customAnonKey ?? "",
+    url: settings.url ?? "",
   };
 }

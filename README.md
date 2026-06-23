@@ -13,7 +13,7 @@
 - Track subscriptions with price, category, billing period, renewal date, and reminder settings.
 - View monthly and yearly spending from a focused dashboard.
 - Review upcoming renewals and spending insights.
-- Save data locally on device with optional hosted or self-hosted Supabase account sync.
+- Save data locally on device with optional PocketBase account sync.
 - Merge local and cloud subscriptions when signing in.
 - Use local iOS and Android renewal notifications.
 - Customize currency, payday settings, subscription icons, colors, and app appearance.
@@ -26,7 +26,7 @@
 - React 19
 - React Native 0.79
 - TypeScript
-- Supabase
+- PocketBase
 - AsyncStorage
 - Expo Notifications
 
@@ -43,15 +43,16 @@ docs/                   Development and build documentation
 src/components/         Shared UI components and subscription rows
 src/screens/            Dashboard, subscriptions, insights, settings, and editor screens
 src/storage.ts          Local AsyncStorage persistence
-src/sync.ts             Supabase sync mapping and merge logic
+src/pocketbase.ts       PocketBase REST client and auth persistence
+src/sync.ts             PocketBase sync mapping and merge logic
 src/types.ts            Shared app types and defaults
-supabase/               Schema, migrations, and Supabase setup notes
+pocketbase/             PocketBase setup notes
 ```
 
 ## Credits
 
 - Built with [Expo](https://expo.dev/) and [React Native](https://reactnative.dev/).
-- Authentication and cloud sync powered by [Supabase](https://supabase.com/).
+- Authentication and cloud sync powered by [PocketBase](https://pocketbase.io/).
 - Subscription icon search supports [Simple Icons](https://simpleicons.org/),
   [SVGL](https://svgl.app/), and
   [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons).
