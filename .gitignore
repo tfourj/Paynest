@@ -1,6 +1,9 @@
 node_modules/
 dist/
 .expo/
+.env
+.env.local
+.env.*.local
 
 # Local planning notes are intentionally not part of the application history.
 nc_*

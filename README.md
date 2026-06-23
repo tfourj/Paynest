@@ -11,6 +11,18 @@ npm run web
 
 Use `npm run ios` or `npm run android` to open the native app through Expo.
 
+## Supabase
+
+The Supabase project URL defaults to `https://xfegnwhtyjqrzlrtvoui.supabase.co`.
+To change it later, copy `.env.example` to `.env` and update:
+
+```sh
+EXPO_PUBLIC_SUPABASE_URL=https://your-supabase-url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
+```
+
+The anon key is required before the app can create a Supabase client for sync or auth.
+
 ## Current MVP
 
 - Dashboard with monthly and yearly spending
@@ -19,5 +31,6 @@ Use `npm run ios` or `npm run android` to open the native app through Expo.
 - Spending insight breakdown
 - Persistent reminder, theme, and currency preferences
 - Adaptive light and dark appearance
+- Supabase client configuration with env overrides
 
 Cloud sync, authentication, and native notification delivery still require Supabase and Expo notification configuration as described in `nc_PLAN.md`.
