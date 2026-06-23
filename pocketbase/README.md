@@ -30,9 +30,35 @@ Recommended auth settings:
 
 Paynest calls PocketBase's password auth, request verification, and password reset APIs.
 
-## Collections
+## SQL Collection Setup
 
-Create these collections in PocketBase.
+Use the SQL file in this folder to create the Paynest app collections.
+
+Open PocketBase admin:
+
+```text
+Settings -> Database -> New query
+```
+
+Paste and run:
+
+```text
+pocketbase/paynest.sql
+```
+
+After running it, restart PocketBase if the new collections do not appear immediately in the
+Collections screen.
+
+The SQL creates:
+
+- `subscriptions`
+- `settings`
+- API rules for authenticated users
+- unique indexes for per-user data
+
+## Manual Collection Reference
+
+Use this only if you do not want to use `pocketbase/paynest.sql`.
 
 ### subscriptions
 
