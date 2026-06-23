@@ -31,6 +31,7 @@ type SettingsScreenProps = {
   onSignOut: () => void;
   onForceSync: () => Promise<void>;
   onReset: () => void;
+  onOpenPrivacyPolicy: () => void;
 };
 
 export function SettingsScreen({
@@ -46,6 +47,7 @@ export function SettingsScreen({
   onSignOut,
   onForceSync,
   onReset,
+  onOpenPrivacyPolicy,
 }: SettingsScreenProps) {
   const syncStatus = pocketBaseConfig.isConfigured
     ? session ? "Syncing with PocketBase" : "Log in to enable sync"
@@ -77,8 +79,35 @@ export function SettingsScreen({
         onForceSync={onForceSync}
       />
       <DataSettings c={c} onReset={onReset} />
+      <LegalSettings c={c} onOpenPrivacyPolicy={onOpenPrivacyPolicy} />
       <Text style={[styles.version, { color: c.textSoft }]}>Paynest · Version 1.0.0</Text>
     </ScrollView>
+  );
+}
+
+function LegalSettings({
+  c,
+  onOpenPrivacyPolicy,
+}: {
+  c: Colors;
+  onOpenPrivacyPolicy: () => void;
+}) {
+  return (
+    <>
+      <Text style={[styles.settingsLabel, { color: c.textMuted }]}>LEGAL</Text>
+      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <Pressable onPress={onOpenPrivacyPolicy} style={styles.settingRow}>
+          <Ionicons name="shield-checkmark-outline" size={21} color={c.primary} />
+          <View style={styles.rowText}>
+            <Text style={[styles.rowName, { color: c.text }]}>Privacy Policy</Text>
+            <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+              Review how Paynest stores and syncs data
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
+        </Pressable>
+      </View>
+    </>
   );
 }
 

@@ -1,7 +1,7 @@
 import "react-native-gesture-handler";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, StatusBar, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, StatusBar, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
@@ -19,6 +19,7 @@ import { AddSubscription } from "./src/screens/AddSubscription";
 import { Dashboard } from "./src/screens/Dashboard";
 import { Insights } from "./src/screens/Insights";
 import { LoginScreen } from "./src/screens/LoginScreen";
+import { PrivacyPolicy } from "./src/screens/PrivacyPolicy";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { SubscriptionList } from "./src/screens/SubscriptionList";
 import {
@@ -90,6 +91,22 @@ function subscriptionListsMatch(left: Subscription[], right: Subscription[]) {
   return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
 }
 
+type WebRuntime = {
+  addEventListener?: (event: "popstate", listener: () => void) => void;
+  removeEventListener?: (event: "popstate", listener: () => void) => void;
+  history?: { pushState: (data: unknown, unused: string, url?: string | URL | null) => void };
+  location?: { pathname?: string };
+};
+
+function webRuntime() {
+  return Platform.OS === "web" ? globalThis as WebRuntime : undefined;
+}
+
+function isPrivacyPolicyPath() {
+  const pathname = webRuntime()?.location?.pathname?.replace(/\/$/, "");
+  return pathname === "/privacypolicy";
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("Dashboard");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -102,6 +119,7 @@ export default function App() {
   const [authReady, setAuthReady] = useState(false);
   const [localMode, setLocalMode] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(isPrivacyPolicyPath);
   const [refreshingDashboard, setRefreshingDashboard] = useState(false);
   const syncedUserId = useRef<string | null>(null);
   const loginPromptUserId = useRef<string | null>(null);
@@ -129,6 +147,15 @@ export default function App() {
       setLocalMode(loadedLocalMode);
       setReady(true);
     }).catch(() => setReady(true));
+  }, []);
+
+  useEffect(() => {
+    const runtime = webRuntime();
+    if (!runtime?.addEventListener || !runtime.removeEventListener) return;
+
+    const syncPrivacyRoute = () => setShowPrivacyPolicy(isPrivacyPolicyPath());
+    runtime.addEventListener("popstate", syncPrivacyRoute);
+    return () => runtime.removeEventListener?.("popstate", syncPrivacyRoute);
   }, []);
 
   useEffect(() => {
@@ -419,6 +446,18 @@ export default function App() {
     ]);
   }
 
+  function openPrivacyPolicy() {
+    setShowPrivacyPolicy(true);
+    const runtime = webRuntime();
+    if (!isPrivacyPolicyPath()) runtime?.history?.pushState(null, "", "/privacypolicy");
+  }
+
+  function closePrivacyPolicy() {
+    setShowPrivacyPolicy(false);
+    const runtime = webRuntime();
+    if (isPrivacyPolicyPath()) runtime?.history?.pushState(null, "", "/");
+  }
+
   if (!ready || !authReady) {
     return (
       <GestureHandlerRootView style={styles.safe}>
@@ -426,6 +465,21 @@ export default function App() {
           <SafeAreaView style={[styles.loading, { backgroundColor: c.background }]}>
             <ActivityIndicator size="large" color={c.primary} />
             <Text style={[styles.loadingText, { color: c.textMuted }]}>Loading Paynest</Text>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
+
+  if (showPrivacyPolicy) {
+    return (
+      <GestureHandlerRootView style={styles.safe}>
+        <SafeAreaProvider>
+          <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
+            <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
+            <View style={styles.shell}>
+              <PrivacyPolicy c={c} onBack={closePrivacyPolicy} />
+            </View>
           </SafeAreaView>
         </SafeAreaProvider>
       </GestureHandlerRootView>
@@ -512,6 +566,7 @@ export default function App() {
                   onSignOut={signOutPocketBase}
                   onForceSync={forceSync}
                   onReset={resetData}
+                  onOpenPrivacyPolicy={openPrivacyPolicy}
                 />
               )}
             </View>

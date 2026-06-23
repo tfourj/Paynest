@@ -239,6 +239,17 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  privacyHeader: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 4 },
+  privacyBackButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  privacyIntro: { padding: 16 },
+  privacySection: { gap: 8, marginTop: 12 },
+  privacyBody: { fontSize: 14, lineHeight: 21 },
   reminderTimeRow: {
     minHeight: 46,
     borderRadius: 12,
