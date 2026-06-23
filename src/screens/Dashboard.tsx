@@ -60,7 +60,12 @@ export function Dashboard({
         <Text style={styles.total}>{formatMoney(monthly, currency)}</Text>
         <View style={styles.totalFooter}>
           <Text style={styles.totalSub}>Across {subscriptions.length} subscriptions</Text>
-          <Text style={styles.totalYearly}>{formatMoney(monthly * 12, currency)} / year</Text>
+          <View style={styles.totalRemainingStack}>
+            <Text style={styles.totalRemainingValue}>
+              {formatMoney(spendingUntilBoundary, currency)}
+            </Text>
+            <Text style={styles.totalRemainingLabel}>{spendingLabel}</Text>
+          </View>
         </View>
       </View>
 
@@ -78,13 +83,6 @@ export function Dashboard({
                 last={index === visibleUpcoming.length - 1}
               />
             ))}
-          </View>
-          <View style={[styles.spendingPill, { backgroundColor: c.primarySoft }]}>
-            <Text style={[styles.spendingPillLabel, { color: c.primary }]}>Planned spend</Text>
-            <Text style={[styles.spendingPillValue, { color: c.text }]}>
-              {formatMoney(spendingUntilBoundary, currency)}
-            </Text>
-            <Text style={[styles.spendingPillMeta, { color: c.textMuted }]}>{spendingLabel}</Text>
           </View>
         </>
       )}
