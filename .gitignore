@@ -11,3 +11,5 @@ supabase/.temp/
 
 # Local planning notes are intentionally not part of the application history.
 nc_*
+/ios
+/android

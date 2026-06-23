@@ -5,10 +5,27 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "ios": { "supportsTablet": true },
-    "android": {
-      "permissions": ["POST_NOTIFICATIONS"]
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "buildReactNativeFromSource": false
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tfourj.paynest"
     },
-    "web": { "bundler": "metro" }
+    "android": {
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "POST_NOTIFICATIONS"
+      ],
+      "package": "com.tfourj.paynest"
+    },
+    "web": {
+      "bundler": "metro"
+    }
   }
 }
