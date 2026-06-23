@@ -24,6 +24,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
 The anon key is required before the app can create a Supabase client for sync or auth.
 Run `supabase/schema.sql` in the Supabase SQL editor to create the sync tables and row-level security policies.
 Email/password auth is used from the Settings account section, so keep the Email provider enabled in Supabase Auth.
+Password reset emails use Supabase's configured Site URL and Redirect URLs under Auth URL Configuration.
 
 ## Current MVP
 
