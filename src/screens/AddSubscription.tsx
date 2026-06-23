@@ -127,6 +127,7 @@ export function AddSubscription({
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("Monthly");
   const [firstPaymentDate, setFirstPaymentDate] = useState(today);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showPresetPicker, setShowPresetPicker] = useState(false);
   const [iconName, setIconName] = useState<(typeof visualIconOptions)[number]>("card");
   const [iconLabel, setIconLabel] = useState("");
   const [iconColor, setIconColor] = useState("#2563EB");
@@ -232,6 +233,7 @@ export function AddSubscription({
     setSymbolSearch(subscription?.name ?? "");
     setRemoteIconResults([]);
     setSymbolSearchLoading(false);
+    setShowPresetPicker(false);
     setError("");
   }, [subscription?.id, today, visible]);
 
@@ -278,6 +280,7 @@ export function AddSubscription({
     setIconUrl(undefined);
     setIconSourceTitle(preset.name);
     setSymbolSearch(preset.name);
+    setShowPresetPicker(false);
   }
 
   function applyIconSource(icon: IconSearchResult) {
@@ -350,6 +353,7 @@ export function AddSubscription({
     setSymbolSearch("");
     setRemoteIconResults([]);
     setSymbolSearchLoading(false);
+    setShowPresetPicker(false);
     setError("");
   }
 
@@ -408,73 +412,19 @@ export function AddSubscription({
             </View>
           </View>
 
-          <Text style={[styles.formLabel, { color: c.textMuted }]}>PRESETS</Text>
-          <View style={[styles.presetSearchGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Ionicons name="search" size={18} color={c.textSoft} />
-            <TextInput
-              value={presetSearch}
-              onChangeText={setPresetSearch}
-              placeholder="Search subscription presets"
-              placeholderTextColor={c.textSoft}
-              style={[styles.presetSearchInput, { color: c.text }]}
-              autoCapitalize="none"
-            />
-          </View>
-          <ScrollView
-            nestedScrollEnabled
-            showsVerticalScrollIndicator={false}
-            style={styles.presetListScroll}
-            contentContainerStyle={styles.presetList}
+          <Pressable
+            onPress={() => setShowPresetPicker(true)}
+            style={[styles.presetPickerButton, { backgroundColor: c.surface, borderColor: c.border }]}
           >
-            {visiblePresets.map((preset) => {
-              const selected = simpleIconSlug === preset.simpleIconSlug;
-              const presetTextColor = readableTextColor(preset.iconColor);
-              const presetIcon = getSimpleIcon(preset.simpleIconSlug);
-              return (
-                <Pressable
-                  key={preset.simpleIconSlug}
-                  onPress={() => applyPreset(preset)}
-                  style={[
-                    styles.presetRow,
-                    {
-                      backgroundColor: selected ? preset.iconColor : preset.backgroundColor,
-                      borderColor: selected ? preset.iconColor : c.border,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.presetIcon,
-                      { backgroundColor: selected ? "rgba(255,255,255,0.18)" : preset.iconColor },
-                    ]}
-                  >
-                    {presetIcon ? (
-                      <SimpleIcon
-                        slug={presetIcon.slug}
-                        size={19}
-                        color={selected ? presetTextColor : "#fff"}
-                      />
-                    ) : (
-                      <Text style={[styles.presetIconText, { color: selected ? presetTextColor : "#fff" }]}>
-                        {preset.iconLabel}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.rowText}>
-                    <Text style={[styles.presetText, { color: selected ? presetTextColor : "#111827" }]}>
-                      {preset.name}
-                    </Text>
-                    <Text style={[styles.presetCategory, { color: selected ? "rgba(255,255,255,0.78)" : "#475569" }]}>
-                      {preset.category}
-                    </Text>
-                  </View>
-                  <View style={styles.presetCheckSlot}>
-                    {selected ? <Ionicons name="checkmark-circle" size={20} color={presetTextColor} /> : null}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+            <View style={styles.payDateRowIcon}>
+              <Ionicons name="sparkles-outline" size={21} color={c.primary} />
+            </View>
+            <View style={styles.rowText}>
+              <Text style={[styles.payDateRowLabel, { color: c.textMuted }]}>Optional shortcut</Text>
+              <Text style={[styles.payDateRowValue, { color: c.text }]}>Choose from presets</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
+          </Pressable>
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>BILLING</Text>
           <View style={styles.periods}>
@@ -607,6 +557,98 @@ export function AddSubscription({
                   </ScrollView>
                 </View>
               </View>
+            </View>
+          </Modal>
+
+          <Modal
+            visible={showPresetPicker}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setShowPresetPicker(false)}
+          >
+            <Pressable style={styles.sheetScrim} onPress={() => setShowPresetPicker(false)} />
+            <View style={[styles.presetSheet, { backgroundColor: c.background }]}>
+              <View style={styles.dateSheetHandle} />
+              <View style={styles.dateSheetHeader}>
+                <View>
+                  <Text style={[styles.dateLabel, { color: c.textMuted }]}>PRESETS</Text>
+                  <Text style={[styles.payDateTitle, { color: c.text }]}>Choose from presets</Text>
+                </View>
+                <Pressable onPress={() => setShowPresetPicker(false)} style={styles.doneButton}>
+                  <Text style={[styles.doneButtonText, { color: c.primary }]}>Done</Text>
+                </Pressable>
+              </View>
+              <View style={[styles.presetSearchGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+                <Ionicons name="search" size={18} color={c.textSoft} />
+                <TextInput
+                  value={presetSearch}
+                  onChangeText={setPresetSearch}
+                  placeholder="Search subscription presets"
+                  placeholderTextColor={c.textSoft}
+                  style={[styles.presetSearchInput, { color: c.text }]}
+                  autoCapitalize="none"
+                />
+              </View>
+              <ScrollView
+                nestedScrollEnabled
+                showsVerticalScrollIndicator={false}
+                style={styles.presetSheetListScroll}
+                contentContainerStyle={styles.presetList}
+              >
+                {visiblePresets.map((preset) => {
+                  const selected = simpleIconSlug === preset.simpleIconSlug;
+                  const presetTextColor = readableTextColor(preset.iconColor);
+                  const presetIcon = getSimpleIcon(preset.simpleIconSlug);
+                  return (
+                    <Pressable
+                      key={preset.simpleIconSlug}
+                      onPress={() => applyPreset(preset)}
+                      style={[
+                        styles.presetRow,
+                        {
+                          backgroundColor: selected ? preset.iconColor : preset.backgroundColor,
+                          borderColor: selected ? preset.iconColor : c.border,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.presetIcon,
+                          { backgroundColor: selected ? "rgba(255,255,255,0.18)" : preset.iconColor },
+                        ]}
+                      >
+                        {presetIcon ? (
+                          <SimpleIcon
+                            slug={presetIcon.slug}
+                            size={19}
+                            color={selected ? presetTextColor : "#fff"}
+                          />
+                        ) : (
+                          <Text style={[styles.presetIconText, { color: selected ? presetTextColor : "#fff" }]}>
+                            {preset.iconLabel}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.rowText}>
+                        <Text style={[styles.presetText, { color: selected ? presetTextColor : "#111827" }]}>
+                          {preset.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.presetCategory,
+                            { color: selected ? "rgba(255,255,255,0.78)" : "#475569" },
+                          ]}
+                        >
+                          {preset.category}
+                        </Text>
+                      </View>
+                      <View style={styles.presetCheckSlot}>
+                        {selected ? <Ionicons name="checkmark-circle" size={20} color={presetTextColor} /> : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
             </View>
           </Modal>
 
