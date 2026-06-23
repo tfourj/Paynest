@@ -110,7 +110,7 @@ export default function App() {
         && cloud.subscriptions.length > 0
         && !subscriptionListsMatch(subscriptions, cloud.subscriptions);
       if (!needsChoice) {
-        void syncUserData(userId, "merge");
+        void syncUserData(userId, canAskForChoice ? "merge" : "cloud");
         return;
       }
 
@@ -255,7 +255,7 @@ export default function App() {
     const userId = session?.user.id;
     if (!userId) throw new Error("Log in to sync your data.");
 
-    await syncUserData(userId, "merge");
+    await syncUserData(userId, "cloud");
   }
 
   async function refreshDashboard() {
