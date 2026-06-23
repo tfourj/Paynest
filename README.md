@@ -5,61 +5,52 @@
 <h1 align="center">Paynest</h1>
 
 <p align="center">
-  A local-first subscription and recurring-payment tracker built with Expo.
+  A free, ad-free subscription tracker for your recurring costs.
 </p>
+
+## Overview
+
+Paynest helps you track subscriptions, renewals, and monthly spend.
+
+App supports optional login to Pockebase backend (our or selfhosted) for cross-device sync.
 
 ## Features
 
-- Track subscriptions with price, category, billing period, renewal date, and reminder settings.
-- View monthly and yearly spending from a focused dashboard.
-- Review upcoming renewals and spending insights.
-- Save data locally on device with optional PocketBase account sync.
-- Merge local and cloud subscriptions when signing in.
-- Use local iOS and Android renewal notifications.
-- Customize currency, payday settings, subscription icons, colors, and app appearance.
-- Keep dark mode preference local to each device.
-- Run on iOS, Android, and web from the same Expo codebase.
+- Track recurring subscriptions and renewal dates.
+- See upcoming renewals at a glance.
+- Review spending totals and category insights.
+- Set a payday to track costs until your next pay date.
+- Store data locally without an account.
+- Sync across devices with PocketBase.
+- Use your own PocketBase server.
+- Enable renewal reminders on iOS and Android.
+- Search subscription icons from multiple icon sources.
 
-## Tech Stack
-
-- Expo 53
-- React 19
-- React Native 0.79
-- TypeScript
-- PocketBase
-- AsyncStorage
-- Expo Notifications
+> [!NOTE]
+> Paynest started because I wanted a simple tracker with payday-based
+> planning and no paid-only basics.
+>
+> App was mostly vibecoded, so there may still be bugs.
+> Issues and fixes are welcome.
 
 ## Development
 
 Build and local development instructions live in [docs/BUILD.md](./docs/BUILD.md).
-
-## Project Structure
-
-```text
-App.tsx                 App shell, navigation, local state, and sync orchestration
-assets/                 App icon and logo source assets
-babel.config.js         Expo Babel config with Reanimated support
-docs/                   Development and build documentation
-scripts/                Build and native project patch scripts
-src/components/         Shared UI components and subscription rows
-src/screens/            Dashboard, subscriptions, insights, settings, and editor screens
-src/storage.ts          Local AsyncStorage persistence
-src/pocketbase.ts       PocketBase REST client and auth persistence
-src/sync.ts             PocketBase sync mapping and merge logic
-src/types.ts            Shared app types and defaults
-pocketbase/             PocketBase setup notes
-```
+Project structure notes live in [docs/STRUCTURE.md](./docs/STRUCTURE.md).
 
 ## Credits
 
-- Built with [Expo](https://expo.dev/) and [React Native](https://reactnative.dev/).
-- Authentication and cloud sync powered by [PocketBase](https://pocketbase.io/).
-- Subscription icon search supports [Simple Icons](https://simpleicons.org/),
+- Built with [Expo](https://expo.dev/) and
+  [React Native](https://reactnative.dev/).
+- Authentication and cloud sync use
+  [PocketBase](https://pocketbase.io/).
+- Subscription icon search supports
+  [Simple Icons](https://simpleicons.org/),
   [SVGL](https://svgl.app/), and
   [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons).
 - Interface icons use [Ionicons](https://ionic.io/ionicons).
 
 ## License
 
-Paynest is licensed under the GNU General Public License v3.0. See [LICENSE](./LICENSE).
+Paynest is licensed under the GNU General Public License v3.0.
+See [LICENSE](./LICENSE).
