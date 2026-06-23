@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 
 import { Chip, StatusPill } from "../components/common";
+import { clearIconCache } from "../iconCache";
 import { styles } from "../styles";
 import { supabase, supabaseConfig } from "../supabase";
 import type { Colors } from "../theme";
@@ -34,14 +35,43 @@ export function SettingsScreen({ c, settings, session, onUpdate, onReset }: Sett
       <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
       <AppearanceSettings c={c} settings={settings} onUpdate={onUpdate} />
       <SyncSettings c={c} session={session} syncStatus={syncStatus} />
+      <DataSettings c={c} onReset={onReset} />
+      <Text style={[styles.version, { color: c.textSoft }]}>Paynest · Version 1.0.0</Text>
+    </ScrollView>
+  );
+}
 
+function DataSettings({ c, onReset }: { c: Colors; onReset: () => void }) {
+  const [cacheStatus, setCacheStatus] = useState("");
+
+  async function clearCache() {
+    setCacheStatus("Clearing icon cache");
+    await clearIconCache();
+    setCacheStatus("Icon cache cleared");
+  }
+
+  return (
+    <>
       <Text style={[styles.settingsLabel, { color: c.textMuted }]}>DATA</Text>
+      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <Pressable onPress={() => void clearCache()} style={styles.settingRow}>
+          <Ionicons name="image-outline" size={21} color={c.primary} />
+          <View style={styles.rowText}>
+            <Text style={[styles.rowName, { color: c.text }]}>Clear icon cache</Text>
+            <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+              Remove cached custom icons from this device
+            </Text>
+            {cacheStatus ? (
+              <Text style={[styles.rowMeta, { color: c.textSoft }]}>{cacheStatus}</Text>
+            ) : null}
+          </View>
+        </Pressable>
+      </View>
       <Pressable onPress={onReset} style={[styles.dangerRow, { backgroundColor: c.surface, borderColor: c.border }]}>
         <Ionicons name="trash-outline" size={20} color="#DC2626" />
         <Text style={styles.dangerText}>Delete local data</Text>
       </Pressable>
-      <Text style={[styles.version, { color: c.textSoft }]}>Paynest · Version 1.0.0</Text>
-    </ScrollView>
+    </>
   );
 }
 
