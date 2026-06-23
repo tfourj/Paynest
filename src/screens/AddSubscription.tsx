@@ -228,7 +228,12 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
               autoCapitalize="none"
             />
           </View>
-          <View style={styles.presetList}>
+          <ScrollView
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
+            style={styles.presetListScroll}
+            contentContainerStyle={styles.presetList}
+          >
             {visiblePresets.map((preset) => {
               const selected = simpleIconSlug === preset.simpleIconSlug;
               const presetTextColor = readableTextColor(preset.iconColor);
@@ -271,11 +276,13 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
                       {preset.category}
                     </Text>
                   </View>
-                  {selected ? <Ionicons name="checkmark-circle" size={20} color={presetTextColor} /> : null}
+                  <View style={styles.presetCheckSlot}>
+                    {selected ? <Ionicons name="checkmark-circle" size={20} color={presetTextColor} /> : null}
+                  </View>
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>BILLING</Text>
           <View style={styles.periods}>

@@ -112,9 +112,11 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   presetSearchInput: { flex: 1, minHeight: 46, fontSize: 15 },
-  presetList: { gap: 10 },
+  presetListScroll: { maxHeight: 232 },
+  presetList: { gap: 10, paddingRight: 2 },
   presetRow: {
-    minHeight: 64,
+    height: 64,
+    width: "100%",
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 12,
@@ -126,6 +128,7 @@ export const styles = StyleSheet.create({
   presetIconText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   presetText: { fontSize: 14, fontWeight: "700" },
   presetCategory: { fontSize: 12, fontWeight: "700", marginTop: 2 },
+  presetCheckSlot: { width: 20, height: 20, alignItems: "center", justifyContent: "center" },
   periods: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   periodButton: {
     minWidth: 96,
