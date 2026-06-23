@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from "react-native";
+import { Platform, StyleSheet, type TextStyle } from "react-native";
 
 export const styles = StyleSheet.create({
   safe: { flex: 1 },
@@ -263,6 +263,10 @@ export const styles = StyleSheet.create({
   formLabel: { fontSize: 12, fontWeight: "700", letterSpacing: 0.8, marginTop: 7 },
   inputGroup: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
   input: { fontSize: 16, padding: 15, minHeight: 50 },
+  inputNoOutline: Platform.select<TextStyle>({
+    web: { outlineWidth: 0 },
+    default: {},
+  }),
   priceInput: { flexDirection: "row", alignItems: "center" },
   currency: { fontSize: 16, paddingLeft: 15 },
   presetSearchGroup: {

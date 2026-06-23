@@ -128,6 +128,7 @@ export function AddSubscription({
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [presetSearch, setPresetSearch] = useState("");
+  const [basicInfoFocused, setBasicInfoFocused] = useState(false);
   const [category, setCategory] = useState(noneCategory);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("Monthly");
   const [firstPaymentDate, setFirstPaymentDate] = useState(today);
@@ -445,7 +446,12 @@ export function AddSubscription({
 
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
           <Text style={[styles.formLabel, { color: c.textMuted }]}>BASIC INFO</Text>
-          <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View
+            style={[
+              styles.inputGroup,
+              { backgroundColor: c.surface, borderColor: basicInfoFocused ? c.primary : c.border },
+            ]}
+          >
             <TextInput
               value={name}
               onChangeText={setName}
@@ -453,12 +459,15 @@ export function AddSubscription({
               placeholderTextColor={c.textSoft}
               style={[
                 styles.input,
+                styles.inputNoOutline,
                 {
                   color: c.text,
                   borderBottomColor: c.border,
                   borderBottomWidth: StyleSheet.hairlineWidth,
                 },
               ]}
+              onFocus={() => setBasicInfoFocused(true)}
+              onBlur={() => setBasicInfoFocused(false)}
               autoFocus={!editing}
             />
             <View style={styles.priceInput}>
@@ -470,7 +479,9 @@ export function AddSubscription({
                 onChangeText={setPrice}
                 placeholder="Price"
                 placeholderTextColor={c.textSoft}
-                style={[styles.input, { color: c.text }]}
+                style={[styles.input, styles.inputNoOutline, { color: c.text }]}
+                onFocus={() => setBasicInfoFocused(true)}
+                onBlur={() => setBasicInfoFocused(false)}
                 keyboardType={Platform.select({ ios: "decimal-pad", default: "numeric" })}
               />
             </View>

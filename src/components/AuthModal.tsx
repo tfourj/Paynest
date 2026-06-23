@@ -42,6 +42,7 @@ export function AuthModal({
   const [url, setUrl] = useState(pocketBaseConnection.url);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [focusedInputGroup, setFocusedInputGroup] = useState<"connection" | "account" | null>(null);
   const title = mode === "create" ? "Create account" : mode === "forgot" ? "Reset password" : "Log in";
   const submitLabel = busy
     ? "Working"
@@ -195,13 +196,23 @@ export function AuthModal({
             </View>
 
             {serverChoice === "custom" && (
-              <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <View
+                style={[
+                  styles.inputGroup,
+                  {
+                    backgroundColor: c.surface,
+                    borderColor: focusedInputGroup === "connection" ? c.primary : c.border,
+                  },
+                ]}
+              >
                 <TextInput
                   value={url}
                   onChangeText={setUrl}
                   placeholder="PocketBase URL"
                   placeholderTextColor={c.textSoft}
-                  style={[styles.input, { color: c.text }]}
+                  style={[styles.input, styles.inputNoOutline, { color: c.text }]}
+                  onFocus={() => setFocusedInputGroup("connection")}
+                  onBlur={() => setFocusedInputGroup(null)}
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="url"
@@ -211,7 +222,15 @@ export function AuthModal({
             )}
 
             <Text style={[styles.formLabel, { color: c.textMuted }]}>ACCOUNT</Text>
-            <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View
+              style={[
+                styles.inputGroup,
+                {
+                  backgroundColor: c.surface,
+                  borderColor: focusedInputGroup === "account" ? c.primary : c.border,
+                },
+              ]}
+            >
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -219,12 +238,15 @@ export function AuthModal({
                 placeholderTextColor={c.textSoft}
                 style={[
                   styles.input,
+                  styles.inputNoOutline,
                   {
                     color: c.text,
                     borderBottomColor: mode === "forgot" ? "transparent" : c.border,
                     borderBottomWidth: mode === "forgot" ? 0 : StyleSheet.hairlineWidth,
                   },
                 ]}
+                onFocus={() => setFocusedInputGroup("account")}
+                onBlur={() => setFocusedInputGroup(null)}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
@@ -239,12 +261,15 @@ export function AuthModal({
                   placeholderTextColor={c.textSoft}
                   style={[
                     styles.input,
+                    styles.inputNoOutline,
                     {
                       color: c.text,
                       borderBottomColor: mode === "create" ? c.border : "transparent",
                       borderBottomWidth: mode === "create" ? StyleSheet.hairlineWidth : 0,
                     },
                   ]}
+                  onFocus={() => setFocusedInputGroup("account")}
+                  onBlur={() => setFocusedInputGroup(null)}
                   secureTextEntry
                   textContentType={mode === "create" ? "newPassword" : "password"}
                 />
@@ -256,7 +281,9 @@ export function AuthModal({
                   onChangeText={setConfirmPassword}
                   placeholder="Confirm password"
                   placeholderTextColor={c.textSoft}
-                  style={[styles.input, { color: c.text }]}
+                  style={[styles.input, styles.inputNoOutline, { color: c.text }]}
+                  onFocus={() => setFocusedInputGroup("account")}
+                  onBlur={() => setFocusedInputGroup(null)}
                   secureTextEntry
                   textContentType="newPassword"
                 />
