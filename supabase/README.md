@@ -43,6 +43,14 @@ supabase/migrations/001_add_subscription_local_id.sql
 
 The migration adds `subscriptions.local_id`, which lets existing device-local subscription IDs map to Supabase rows during sync.
 
+If the app reports `permission denied for table subscriptions`, run this migration too:
+
+```sh
+supabase/migrations/002_grant_authenticated_table_access.sql
+```
+
+The grant migration gives the `authenticated` role table access. RLS still limits rows to the signed-in user.
+
 ## RLS Check
 
 Run this in Supabase SQL Editor:

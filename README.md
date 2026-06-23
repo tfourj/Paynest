@@ -24,6 +24,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
 The anon key is required before the app can create a Supabase client for sync or auth.
 Run `supabase/schema.sql` in the Supabase SQL editor to create the sync tables and row-level security policies.
 If you already ran the original schema before sync was added, also run `supabase/migrations/001_add_subscription_local_id.sql` once.
+If sync reports `permission denied for table subscriptions`, run `supabase/migrations/002_grant_authenticated_table_access.sql` once.
 Email/password auth is used from the Settings account section, so keep the Email provider enabled in Supabase Auth.
 Password reset emails use Supabase's configured Site URL and Redirect URLs under Auth URL Configuration.
 When signed in, Paynest merges local data with Supabase, keeps the newest subscription by `updatedAt`, and writes new subscription/settings changes to Supabase.

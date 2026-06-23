@@ -51,6 +51,9 @@ execute function public.set_updated_at();
 alter table public.subscriptions enable row level security;
 alter table public.settings enable row level security;
 
+grant select, insert, update, delete on table public.subscriptions to authenticated;
+grant select, insert, update on table public.settings to authenticated;
+
 drop policy if exists "Users can read their subscriptions" on public.subscriptions;
 create policy "Users can read their subscriptions"
 on public.subscriptions
