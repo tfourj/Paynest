@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 
@@ -21,25 +21,9 @@ export function SettingsScreen({ c, settings, session, onUpdate, onReset }: { c:
 }
 
 function AccountSettings({ c, session }: { c: Colors; session: Session | null }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"login" | "create" | "forgot" | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-
-  async function submit(mode: "signIn" | "signUp") {
-    if (!supabase) return setMessage("Add the Supabase anon key before signing in.");
-    if (!email.trim() || password.length < 6) return setMessage("Enter an email and a password with at least 6 characters.");
-    setBusy(true);
-    setMessage("");
-    const credentials = { email: email.trim(), password };
-    const { data, error } = mode === "signIn"
-      ? await supabase.auth.signInWithPassword(credentials)
-      : await supabase.auth.signUp(credentials);
-    setBusy(false);
-    if (error) return setMessage(error.message);
-    setPassword("");
-    setMessage(data.session ? "Signed in." : "Check your email to confirm your account.");
-  }
 
   async function signOut() {
     if (!supabase) return;
@@ -47,6 +31,46 @@ function AccountSettings({ c, session }: { c: Colors; session: Session | null })
     const { error } = await supabase.auth.signOut();
     setBusy(false);
     if (error) setMessage(error.message);
+  }
+
+  return <><Text style={[styles.settingsLabel, { color: c.textMuted }]}>ACCOUNT</Text><View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+    {!supabaseConfig.isConfigured ? <View style={styles.settingRow}><Ionicons name="person-circle-outline" size={22} color={c.primary} /><View style={styles.rowText}><Text style={[styles.rowName, { color: c.text }]}>Supabase Auth</Text><Text style={[styles.rowMeta, { color: c.textMuted }]}>Add your anon key in .env to enable sign in.</Text></View></View> : session ? <View style={styles.settingOption}><View style={styles.accountHeader}><Ionicons name="person-circle-outline" size={24} color={c.primary} /><View style={styles.rowText}><Text style={[styles.rowName, { color: c.text }]}>Signed in</Text><Text style={[styles.rowMeta, { color: c.textMuted }]} numberOfLines={1}>{session.user.email}</Text><StatusPill c={c} label="Ready for sync setup" /></View></View><Pressable disabled={busy} onPress={signOut} style={[styles.authButton, { backgroundColor: c.surfaceMuted }]}><Text style={[styles.authButtonText, { color: c.text }]}>{busy ? "Working" : "Sign out"}</Text></Pressable>{message ? <Text style={[styles.statusText, { color: c.textMuted }]}>{message}</Text> : null}</View> : <View style={styles.settingOption}><Text style={[styles.rowMeta, { color: c.textMuted }]}>Connect Paynest to your Supabase account.</Text><View style={styles.authButtons}><Pressable onPress={() => setMode("login")} style={[styles.authButton, { backgroundColor: c.primary }]}><Text style={styles.primaryButtonText}>Log in</Text></Pressable><Pressable onPress={() => setMode("create")} style={[styles.authButton, { backgroundColor: c.surfaceMuted }]}><Text style={[styles.authButtonText, { color: c.text }]}>Create account</Text></Pressable></View></View>}
+  </View><AuthModal c={c} mode={mode} onModeChange={setMode} /></>;
+}
+
+function AuthModal({ c, mode, onModeChange }: { c: Colors; mode: "login" | "create" | "forgot" | null; onModeChange: (mode: "login" | "create" | "forgot" | null) => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const title = mode === "create" ? "Create account" : mode === "forgot" ? "Reset password" : "Log in";
+  const success = message.includes("Check") || message.includes("Signed") || message.includes("sent");
+
+  function close() {
+    onModeChange(null);
+    setPassword("");
+    setConfirmPassword("");
+    setMessage("");
+  }
+
+  async function submit() {
+    if (!supabase) return setMessage("Add the Supabase anon key before signing in.");
+    if (!email.trim()) return setMessage("Enter your email address.");
+    if (mode === "forgot") return resetPassword();
+    if (password.length < 6) return setMessage("Enter a password with at least 6 characters.");
+    if (mode === "create" && password !== confirmPassword) return setMessage("Passwords do not match.");
+    setBusy(true);
+    setMessage("");
+    const credentials = { email: email.trim(), password };
+    const { data, error } = mode === "login"
+      ? await supabase.auth.signInWithPassword(credentials)
+      : await supabase.auth.signUp(credentials);
+    setBusy(false);
+    if (error) return setMessage(error.message);
+    setPassword("");
+    setConfirmPassword("");
+    setMessage(data.session ? "Signed in." : "Check your email to confirm your account.");
   }
 
   async function resetPassword() {
@@ -59,7 +83,5 @@ function AccountSettings({ c, session }: { c: Colors; session: Session | null })
     setMessage(error ? error.message : "Password reset email sent.");
   }
 
-  return <><Text style={[styles.settingsLabel, { color: c.textMuted }]}>ACCOUNT</Text><View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-    {!supabaseConfig.isConfigured ? <View style={styles.settingRow}><Ionicons name="person-circle-outline" size={22} color={c.primary} /><View style={styles.rowText}><Text style={[styles.rowName, { color: c.text }]}>Supabase Auth</Text><Text style={[styles.rowMeta, { color: c.textMuted }]}>Add your anon key in .env to enable sign in.</Text></View></View> : session ? <View style={styles.settingOption}><View style={styles.accountHeader}><Ionicons name="person-circle-outline" size={24} color={c.primary} /><View style={styles.rowText}><Text style={[styles.rowName, { color: c.text }]}>Signed in</Text><Text style={[styles.rowMeta, { color: c.textMuted }]} numberOfLines={1}>{session.user.email}</Text><StatusPill c={c} label="Ready for sync setup" /></View></View><Pressable disabled={busy} onPress={signOut} style={[styles.authButton, { backgroundColor: c.surfaceMuted }]}><Text style={[styles.authButtonText, { color: c.text }]}>Sign out</Text></Pressable>{message ? <Text style={[styles.statusText, { color: c.textMuted }]}>{message}</Text> : null}</View> : <View style={styles.settingOption}><Text style={[styles.rowMeta, { color: c.textMuted }]}>Sign in to connect Paynest to your Supabase account.</Text><View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}><TextInput value={email} onChangeText={setEmail} placeholder="Email" placeholderTextColor={c.textSoft} style={[styles.input, { color: c.text, borderBottomColor: c.border, borderBottomWidth: StyleSheet.hairlineWidth }]} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" /><TextInput value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={c.textSoft} style={[styles.input, { color: c.text }]} secureTextEntry textContentType="password" /></View><View style={styles.authButtons}><Pressable disabled={busy} onPress={() => void submit("signIn")} style={[styles.authButton, { backgroundColor: c.primary }]}><Text style={styles.primaryButtonText}>{busy ? "Working" : "Sign in"}</Text></Pressable><Pressable disabled={busy} onPress={() => void submit("signUp")} style={[styles.authButton, { backgroundColor: c.surfaceMuted }]}><Text style={[styles.authButtonText, { color: c.text }]}>Create account</Text></Pressable></View><Pressable disabled={busy} onPress={() => void resetPassword()} style={styles.textButton}><Text style={[styles.textButtonText, { color: c.primary }]}>Reset password</Text></Pressable>{message ? <Text style={[styles.statusText, { color: message.includes("Check") || message.includes("Signed") || message.includes("sent") ? c.textMuted : "#DC2626" }]}>{message}</Text> : null}</View>}
-  </View></>;
+  return <Modal visible={mode !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}><View style={[styles.modal, { backgroundColor: c.background }]}><View style={styles.modalHeader}><Pressable onPress={close}><Text style={[styles.cancel, { color: c.primary }]}>Cancel</Text></Pressable><Text style={[styles.modalTitle, { color: c.text }]}>{title}</Text><View style={{ width: 48 }} /></View><ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled"><Text style={[styles.formLabel, { color: c.textMuted }]}>ACCOUNT</Text><View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}><TextInput value={email} onChangeText={setEmail} placeholder="Email" placeholderTextColor={c.textSoft} style={[styles.input, { color: c.text, borderBottomColor: mode === "forgot" ? "transparent" : c.border, borderBottomWidth: mode === "forgot" ? 0 : StyleSheet.hairlineWidth }]} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" textContentType="emailAddress" />{mode !== "forgot" && <TextInput value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={c.textSoft} style={[styles.input, { color: c.text, borderBottomColor: mode === "create" ? c.border : "transparent", borderBottomWidth: mode === "create" ? StyleSheet.hairlineWidth : 0 }]} secureTextEntry textContentType={mode === "create" ? "newPassword" : "password"} />}{mode === "create" && <TextInput value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Confirm password" placeholderTextColor={c.textSoft} style={[styles.input, { color: c.text }]} secureTextEntry textContentType="newPassword" />}</View>{mode === "login" && <Pressable disabled={busy} onPress={() => onModeChange("forgot")} style={styles.textButton}><Text style={[styles.textButtonText, { color: c.primary }]}>Forgot password?</Text></Pressable>}{message ? <Text style={[styles.statusText, { color: success ? c.textMuted : "#DC2626" }]}>{message}</Text> : null}</ScrollView><View style={[styles.saveArea, { borderTopColor: c.border, backgroundColor: c.background }]}><Pressable disabled={busy} onPress={() => void submit()} style={[styles.saveButton, { backgroundColor: c.primary }]}><Text style={styles.saveText}>{busy ? "Working" : mode === "create" ? "Create account" : mode === "forgot" ? "Send reset email" : "Log in"}</Text></Pressable></View></View></Modal>;
 }

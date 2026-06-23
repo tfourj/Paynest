@@ -26,6 +26,27 @@ Run `supabase/schema.sql` in the Supabase SQL editor to create the sync tables a
 Email/password auth is used from the Settings account section, so keep the Email provider enabled in Supabase Auth.
 Password reset emails use Supabase's configured Site URL and Redirect URLs under Auth URL Configuration.
 
+### Check RLS
+
+In the Supabase dashboard, open Table Editor and confirm RLS is enabled for `subscriptions` and `settings`.
+Then run this in SQL Editor:
+
+```sql
+select schemaname, tablename, rowsecurity
+from pg_tables
+where schemaname = 'public'
+  and tablename in ('subscriptions', 'settings');
+
+select tablename, policyname, cmd, roles, qual, with_check
+from pg_policies
+where schemaname = 'public'
+  and tablename in ('subscriptions', 'settings')
+order by tablename, policyname;
+```
+
+`rowsecurity` should be `true`, and policies should include `auth.uid() = user_id`.
+Avoid creating broad public policies like `using (true)` or `with check (true)` for these tables.
+
 ## Current MVP
 
 - Dashboard with monthly and yearly spending
