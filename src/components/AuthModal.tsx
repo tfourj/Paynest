@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import {
   createPocketBaseClient,
@@ -171,6 +171,11 @@ export function AuthModal({
           </View>
 
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+            <View style={styles.authBrand}>
+              <Image source={require("../../assets/paynest.png")} style={styles.authLogo} />
+              <Text style={[styles.authBrandTitle, { color: c.text }]}>Paynest</Text>
+            </View>
+
             <Text style={[styles.formLabel, { color: c.textMuted }]}>SERVER</Text>
             <View style={styles.chips}>
               <Chip
