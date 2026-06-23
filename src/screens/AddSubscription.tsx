@@ -436,8 +436,15 @@ export function AddSubscription({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={[styles.modal, { backgroundColor: c.background }]}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      transparent={Platform.OS === "web"}
+      onRequestClose={onClose}
+    >
+      <View style={Platform.OS === "web" ? styles.modalOverlay : styles.modalHost}>
+        <SafeAreaView style={[styles.modal, { backgroundColor: c.background, borderColor: c.border }]}>
         <View style={styles.modalHeader}>
           <Pressable onPress={onClose}>
             <Text style={[styles.cancel, { color: c.primary }]}>Cancel</Text>
@@ -1000,7 +1007,8 @@ export function AddSubscription({
             <Text style={styles.saveText}>{editing ? "Save changes" : "Add subscription"}</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
