@@ -8,7 +8,10 @@
     "web": "expo start --web",
     "ios": "expo start --ios",
     "android": "expo start --android",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:link": "set -a; [ -f .env ] && . ./.env; set +a; npx supabase link --project-ref xfegnwhtyjqrzlrtvoui",
+    "db:push": "set -a; [ -f .env ] && . ./.env; set +a; npx supabase db push",
+    "db:migrate": "npm run db:link && npm run db:push"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.5",
