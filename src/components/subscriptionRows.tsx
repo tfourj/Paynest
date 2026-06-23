@@ -6,31 +6,9 @@ import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Subscription } from "../types";
 import { colorFor, iconFor } from "../utils/category";
+import { mutedTextColor, readableTextColor } from "../utils/colors";
 import { formatMoney, renewalLabel } from "../utils/subscriptions";
 import type { IconSource } from "../iconSearch";
-
-function hexToRgb(hex: string) {
-  const normalized = hex.replace("#", "");
-  if (normalized.length !== 6) return null;
-
-  return {
-    r: Number.parseInt(normalized.slice(0, 2), 16),
-    g: Number.parseInt(normalized.slice(2, 4), 16),
-    b: Number.parseInt(normalized.slice(4, 6), 16),
-  };
-}
-
-function readableTextColor(background: string) {
-  const rgb = hexToRgb(background);
-  if (!rgb) return "#111827";
-
-  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-  return luminance > 0.68 ? "#111827" : "#FFFFFF";
-}
-
-function mutedTextColor(textColor: string) {
-  return textColor === "#FFFFFF" ? "rgba(255,255,255,0.78)" : "#475569";
-}
 
 export function RenewalRow({ c, item, last }: { c: Colors; item: Subscription; last: boolean }) {
   const rowBackground = item.backgroundColor ?? item.iconColor ?? colorFor(item.category);

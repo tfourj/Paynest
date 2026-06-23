@@ -18,6 +18,12 @@ import { styles } from "../styles";
 import { subscriptionPresets, type SubscriptionPreset } from "../subscriptionPresets";
 import type { Colors } from "../theme";
 import { billingPeriods, type BillingPeriod, type Subscription } from "../types";
+import {
+  mutedTextColor,
+  normalizeHexColor,
+  readableTextColor,
+  suggestedIconBackgroundColor,
+} from "../utils/colors";
 
 type AddSubscriptionProps = {
   c: Colors;
@@ -78,24 +84,6 @@ function ordinal(day: number) {
   if (day >= 11 && day <= 13) return `${day}th`;
   const suffix = { 1: "st", 2: "nd", 3: "rd" }[day % 10] ?? "th";
   return `${day}${suffix}`;
-}
-
-function readableTextColor(background: string) {
-  const normalized = background.replace("#", "");
-  if (normalized.length !== 6) return "#111827";
-
-  const r = Number.parseInt(normalized.slice(0, 2), 16);
-  const g = Number.parseInt(normalized.slice(2, 4), 16);
-  const b = Number.parseInt(normalized.slice(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-  return luminance > 0.68 ? "#111827" : "#FFFFFF";
-}
-
-function normalizeHexColor(value: string) {
-  const normalized = value.trim().replace(/^#/, "");
-  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return undefined;
-  return `#${normalized.toUpperCase()}`;
 }
 
 function daysInMonth(year: number, month: number) {
@@ -216,7 +204,7 @@ export function AddSubscription({
   }, [iconColor, iconProvider, iconSourceTitle, iconUrl, name, simpleIconSlug]);
   const previewTextColor = readableTextColor(backgroundColor);
   const previewIconColor = readableTextColor(iconBackgroundColor);
-  const previewMutedColor = previewTextColor === "#FFFFFF" ? "rgba(255,255,255,0.78)" : "#475569";
+  const previewMutedColor = mutedTextColor(previewTextColor);
 
   useEffect(() => {
     if (!showDatePicker) return;
@@ -338,6 +326,12 @@ export function AddSubscription({
     setCustomIconBackgroundInput(value);
     const color = normalizeHexColor(value);
     if (color) setIconBackgroundColor(color);
+  }
+
+  function applySuggestedIconBackground() {
+    const color = suggestedIconBackgroundColor(backgroundColor);
+    setIconBackgroundColor(color);
+    setCustomIconBackgroundInput(color);
   }
 
   function toggleIconProvider(provider: IconProvider) {
@@ -871,6 +865,7 @@ export function AddSubscription({
               inputValue={customIconBackgroundInput}
               onOpenPicker={() => setActiveColorPicker("icon")}
               onChangeInput={updateCustomIconBackground}
+              onSuggest={applySuggestedIconBackground}
             />
           </View>
 
@@ -987,6 +982,7 @@ type ColorPickerControlProps = {
   inputValue: string;
   onOpenPicker: () => void;
   onChangeInput: (value: string) => void;
+  onSuggest?: () => void;
 };
 
 function ColorPickerControl({
@@ -996,7 +992,10 @@ function ColorPickerControl({
   inputValue,
   onOpenPicker,
   onChangeInput,
+  onSuggest,
 }: ColorPickerControlProps) {
+  const inputTextColor = readableTextColor(value);
+
   return (
     <View style={styles.colorPickerGroup}>
       <Text style={[styles.colorPickerLabel, { color: c.textMuted }]}>{label}</Text>
@@ -1019,15 +1018,30 @@ function ColorPickerControl({
           style={[
             styles.customBackgroundInput,
             {
-              backgroundColor: c.surface,
+              backgroundColor: value,
               borderColor: c.border,
-              color: c.text,
+              color: inputTextColor,
             },
           ]}
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={7}
         />
+        {onSuggest ? (
+          <Pressable
+            accessibilityLabel="Suggest icon background color"
+            onPress={onSuggest}
+            style={[
+              styles.colorSuggestButton,
+              {
+                backgroundColor: c.surface,
+                borderColor: c.border,
+              },
+            ]}
+          >
+            <Text style={[styles.colorSuggestText, { color: c.text }]}>!</Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
