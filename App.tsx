@@ -31,6 +31,7 @@ import {
   syncAppData,
   upsertSettings,
   upsertSubscriptions,
+  type CloudAppData,
   type SyncStrategy,
 } from "./src/sync";
 import { styles } from "./src/styles";
@@ -152,7 +153,7 @@ export default function App() {
         && cloud.subscriptions.length > 0
         && !subscriptionListsMatch(subscriptions, cloud.subscriptions);
       if (!needsChoice) {
-        void syncUserData(userId, canAskForChoice ? "merge" : "cloud");
+        void syncUserData(userId, canAskForChoice ? "merge" : "cloud", cloud);
         return;
       }
 
@@ -299,7 +300,7 @@ export default function App() {
     loginPromptUserId.current = null;
   }
 
-  async function syncUserData(userId: string, strategy: SyncStrategy) {
+  async function syncUserData(userId: string, strategy: SyncStrategy, initialCloud?: CloudAppData) {
     if (!session) throw new Error("Log in to sync your data.");
 
     const synced = await syncAppData(
@@ -309,6 +310,7 @@ export default function App() {
       subscriptions,
       settings,
       strategy,
+      initialCloud,
     );
     syncedUserId.current = userId;
     if (loginPromptUserId.current === userId) loginPromptUserId.current = null;

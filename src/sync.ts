@@ -41,6 +41,7 @@ type SettingsRecord = {
 };
 
 export type SyncStrategy = "merge" | "cloud" | "local";
+export type CloudAppData = Awaited<ReturnType<typeof loadCloudAppData>>;
 
 function toSubscription(row: SubscriptionRecord): Subscription {
   return {
@@ -147,10 +148,11 @@ export async function syncAppData(
   localSubscriptions: Subscription[],
   localSettings: Settings,
   strategy: SyncStrategy = "merge",
+  initialCloud?: CloudAppData,
 ) {
   if (!client) return { subscriptions: localSubscriptions, settings: localSettings };
 
-  const cloud = await loadCloudAppData(client, token, userId);
+  const cloud = initialCloud ?? await loadCloudAppData(client, token, userId);
 
   if (strategy === "cloud") {
     const settings = { ...(cloud.settings ?? localSettings), theme: localSettings.theme };
