@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
 import type { Subscription } from "./types";
+import { billableSubscriptions } from "./utils/subscriptions";
 
 const renewalChannelId = "renewal-reminders";
 
@@ -65,7 +66,7 @@ export async function scheduleRenewalNotifications(subscriptions: Subscription[]
 
   const now = new Date();
   await Promise.all(
-    subscriptions
+    billableSubscriptions(subscriptions)
       .filter((item) => item.reminderEnabled)
       .map((item) => scheduleRenewalNotification(item, now)),
   );

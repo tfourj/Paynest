@@ -12,15 +12,24 @@ import { formatMoney, monthlyCost } from "../utils/subscriptions";
 type InsightsProps = {
   c: Colors;
   subscriptions: Subscription[];
+  activeSubscriptions: Subscription[];
   monthly: number;
+  savedMonthly: number;
   currency: string;
 };
 
-export function Insights({ c, subscriptions, monthly, currency }: InsightsProps) {
+export function Insights({
+  c,
+  subscriptions,
+  activeSubscriptions,
+  monthly,
+  savedMonthly,
+  currency,
+}: InsightsProps) {
   const [viewedMonth, setViewedMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
-  const max = Math.max(1, ...subscriptions.map(monthlyCost));
-  const calendarDays = buildRenewalCalendar(subscriptions, viewedMonth);
+  const max = Math.max(1, ...activeSubscriptions.map(monthlyCost));
+  const calendarDays = buildRenewalCalendar(activeSubscriptions, viewedMonth);
   const calendarWeeks = chunkCalendarWeeks(calendarDays);
   const selectedDay = calendarDays.find((day) => day.dateKey === selectedDateKey);
   const monthLabel = viewedMonth.toLocaleDateString(undefined, {
@@ -47,15 +56,25 @@ export function Insights({ c, subscriptions, monthly, currency }: InsightsProps)
       <View style={styles.metricGrid}>
         <Metric c={c} label="Monthly" value={formatMoney(monthly, currency)} />
         <Metric c={c} label="Yearly" value={formatMoney(monthly * 12, currency)} />
+        <Metric c={c} label="Saved monthly" value={formatMoney(savedMonthly, currency)} />
+        <Metric c={c} label="Saved yearly" value={formatMoney(savedMonthly * 12, currency)} />
       </View>
 
       {subscriptions.length === 0 ? (
         <EmptyState c={c} />
+      ) : activeSubscriptions.length === 0 ? (
+        <View style={[styles.empty, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <Ionicons name="pause-circle-outline" size={34} color={c.primary} />
+          <Text style={[styles.emptyTitle, { color: c.text }]}>No active subscriptions</Text>
+          <Text style={[styles.emptyText, { color: c.textMuted }]}>
+            Paused subscriptions are counted as savings and excluded from renewal insights.
+          </Text>
+        </View>
       ) : (
         <>
           <Text style={[styles.sectionTitle, { color: c.text }]}>Monthly breakdown</Text>
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            {subscriptions.map((item) => (
+            {activeSubscriptions.map((item) => (
               <View key={item.id} style={styles.barRow}>
                 <View style={styles.barTitle}>
                   <Text style={[styles.barName, { color: c.text }]}>{item.name}</Text>

@@ -145,6 +145,7 @@ const collections = [
         system: false,
         type: "date",
       },
+      boolField("bool_subscription_paused", "paused"),
       boolField("bool_subscription_reminder_enabled", "reminder_enabled"),
       numberField("number_subscription_reminder_days", "reminder_days", { min: 0 }),
       textField("text_subscription_reminder_time", "reminder_time"),

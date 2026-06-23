@@ -13,6 +13,24 @@ const monthlyCostMultipliers: Record<BillingPeriod, number> = {
 
 export const monthlyCost = (item: Subscription) => item.price * monthlyCostMultipliers[item.billingPeriod];
 
+export const isSubscriptionPaused = (item: Subscription) => item.paused;
+
+export const billableSubscriptions = (subscriptions: Subscription[]) => (
+  subscriptions.filter((item) => !isSubscriptionPaused(item))
+);
+
+export const pausedSubscriptions = (subscriptions: Subscription[]) => (
+  subscriptions.filter(isSubscriptionPaused)
+);
+
+export const monthlyTotal = (subscriptions: Subscription[]) => (
+  subscriptions.reduce((total, item) => total + monthlyCost(item), 0)
+);
+
+export const pausedMonthlySavings = (subscriptions: Subscription[]) => (
+  monthlyTotal(pausedSubscriptions(subscriptions))
+);
+
 function startOfDate(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }

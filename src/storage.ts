@@ -89,6 +89,7 @@ function normalizeColorPresets(colors?: string[]) {
 function normalizeSubscription(item: Subscription): Subscription {
   return {
     ...item,
+    paused: item.paused ?? false,
     reminderEnabled: item.reminderEnabled ?? false,
     reminderDays: item.reminderDays ?? 0,
     reminderTime: item.reminderTime ?? "09:00",

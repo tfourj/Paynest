@@ -24,6 +24,7 @@ export type Subscription = {
   billingPeriod: BillingPeriod;
   payDay?: number;
   nextRenewalDate: string;
+  paused: boolean;
   reminderEnabled: boolean;
   reminderDays: number;
   reminderTime: string;

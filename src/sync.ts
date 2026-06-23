@@ -12,6 +12,7 @@ type SubscriptionRecord = {
   billing_period: BillingPeriod;
   pay_day?: number | null;
   next_renewal_date: string;
+  paused?: boolean | null;
   reminder_enabled?: boolean | null;
   reminder_days?: number | null;
   reminder_time?: string | null;
@@ -54,6 +55,7 @@ function toSubscription(row: SubscriptionRecord): Subscription {
     billingPeriod: row.billing_period,
     payDay: row.pay_day ?? undefined,
     nextRenewalDate: dateOnly(row.next_renewal_date),
+    paused: row.paused ?? false,
     reminderEnabled: row.reminder_enabled ?? false,
     reminderDays: row.reminder_days ?? 0,
     reminderTime: row.reminder_time ?? "09:00",
@@ -82,6 +84,7 @@ function toSubscriptionRecord(userId: string, item: Subscription) {
     billing_period: item.billingPeriod,
     pay_day: item.payDay,
     next_renewal_date: item.nextRenewalDate,
+    paused: item.paused,
     reminder_enabled: item.reminderEnabled,
     reminder_days: item.reminderDays,
     reminder_time: item.reminderTime,

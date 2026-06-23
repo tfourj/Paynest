@@ -166,6 +166,15 @@
       },
       {
         "hidden": false,
+        "id": "bool_subscription_paused",
+        "name": "paused",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
+        "hidden": false,
         "id": "bool_subscription_reminder_enabled",
         "name": "reminder_enabled",
         "presentable": false,

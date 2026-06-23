@@ -19,6 +19,7 @@ const expectations = {
       billing_period: { type: "select", required: true },
       pay_day: { type: "number" },
       next_renewal_date: { type: "date", required: true },
+      paused: { type: "bool" },
       reminder_enabled: { type: "bool" },
       reminder_days: { type: "number" },
       reminder_time: { type: "text" },

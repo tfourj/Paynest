@@ -44,11 +44,13 @@ import { styles } from "./src/styles";
 import { darkColors, lightColors } from "./src/theme";
 import { defaultSettings, type Settings, type Subscription } from "./src/types";
 import {
+  billableSubscriptions,
   dayDifference,
-  monthlyCost,
+  monthlyTotal,
   nextRenewalDate,
   nextMonthlyPayday,
   nextMonthStart,
+  pausedMonthlySavings,
   spendUntil,
 } from "./src/utils/subscriptions";
 
@@ -74,6 +76,7 @@ function comparableSubscription(item: Subscription) {
     iconProvider: item.iconProvider ?? null,
     iconUrl: item.iconUrl ?? null,
     iconSourceTitle: item.iconSourceTitle ?? null,
+    paused: item.paused ?? false,
   };
 }
 
@@ -218,26 +221,34 @@ export default function App() {
 
   const dark = settings.theme === "dark";
   const c = dark ? darkColors : lightColors;
+  const activeSubscriptions = useMemo(
+    () => billableSubscriptions(subscriptions),
+    [subscriptions],
+  );
   const monthly = useMemo(
-    () => subscriptions.reduce((total, item) => total + monthlyCost(item), 0),
+    () => monthlyTotal(activeSubscriptions),
+    [activeSubscriptions],
+  );
+  const savedMonthly = useMemo(
+    () => pausedMonthlySavings(subscriptions),
     [subscriptions],
   );
   const upcoming = useMemo(
-    () => subscriptions
+    () => activeSubscriptions
       .map((item) => ({
         ...item,
         nextRenewalDate: nextRenewalDate(item),
       }))
       .sort((a, b) => dayDifference(a.nextRenewalDate) - dayDifference(b.nextRenewalDate)),
-    [subscriptions],
+    [activeSubscriptions],
   );
   const spendingBoundary = useMemo(
     () => settings.paydayEnabled ? nextMonthlyPayday(settings.payday) : nextMonthStart(),
     [settings.payday, settings.paydayEnabled],
   );
   const spendingUntilBoundary = useMemo(
-    () => spendUntil(subscriptions, spendingBoundary, settings.paydayEnabled),
-    [spendingBoundary, settings.paydayEnabled, subscriptions],
+    () => spendUntil(activeSubscriptions, spendingBoundary, settings.paydayEnabled),
+    [activeSubscriptions, spendingBoundary, settings.paydayEnabled],
   );
 
   async function addSubscription(input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) {
@@ -451,6 +462,7 @@ export default function App() {
                 <Dashboard
                   c={c}
                   subscriptions={subscriptions}
+                  activeSubscriptionCount={activeSubscriptions.length}
                   upcoming={upcoming}
                   monthly={monthly}
                   spendingUntilBoundary={spendingUntilBoundary}
@@ -480,7 +492,9 @@ export default function App() {
                 <Insights
                   c={c}
                   subscriptions={subscriptions}
+                  activeSubscriptions={activeSubscriptions}
                   monthly={monthly}
+                  savedMonthly={savedMonthly}
                   currency={settings.currency}
                 />
               )}

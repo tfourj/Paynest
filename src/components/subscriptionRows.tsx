@@ -44,20 +44,26 @@ export function SubscriptionRow({ c, item, last, onPress }: SubscriptionRowProps
   const rowBackground = item.backgroundColor ?? item.iconColor ?? colorFor(item.category);
   const rowTextColor = readableTextColor(rowBackground);
   const rowMutedColor = mutedTextColor(rowTextColor);
+  const rowMeta = item.paused
+    ? `${item.category} · ${item.billingPeriod} · Paused`
+    : `${item.category} · ${item.billingPeriod}`;
 
   return (
     <Pressable
       onPress={onPress}
       style={[
         styles.subscriptionRow,
-        { backgroundColor: rowBackground },
+        {
+          backgroundColor: rowBackground,
+          opacity: item.paused ? 0.58 : 1,
+        },
         last && styles.lastSubscriptionPill,
       ]}
     >
       <IconBadge item={item} rowTextColor={rowTextColor} />
       <View style={styles.rowText}>
         <Text style={[styles.rowName, { color: rowTextColor }]}>{item.name}</Text>
-        <Text style={[styles.rowMeta, { color: rowMutedColor }]}>{item.category} · {item.billingPeriod}</Text>
+        <Text style={[styles.rowMeta, { color: rowMutedColor }]}>{rowMeta}</Text>
       </View>
       <View style={styles.priceStack}>
         <Text style={[styles.rowPrice, { color: rowTextColor }]}>{formatMoney(item.price, item.currency)}</Text>

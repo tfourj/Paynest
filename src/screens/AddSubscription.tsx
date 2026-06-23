@@ -132,6 +132,7 @@ export function AddSubscription({
   const [category, setCategory] = useState(noneCategory);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("Monthly");
   const [firstPaymentDate, setFirstPaymentDate] = useState(today);
+  const [paused, setPaused] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderDays, setReminderDays] = useState(0);
   const [reminderTime, setReminderTime] = useState("09:00");
@@ -234,6 +235,7 @@ export function AddSubscription({
     setCategory(subscription?.category ?? noneCategory);
     setBillingPeriod(subscription?.billingPeriod ?? "Monthly");
     setFirstPaymentDate(subscription ? dateFromValue(subscription.nextRenewalDate) : today);
+    setPaused(subscription?.paused ?? false);
     setReminderEnabled(subscription?.reminderEnabled ?? false);
     setReminderDays(subscription?.reminderDays ?? 0);
     setReminderTime(subscription?.reminderTime ?? "09:00");
@@ -385,6 +387,7 @@ export function AddSubscription({
       currency: formCurrency,
       payDay,
       nextRenewalDate: renewal,
+      paused,
       reminderEnabled,
       reminderDays,
       reminderTime,
@@ -404,6 +407,7 @@ export function AddSubscription({
     setCategory(noneCategory);
     setBillingPeriod("Monthly");
     setFirstPaymentDate(today);
+    setPaused(false);
     setReminderEnabled(false);
     setReminderDays(0);
     setReminderTime("09:00");
@@ -634,6 +638,23 @@ export function AddSubscription({
               </View>
             </View>
           </Modal>
+
+          <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={styles.settingRow}>
+              <Ionicons name="pause-circle-outline" size={21} color={c.primary} />
+              <View style={styles.rowText}>
+                <Text style={[styles.rowName, { color: c.text }]}>Paused</Text>
+                <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+                  Show this subscription without billing it
+                </Text>
+              </View>
+              <Switch
+                value={paused}
+                onValueChange={setPaused}
+                trackColor={{ false: "#9CA3AF", true: c.primary }}
+              />
+            </View>
+          </View>
 
           <Modal
             visible={showPresetPicker}
