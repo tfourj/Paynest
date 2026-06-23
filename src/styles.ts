@@ -49,6 +49,8 @@ export const styles = StyleSheet.create({
   priceStack: { alignItems: "flex-end" },
   renewalStatus: { fontSize: 12, marginTop: 4 },
   removeButton: { marginLeft: 3, padding: 4 },
+  removeConfirmActions: { flexDirection: "row", gap: 4, marginLeft: 3 },
+  removeConfirmButton: { padding: 4 },
   summary: { flexDirection: "row", gap: 10, alignItems: "center", padding: 15, borderRadius: 16, marginTop: 8 },
   summaryText: { fontSize: 13, flex: 1, lineHeight: 18 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 },

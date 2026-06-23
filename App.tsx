@@ -97,19 +97,16 @@ export default function App() {
   }
 
   function removeSubscription(item: Subscription) {
-    Alert.alert("Remove subscription?", `${item.name} will be removed from your local payment list.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: () => {
-        const next = subscriptions.filter((subscription) => subscription.id !== item.id);
-        setSubscriptions(next);
-        void saveSubscriptions(next);
-        if (session?.user.id) {
-          void deleteSubscriptionFromCloud(session.user.id, item.id).catch((error) => {
-            console.warn("Supabase delete failed", error);
-          });
-        }
-      } },
-    ]);
+    setSubscriptions((current) => {
+      const next = current.filter((subscription) => subscription.id !== item.id);
+      void saveSubscriptions(next);
+      return next;
+    });
+    if (session?.user.id) {
+      void deleteSubscriptionFromCloud(session.user.id, item.id).catch((error) => {
+        console.warn("Supabase delete failed", error);
+      });
+    }
   }
 
   function updateSettings(next: Settings) {

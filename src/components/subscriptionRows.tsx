@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -62,6 +63,7 @@ type SubscriptionRowProps = {
 };
 
 export function SubscriptionRow({ c, item, last, onRemove }: SubscriptionRowProps) {
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const rowBackground = item.backgroundColor ?? item.iconColor ?? colorFor(item.category);
   const rowTextColor = readableTextColor(rowBackground);
   const rowMutedColor = mutedTextColor(rowTextColor);
@@ -91,14 +93,35 @@ export function SubscriptionRow({ c, item, last, onRemove }: SubscriptionRowProp
         </Text>
       </View>
       {onRemove && (
-        <Pressable
-          accessibilityLabel={`Remove ${item.name}`}
-          hitSlop={8}
-          onPress={onRemove}
-          style={styles.removeButton}
-        >
-          <Ionicons name="trash-outline" size={19} color={rowTextColor} />
-        </Pressable>
+        confirmingRemove ? (
+          <View style={styles.removeConfirmActions}>
+            <Pressable
+              accessibilityLabel={`Cancel removing ${item.name}`}
+              hitSlop={8}
+              onPress={() => setConfirmingRemove(false)}
+              style={styles.removeConfirmButton}
+            >
+              <Ionicons name="close" size={18} color={rowTextColor} />
+            </Pressable>
+            <Pressable
+              accessibilityLabel={`Confirm remove ${item.name}`}
+              hitSlop={8}
+              onPress={onRemove}
+              style={styles.removeConfirmButton}
+            >
+              <Ionicons name="checkmark" size={18} color={rowTextColor} />
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            accessibilityLabel={`Remove ${item.name}`}
+            hitSlop={8}
+            onPress={() => setConfirmingRemove(true)}
+            style={styles.removeButton}
+          >
+            <Ionicons name="trash-outline" size={19} color={rowTextColor} />
+          </Pressable>
+        )
       )}
     </View>
   );
