@@ -4,9 +4,18 @@ export const styles = StyleSheet.create({
   safe: { flex: 1 },
   loading: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   loadingText: { fontSize: 14 },
-  shell: { flex: 1, alignSelf: "center", width: "100%", maxWidth: 680 },
+  shell: {
+    flex: 1,
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: Platform.select({ web: 1080, default: 680 }),
+  },
   content: { flex: 1 },
-  screen: { padding: 20, paddingBottom: 36, gap: 12 },
+  screen: {
+    padding: Platform.select({ web: 32, default: 20 }),
+    paddingBottom: 36,
+    gap: 12,
+  },
   loginShell: { flex: 1 },
   loginScreen: {
     flexGrow: 1,
