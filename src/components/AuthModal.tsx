@@ -213,6 +213,8 @@ export function AuthModal({
                 ]}
               >
                 <TextInput
+                  id="paynest-pocketbase-url"
+                  nativeID="paynest-pocketbase-url"
                   value={url}
                   onChangeText={setUrl}
                   placeholder="PocketBase URL"
@@ -223,6 +225,8 @@ export function AuthModal({
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="url"
+                  autoComplete="url"
+                  importantForAutofill="yes"
                   textContentType="URL"
                 />
               </View>
@@ -239,6 +243,8 @@ export function AuthModal({
               ]}
             >
               <TextInput
+                id="paynest-auth-email"
+                nativeID="paynest-auth-email"
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Email"
@@ -257,6 +263,8 @@ export function AuthModal({
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
+                autoComplete="email"
+                importantForAutofill="yes"
                 textContentType="emailAddress"
               />
 
@@ -271,6 +279,8 @@ export function AuthModal({
                   ]}
                 >
                   <TextInput
+                    id={mode === "create" ? "paynest-auth-new-password" : "paynest-auth-password"}
+                    nativeID={mode === "create" ? "paynest-auth-new-password" : "paynest-auth-password"}
                     value={password}
                     onChangeText={setPassword}
                     placeholder="Password"
@@ -279,6 +289,8 @@ export function AuthModal({
                     onFocus={() => setFocusedInputGroup("account")}
                     onBlur={() => setFocusedInputGroup(null)}
                     secureTextEntry={!passwordVisible}
+                    autoComplete={mode === "create" ? "new-password" : "current-password"}
+                    importantForAutofill="yes"
                     textContentType={mode === "create" ? "newPassword" : "password"}
                   />
                   <Pressable
@@ -298,6 +310,8 @@ export function AuthModal({
               {mode === "create" && (
                 <View style={styles.passwordInputRow}>
                   <TextInput
+                    id="paynest-auth-confirm-password"
+                    nativeID="paynest-auth-confirm-password"
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                     placeholder="Confirm password"
@@ -306,6 +320,8 @@ export function AuthModal({
                     onFocus={() => setFocusedInputGroup("account")}
                     onBlur={() => setFocusedInputGroup(null)}
                     secureTextEntry={!confirmPasswordVisible}
+                    autoComplete="new-password"
+                    importantForAutofill="yes"
                     textContentType="newPassword"
                   />
                   <Pressable
