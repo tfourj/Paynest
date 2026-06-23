@@ -2,19 +2,23 @@
 
 Paynest uses Supabase for auth and cloud sync.
 
-## Required Local Env
+## Required Env Files
 
-Keep these in the root `.env` file:
+Keep app values in the root `.env` file:
 
 ```sh
 EXPO_PUBLIC_SUPABASE_URL=https://xfegnwhtyjqrzlrtvoui.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
+```
 
+Keep CLI-only migration values in `supabase/.env`:
+
+```sh
 SUPABASE_ACCESS_TOKEN=your-personal-access-token
 SUPABASE_DB_PASSWORD=your-database-password
 ```
 
-Only the `EXPO_PUBLIC_` values are bundled into the app. The CLI values are for local migration commands only.
+Only the root `EXPO_PUBLIC_` values are bundled into the app. The `supabase/.env` values are for local migration commands only.
 Never add the Supabase `service_role` key to the Expo app.
 
 ## Run Migrations
@@ -25,7 +29,7 @@ From the repo root:
 npm run db:migrate
 ```
 
-This loads `.env`, links the local Supabase folder to project `xfegnwhtyjqrzlrtvoui`, then runs `supabase db push`.
+This loads `supabase/.env`, links the local Supabase folder to project `xfegnwhtyjqrzlrtvoui`, then runs `supabase db push`.
 
 If the project is already linked, this is enough:
 

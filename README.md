@@ -21,6 +21,7 @@ EXPO_PUBLIC_SUPABASE_URL=https://your-supabase-url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
 ```
 
+Supabase CLI migration credentials live separately in `supabase/.env`; see `supabase/README.md`.
 The anon key is required before the app can create a Supabase client for sync or auth.
 Run `supabase/schema.sql` in the Supabase SQL editor to create the sync tables and row-level security policies.
 If you already ran the original schema before sync was added, also run `supabase/migrations/001_add_subscription_local_id.sql` once.
