@@ -58,5 +58,6 @@ Set a default PocketBase URL in `.env` if you want the app to prefill the server
 EXPO_PUBLIC_POCKETBASE_URL=https://your-pocketbase-url
 ```
 
-The server URL can also be entered in the app from Settings -> Account. Create the required
-PocketBase collections and API rules using [pocketbase/README.md](../pocketbase/README.md).
+The server URL can also be entered in the app from Settings -> Account.
+Create the required PocketBase collections from the generated import file:
+[pocketbase/README.md](../pocketbase/README.md).
