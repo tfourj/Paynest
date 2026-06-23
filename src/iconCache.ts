@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const iconCachePrefix = "paynest.icon-cache.v1:";
 const iconCacheIndexKey = "paynest.icon-cache-index.v1";
+const memoryIconCache = new Map<string, string>();
+const pendingIconRequests = new Map<string, Promise<string | undefined>>();
 
 function cacheKey(url: string) {
   return `${iconCachePrefix}${encodeURIComponent(url)}`;
@@ -32,8 +34,28 @@ async function addCacheKey(key: string) {
 
 export async function loadCachedIconXml(url: string) {
   const key = cacheKey(url);
+  const memoryCached = memoryIconCache.get(key);
+  if (memoryCached) return memoryCached;
+
+  const pendingRequest = pendingIconRequests.get(key);
+  if (pendingRequest) return pendingRequest;
+
+  const request = loadIconXml(key, url);
+  pendingIconRequests.set(key, request);
+
+  try {
+    return await request;
+  } finally {
+    pendingIconRequests.delete(key);
+  }
+}
+
+async function loadIconXml(key: string, url: string) {
   const cached = await AsyncStorage.getItem(key);
-  if (cached) return cached;
+  if (cached) {
+    memoryIconCache.set(key, cached);
+    return cached;
+  }
 
   const response = await fetch(url);
   if (!response.ok) return undefined;
@@ -43,11 +65,14 @@ export async function loadCachedIconXml(url: string) {
 
   await AsyncStorage.setItem(key, xml);
   await addCacheKey(key);
+  memoryIconCache.set(key, xml);
   return xml;
 }
 
 export async function clearIconCache() {
   const rawKeys = await AsyncStorage.getItem(iconCacheIndexKey);
   const keys = readCacheKeys(rawKeys);
+  memoryIconCache.clear();
+  pendingIconRequests.clear();
   await AsyncStorage.multiRemove([...keys, iconCacheIndexKey]);
 }
