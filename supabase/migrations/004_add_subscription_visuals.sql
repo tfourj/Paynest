@@ -7,4 +7,7 @@ add column if not exists icon_name text,
 add column if not exists icon_label text,
 add column if not exists icon_color text,
 add column if not exists background_color text,
-add column if not exists simple_icon_slug text;
+add column if not exists simple_icon_slug text,
+add column if not exists icon_provider text,
+add column if not exists icon_url text,
+add column if not exists icon_source_title text;

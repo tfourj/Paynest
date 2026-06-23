@@ -17,6 +17,9 @@ type SubscriptionRow = {
   icon_color?: string | null;
   background_color?: string | null;
   simple_icon_slug?: string | null;
+  icon_provider?: string | null;
+  icon_url?: string | null;
+  icon_source_title?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -47,6 +50,9 @@ function toSubscription(row: SubscriptionRow): Subscription {
     iconColor: row.icon_color ?? undefined,
     backgroundColor: row.background_color ?? undefined,
     simpleIconSlug: row.simple_icon_slug ?? undefined,
+    iconProvider: row.icon_provider ?? undefined,
+    iconUrl: row.icon_url ?? undefined,
+    iconSourceTitle: row.icon_source_title ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -68,6 +74,9 @@ function toSubscriptionRow(userId: string, item: Subscription) {
     icon_color: item.iconColor,
     background_color: item.backgroundColor,
     simple_icon_slug: item.simpleIconSlug,
+    icon_provider: item.iconProvider,
+    icon_url: item.iconUrl,
+    icon_source_title: item.iconSourceTitle,
     created_at: item.createdAt,
     updated_at: item.updatedAt,
   };

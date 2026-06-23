@@ -1,18 +1,8 @@
 import Svg, { Path } from "react-native-svg";
-import * as SimpleIcons from "simple-icons";
 
-type SimpleIconData = {
-  path: string;
-  slug: string;
-  title: string;
-  hex: string;
-};
+import { getSimpleIcon } from "../iconSearch";
 
-export function getSimpleIcon(slug?: string) {
-  if (!slug) return undefined;
-  const key = `si${slug[0].toUpperCase()}${slug.slice(1)}`;
-  return (SimpleIcons as Record<string, unknown>)[key] as SimpleIconData | undefined;
-}
+export { getSimpleIcon };
 
 type SimpleIconProps = {
   color: string;

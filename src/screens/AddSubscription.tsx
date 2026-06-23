@@ -5,7 +5,15 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Chip } from "../components/common";
 import { getSimpleIcon, SimpleIcon } from "../components/SimpleIcon";
+import { SubscriptionIcon } from "../components/SubscriptionIcon";
 import { categories, symbols } from "../constants";
+import {
+  searchRemoteIcons,
+  searchSimpleIcons,
+  type IconProvider,
+  type IconSearchResult,
+  type IconSource,
+} from "../iconSearch";
 import { styles } from "../styles";
 import { subscriptionPresets, type SubscriptionPreset } from "../subscriptionPresets";
 import type { Colors } from "../theme";
@@ -44,6 +52,11 @@ const backgroundColorOptions = [
   "#111827",
   "#EFF6FF",
   "#F3F4F6",
+];
+const iconProviderOptions: { label: string; value: IconProvider }[] = [
+  { label: "Simple Icons", value: "simpleicons" },
+  { label: "SVGL", value: "svgl" },
+  { label: "Dashboard Icons", value: "dashboardicons" },
 ];
 const dateWheelItemOffset = 48;
 
@@ -119,6 +132,17 @@ export function AddSubscription({
   const [iconColor, setIconColor] = useState("#2563EB");
   const [backgroundColor, setBackgroundColor] = useState("#2563EB");
   const [simpleIconSlug, setSimpleIconSlug] = useState<string | undefined>();
+  const [iconProvider, setIconProvider] = useState<IconProvider | undefined>();
+  const [iconUrl, setIconUrl] = useState<string | undefined>();
+  const [iconSourceTitle, setIconSourceTitle] = useState<string | undefined>();
+  const [symbolSearch, setSymbolSearch] = useState("");
+  const [enabledIconProviders, setEnabledIconProviders] = useState<IconProvider[]>([
+    "simpleicons",
+    "svgl",
+    "dashboardicons",
+  ]);
+  const [remoteIconResults, setRemoteIconResults] = useState<IconSearchResult[]>([]);
+  const [symbolSearchLoading, setSymbolSearchLoading] = useState(false);
   const [error, setError] = useState("");
   const editing = Boolean(subscription);
   const formCurrency = subscription?.currency ?? defaultCurrency;
@@ -133,6 +157,34 @@ export function AddSubscription({
     if (!query) return subscriptionPresets.slice(0, 18);
     return subscriptionPresets.filter((preset) => preset.name.toLowerCase().includes(query)).slice(0, 24);
   }, [presetSearch]);
+  const localIconResults = useMemo(() => {
+    if (!enabledIconProviders.includes("simpleicons")) return [];
+    return searchSimpleIcons(symbolSearch);
+  }, [enabledIconProviders, symbolSearch]);
+  const symbolResults = useMemo(
+    () => [...localIconResults, ...remoteIconResults].slice(0, 36),
+    [localIconResults, remoteIconResults],
+  );
+  const selectedIconSource = useMemo<IconSource | undefined>(() => {
+    if (iconProvider) {
+      return {
+        provider: iconProvider,
+        slug: simpleIconSlug,
+        title: iconSourceTitle ?? (name.trim() || "Subscription"),
+        url: iconUrl,
+        color: iconColor,
+      };
+    }
+
+    if (!simpleIconSlug) return undefined;
+
+    return {
+      provider: "simpleicons",
+      slug: simpleIconSlug,
+      title: iconSourceTitle ?? (name.trim() || "Subscription"),
+      color: iconColor,
+    };
+  }, [iconColor, iconProvider, iconSourceTitle, iconUrl, name, simpleIconSlug]);
   const previewTextColor = readableTextColor(backgroundColor);
   const previewMutedColor = previewTextColor === "#FFFFFF" ? "rgba(255,255,255,0.78)" : "#475569";
   const previewBadgeBackground = previewTextColor === "#FFFFFF"
@@ -174,8 +226,45 @@ export function AddSubscription({
     setIconColor(subscription?.iconColor ?? "#2563EB");
     setBackgroundColor(subscription?.backgroundColor ?? subscription?.iconColor ?? "#2563EB");
     setSimpleIconSlug(subscription?.simpleIconSlug);
+    setIconProvider(subscription?.iconProvider as IconProvider | undefined);
+    setIconUrl(subscription?.iconUrl);
+    setIconSourceTitle(subscription?.iconSourceTitle);
+    setSymbolSearch(subscription?.name ?? "");
+    setRemoteIconResults([]);
+    setSymbolSearchLoading(false);
     setError("");
   }, [subscription?.id, today, visible]);
+
+  useEffect(() => {
+    const query = symbolSearch.trim();
+    const remoteProviders = enabledIconProviders.filter((provider) => provider !== "simpleicons");
+    if (!visible || query.length < 2 || remoteProviders.length === 0) {
+      setRemoteIconResults([]);
+      setSymbolSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSymbolSearchLoading(true);
+
+    const searchTimer = setTimeout(() => {
+      searchRemoteIcons(query, remoteProviders)
+        .then((results) => {
+          if (!cancelled) setRemoteIconResults(results);
+        })
+        .catch(() => {
+          if (!cancelled) setRemoteIconResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSymbolSearchLoading(false);
+        });
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(searchTimer);
+    };
+  }, [enabledIconProviders, symbolSearch, visible]);
 
   function applyPreset(preset: SubscriptionPreset) {
     setName(preset.name);
@@ -185,6 +274,31 @@ export function AddSubscription({
     setIconColor(preset.iconColor);
     setBackgroundColor(preset.iconColor);
     setSimpleIconSlug(preset.simpleIconSlug);
+    setIconProvider("simpleicons");
+    setIconUrl(undefined);
+    setIconSourceTitle(preset.name);
+    setSymbolSearch(preset.name);
+  }
+
+  function applyIconSource(icon: IconSearchResult) {
+    setIconProvider(icon.provider);
+    setSimpleIconSlug(icon.provider === "simpleicons" ? icon.slug : undefined);
+    setIconUrl(icon.url);
+    setIconSourceTitle(icon.title);
+    setIconLabel("");
+    setIconName("card");
+    setSymbolSearch(icon.title);
+    setIconColor(icon.color ?? iconColor);
+  }
+
+  function toggleIconProvider(provider: IconProvider) {
+    setEnabledIconProviders((current) => {
+      if (current.includes(provider)) {
+        return current.length === 1 ? current : current.filter((item) => item !== provider);
+      }
+
+      return [...current, provider];
+    });
   }
 
   function updateFirstPaymentDate(part: "day" | "month" | "year", value: number) {
@@ -215,6 +329,9 @@ export function AddSubscription({
       iconColor,
       backgroundColor,
       simpleIconSlug,
+      iconProvider,
+      iconUrl,
+      iconSourceTitle,
     });
     setName("");
     setPrice("");
@@ -227,6 +344,12 @@ export function AddSubscription({
     setIconColor("#2563EB");
     setBackgroundColor("#2563EB");
     setSimpleIconSlug(undefined);
+    setIconProvider(undefined);
+    setIconUrl(undefined);
+    setIconSourceTitle(undefined);
+    setSymbolSearch("");
+    setRemoteIconResults([]);
+    setSymbolSearchLoading(false);
     setError("");
   }
 
@@ -491,13 +614,13 @@ export function AddSubscription({
           <View style={[styles.visualPanel, { backgroundColor, borderColor: c.border }]}>
             <View style={styles.visualPreviewRow}>
               <View style={[styles.iconBadge, { backgroundColor: previewBadgeBackground }]}>
-                {getSimpleIcon(simpleIconSlug) ? (
-                  <SimpleIcon slug={simpleIconSlug} size={23} color={previewTextColor} />
-                ) : iconLabel ? (
-                  <Text style={[styles.iconBadgeText, { color: previewTextColor }]}>{iconLabel}</Text>
-                ) : (
-                  <Ionicons name={iconName} size={22} color={previewTextColor} />
-                )}
+                <SubscriptionIcon
+                  color={previewTextColor}
+                  fallbackLabel={iconLabel}
+                  iconName={iconName}
+                  iconSource={selectedIconSource}
+                  size={23}
+                />
               </View>
               <View style={styles.rowText}>
                 <Text style={[styles.rowName, { color: previewTextColor }]}>{name.trim() || "Subscription"}</Text>
@@ -515,19 +638,109 @@ export function AddSubscription({
                     setIconName(item);
                     setIconLabel("");
                     setSimpleIconSlug(undefined);
+                    setIconProvider(undefined);
+                    setIconUrl(undefined);
+                    setIconSourceTitle(undefined);
                   }}
                   style={[
                     styles.iconChoice,
                     {
-                      backgroundColor: !iconLabel && iconName === item ? c.primarySoft : c.surface,
-                      borderColor: !iconLabel && iconName === item ? c.primary : c.border,
+                      backgroundColor:
+                        !selectedIconSource && !iconLabel && iconName === item ? c.primarySoft : c.surface,
+                      borderColor:
+                        !selectedIconSource && !iconLabel && iconName === item ? c.primary : c.border,
                     },
                   ]}
                 >
-                  <Ionicons name={item} size={18} color={!iconLabel && iconName === item ? c.primary : c.textMuted} />
+                  <Ionicons
+                    name={item}
+                    size={18}
+                    color={!selectedIconSource && !iconLabel && iconName === item ? c.primary : c.textMuted}
+                  />
                 </Pressable>
               ))}
             </View>
+            <View style={[styles.symbolSearchGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <Ionicons name="search" size={18} color={c.textSoft} />
+              <TextInput
+                value={symbolSearch}
+                onChangeText={setSymbolSearch}
+                placeholder="Search subscription icons"
+                placeholderTextColor={c.textSoft}
+                style={[styles.symbolSearchInput, { color: c.text }]}
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.symbolProviderRow}>
+              {iconProviderOptions.map((provider) => {
+                const selected = enabledIconProviders.includes(provider.value);
+                return (
+                  <Pressable
+                    key={provider.value}
+                    onPress={() => toggleIconProvider(provider.value)}
+                    style={[
+                      styles.symbolProviderButton,
+                      {
+                        backgroundColor: selected ? c.primarySoft : "rgba(255,255,255,0.18)",
+                        borderColor: selected ? c.primary : "rgba(255,255,255,0.26)",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.symbolProviderText, { color: selected ? c.primary : previewTextColor }]}>
+                      {provider.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.symbolResultList}
+            >
+              {symbolResults.map((icon) => {
+                const selected =
+                  selectedIconSource?.provider === icon.provider &&
+                  selectedIconSource?.slug === icon.slug &&
+                  selectedIconSource?.url === icon.url;
+
+                return (
+                  <Pressable
+                    key={icon.id}
+                    onPress={() => applyIconSource(icon)}
+                    style={[
+                      styles.symbolResult,
+                      {
+                        backgroundColor: selected ? c.primarySoft : "rgba(255,255,255,0.18)",
+                        borderColor: selected ? c.primary : "rgba(255,255,255,0.26)",
+                      },
+                    ]}
+                  >
+                    <View style={styles.symbolResultIcon}>
+                      <SubscriptionIcon
+                        color={previewTextColor}
+                        iconSource={icon}
+                        size={22}
+                      />
+                    </View>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.symbolResultText, { color: selected ? c.primary : previewTextColor }]}
+                    >
+                      {icon.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {symbolSearchLoading ? (
+                <View style={[styles.symbolResult, { backgroundColor: "rgba(255,255,255,0.18)" }]}>
+                  <Ionicons name="sync" size={20} color={previewTextColor} />
+                  <Text numberOfLines={1} style={[styles.symbolResultText, { color: previewTextColor }]}>
+                    Searching
+                  </Text>
+                </View>
+              ) : null}
+            </ScrollView>
             <View style={styles.swatchRow}>
               {backgroundColorOptions.map((color) => (
                 <Pressable

@@ -1,12 +1,13 @@
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { getSimpleIcon, SimpleIcon } from "./SimpleIcon";
+import { SubscriptionIcon } from "./SubscriptionIcon";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Subscription } from "../types";
 import { colorFor, iconFor } from "../utils/category";
 import { dayDifference, formatMoney, renewalLabel } from "../utils/subscriptions";
+import type { IconSource } from "../iconSearch";
 
 function hexToRgb(hex: string) {
   const normalized = hex.replace("#", "");
@@ -97,20 +98,40 @@ export function SubscriptionRow({ c, item, last, onPress }: SubscriptionRowProps
 }
 
 function IconBadge({ item, rowTextColor }: { item: Subscription; rowTextColor: string }) {
-  const color = item.iconColor ?? colorFor(item.category);
   const iconName = (item.iconName ?? iconFor(item.category)) as keyof typeof Ionicons.glyphMap;
   const badgeBackground = rowTextColor === "#FFFFFF" ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.72)";
-  const simpleIcon = getSimpleIcon(item.simpleIconSlug);
+  const iconSource = sourceFromSubscription(item);
 
   return (
     <View style={[styles.iconBadge, { backgroundColor: badgeBackground }]}>
-      {simpleIcon ? (
-        <SimpleIcon slug={simpleIcon.slug} size={23} color={rowTextColor} />
-      ) : item.iconLabel ? (
-        <Text style={[styles.iconBadgeText, { color: rowTextColor }]}>{item.iconLabel}</Text>
-      ) : (
-        <Ionicons name={iconName} size={22} color={rowTextColor} />
-      )}
+      <SubscriptionIcon
+        color={rowTextColor}
+        fallbackLabel={item.iconLabel}
+        iconName={iconName}
+        iconSource={iconSource}
+        size={23}
+      />
     </View>
   );
+}
+
+function sourceFromSubscription(item: Subscription): IconSource | undefined {
+  if (item.iconProvider) {
+    return {
+      provider: item.iconProvider as IconSource["provider"],
+      slug: item.simpleIconSlug,
+      title: item.iconSourceTitle ?? item.name,
+      url: item.iconUrl,
+      color: item.iconColor,
+    };
+  }
+
+  if (!item.simpleIconSlug) return undefined;
+
+  return {
+    provider: "simpleicons",
+    slug: item.simpleIconSlug,
+    title: item.iconSourceTitle ?? item.name,
+    color: item.iconColor,
+  };
 }

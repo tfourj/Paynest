@@ -19,6 +19,9 @@ create table if not exists public.subscriptions (
   icon_color text,
   background_color text,
   simple_icon_slug text,
+  icon_provider text,
+  icon_url text,
+  icon_source_title text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
