@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { EmptyState, Metric } from "../components/common";
+import { RenewalRow } from "../components/subscriptionRows";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Subscription } from "../types";
@@ -18,16 +19,26 @@ type InsightsProps = {
 
 export function Insights({ c, subscriptions, monthly, currency }: InsightsProps) {
   const [viewedMonth, setViewedMonth] = useState(() => startOfMonth(new Date()));
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const max = Math.max(1, ...subscriptions.map(monthlyCost));
   const calendarDays = buildRenewalCalendar(subscriptions, viewedMonth);
   const calendarWeeks = chunkCalendarWeeks(calendarDays);
+  const selectedDay = calendarDays.find((day) => day.dateKey === selectedDateKey);
   const monthLabel = viewedMonth.toLocaleDateString(undefined, {
     month: "long",
     year: "numeric",
   });
+  const selectedDateLabel = selectedDateKey
+    ? new Date(`${selectedDateKey}T00:00:00`).toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
+    : null;
 
   function changeViewedMonth(offset: number) {
     setViewedMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+    setSelectedDateKey(null);
   }
 
   return (
@@ -103,49 +114,82 @@ export function Insights({ c, subscriptions, monthly, currency }: InsightsProps)
             <View style={styles.calendarGrid}>
               {calendarWeeks.map((week, weekIndex) => (
                 <View key={`week-${weekIndex}`} style={styles.calendarWeek}>
-                  {week.map((day, dayIndex) => (
-                    <View
-                      key={day.dateKey ?? `empty-${weekIndex}-${dayIndex}`}
-                      style={[
-                        styles.calendarDay,
-                        {
-                          backgroundColor: day.dateKey ? c.surfaceMuted : "transparent",
-                          borderColor: day.isToday ? c.primary : c.border,
-                        },
-                      ]}
-                    >
-                      {day.dateKey ? (
-                        <>
-                          <Text style={[styles.calendarDayNumber, { color: c.text }]}>
-                            {day.dayOfMonth}
-                          </Text>
-                          <View style={styles.calendarRenewalStack}>
-                            {day.subscriptions.slice(0, 2).map((item) => (
+                  {week.map((day, dayIndex) => {
+                    const isSelected = day.dateKey === selectedDateKey;
+                    const hasSubscriptions = day.subscriptions.length > 0;
+                    const dayBorderColor = isSelected
+                      ? c.primary
+                      : day.isToday
+                        ? c.primary
+                        : c.border;
+
+                    return (
+                      <Pressable
+                        accessibilityLabel={
+                          day.dateKey
+                            ? `${day.dayOfMonth}, ${day.subscriptions.length} subscriptions`
+                            : undefined
+                        }
+                        disabled={!day.dateKey}
+                        key={day.dateKey ?? `empty-${weekIndex}-${dayIndex}`}
+                        onPress={() => day.dateKey && setSelectedDateKey(day.dateKey)}
+                        style={[
+                          styles.calendarDay,
+                          {
+                            backgroundColor: day.dateKey ? c.surfaceMuted : "transparent",
+                            borderColor: dayBorderColor,
+                          },
+                          isSelected && styles.calendarSelectedDay,
+                        ]}
+                      >
+                        {day.dateKey ? (
+                          <>
+                            <Text style={[styles.calendarDayNumber, { color: c.text }]}>
+                              {day.dayOfMonth}
+                            </Text>
+                            {hasSubscriptions ? (
                               <View
-                                key={item.id}
                                 style={[
-                                  styles.calendarRenewalPill,
-                                  { backgroundColor: colorFor(item.category) },
+                                  styles.calendarCountBadge,
+                                  { backgroundColor: c.primary },
                                 ]}
                               >
-                                <Text numberOfLines={1} style={styles.calendarRenewalText}>
-                                  {item.name}
+                                <Text style={styles.calendarCountText}>
+                                  {day.subscriptions.length}
                                 </Text>
                               </View>
-                            ))}
-                            {day.subscriptions.length > 2 ? (
-                              <Text style={[styles.calendarMoreText, { color: c.textMuted }]}>
-                                +{day.subscriptions.length - 2}
-                              </Text>
                             ) : null}
-                          </View>
-                        </>
-                      ) : null}
-                    </View>
-                  ))}
+                          </>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
                 </View>
               ))}
             </View>
+            {selectedDateLabel ? (
+              <View style={[styles.calendarSelection, { borderTopColor: c.border }]}>
+                <Text style={[styles.calendarSelectionTitle, { color: c.text }]}>
+                  {selectedDateLabel}
+                </Text>
+                {selectedDay && selectedDay.subscriptions.length > 0 ? (
+                  <View style={styles.subscriptionStack}>
+                    {selectedDay.subscriptions.map((item, index) => (
+                      <RenewalRow
+                        c={c}
+                        item={item}
+                        key={item.id}
+                        last={index === selectedDay.subscriptions.length - 1}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={[styles.calendarSelectionEmpty, { color: c.textMuted }]}>
+                    No subscriptions renew this day.
+                  </Text>
+                )}
+              </View>
+            ) : null}
           </View>
         </>
       )}
