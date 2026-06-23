@@ -19,6 +19,7 @@ import { subscriptionPresets, type SubscriptionPreset } from "../subscriptionPre
 import type { Colors } from "../theme";
 import { billingPeriods, type BillingPeriod, type Subscription } from "../types";
 import {
+  hslToHex,
   mutedTextColor,
   normalizeHexColor,
   readableTextColor,
@@ -29,6 +30,7 @@ type AddSubscriptionProps = {
   c: Colors;
   visible: boolean;
   defaultCurrency: string;
+  colorPresets: string[];
   subscription?: Subscription | null;
   onClose: () => void;
   onSave: (item: Omit<Subscription, "id" | "createdAt" | "updatedAt">) => void;
@@ -50,12 +52,10 @@ const visualIconOptions = [
   "code-slash",
   "school",
 ] as const;
-const colorWheelRows = [
-  ["#EF4444", "#F97316", "#F59E0B", "#EAB308", "#84CC16", "#22C55E", "#14B8A6", "#06B6D4"],
-  ["#0EA5E9", "#3B82F6", "#6366F1", "#8B5CF6", "#A855F7", "#D946EF", "#EC4899", "#F43F5E"],
-  ["#991B1B", "#9A3412", "#854D0E", "#3F6212", "#166534", "#115E59", "#1E40AF", "#581C87"],
-  ["#111827", "#374151", "#6B7280", "#9CA3AF", "#D1D5DB", "#E5E7EB", "#F3F4F6", "#FFFFFF"],
-];
+const hueWheelColors = Array.from({ length: 24 }, (_, index) => hslToHex(index * 15, 86, 54));
+const neutralColors = ["#111827", "#374151", "#6B7280", "#9CA3AF", "#D1D5DB", "#E5E7EB", "#F3F4F6", "#FFFFFF"];
+const hueWheelSize = 220;
+const hueSwatchSize = 34;
 const iconProviderOptions: { label: string; value: IconProvider }[] = [
   { label: "Simple Icons", value: "simpleicons" },
   { label: "SVGL", value: "svgl" },
@@ -118,6 +118,7 @@ export function AddSubscription({
   c,
   visible,
   defaultCurrency,
+  colorPresets,
   subscription,
   onClose,
   onSave,
@@ -929,6 +930,7 @@ export function AddSubscription({
           visible={activeColorPicker !== null}
           title={activeColorPicker === "icon" ? "Icon background" : "Row background"}
           value={activeColorPicker === "icon" ? iconBackgroundColor : backgroundColor}
+          presets={colorPresets}
           onClose={() => setActiveColorPicker(null)}
           onSelectColor={(color) => {
             if (activeColorPicker === "icon") {
@@ -1052,6 +1054,7 @@ type ColorPickerSheetProps = {
   visible: boolean;
   title: string;
   value: string;
+  presets: string[];
   onClose: () => void;
   onSelectColor: (color: string) => void;
 };
@@ -1061,6 +1064,7 @@ function ColorPickerSheet({
   visible,
   title,
   value,
+  presets,
   onClose,
   onSelectColor,
 }: ColorPickerSheetProps) {
@@ -1078,25 +1082,57 @@ function ColorPickerSheet({
             <Text style={[styles.doneButtonText, { color: c.primary }]}>Done</Text>
           </Pressable>
         </View>
-        <View style={styles.colorWheel}>
-          {colorWheelRows.map((row, rowIndex) => (
-            <View key={`color-row-${rowIndex}`} style={styles.colorWheelRow}>
-              {row.map((color) => (
-                <Pressable
-                  key={color}
-                  accessibilityLabel={`Use color ${color}`}
-                  onPress={() => onSelectColor(color)}
-                  style={[
-                    styles.colorWheelCell,
-                    {
-                      backgroundColor: color,
-                      borderColor: value === color ? c.text : c.border,
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-          ))}
+
+        <View style={styles.colorPickerPreviewRow}>
+          <View style={[styles.colorPickerPreview, { backgroundColor: value, borderColor: c.border }]} />
+          <Text style={[styles.colorPickerValue, { color: c.text }]}>{value}</Text>
+        </View>
+
+        <View style={styles.hueWheel}>
+          {hueWheelColors.map((color, index) => {
+            const angle = (index / hueWheelColors.length) * Math.PI * 2 - Math.PI / 2;
+            const radius = hueWheelSize / 2 - hueSwatchSize / 2;
+            const left = hueWheelSize / 2 + Math.cos(angle) * radius - hueSwatchSize / 2;
+            const top = hueWheelSize / 2 + Math.sin(angle) * radius - hueSwatchSize / 2;
+
+            return (
+              <Pressable
+                key={color}
+                accessibilityLabel={`Use hue ${color}`}
+                onPress={() => onSelectColor(color)}
+                style={[
+                  styles.hueWheelSwatch,
+                  {
+                    backgroundColor: color,
+                    borderColor: value === color ? c.text : "rgba(255,255,255,0.72)",
+                    left,
+                    top,
+                  },
+                ]}
+              />
+            );
+          })}
+          <View style={[styles.hueWheelCenter, { backgroundColor: value, borderColor: c.border }]} />
+        </View>
+
+        <View style={styles.colorPresetSection}>
+          <Text style={[styles.colorPickerLabel, { color: c.textMuted }]}>PRESETS</Text>
+          <View style={styles.colorPresetGrid}>
+            {[...presets, ...neutralColors].map((color, index) => (
+              <Pressable
+                key={`picker-${color}-${index}`}
+                accessibilityLabel={`Use color ${color}`}
+                onPress={() => onSelectColor(color)}
+                style={[
+                  styles.colorWheelCell,
+                  {
+                    backgroundColor: color,
+                    borderColor: value === color ? c.text : c.border,
+                  },
+                ]}
+              />
+            ))}
+          </View>
         </View>
       </View>
     </Modal>

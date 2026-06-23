@@ -410,6 +410,7 @@ export default function App() {
                 c={c}
                 subscriptions={subscriptions}
                 refreshing={refreshingDashboard}
+                colorPresets={settings.colorPresets}
                 onAdd={() => setShowAdd(true)}
                 onRefresh={() => void refreshDashboard()}
                 onUpdate={updateSubscription}
@@ -448,6 +449,7 @@ export default function App() {
           c={c}
           visible={showAdd}
           defaultCurrency={settings.currency}
+          colorPresets={settings.colorPresets}
           onClose={() => setShowAdd(false)}
           onSave={addSubscription}
           onRequestNotificationPermission={requestNotificationPermission}
