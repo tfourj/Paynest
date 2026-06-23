@@ -223,7 +223,16 @@ export const styles = StyleSheet.create({
   dateValue: { fontSize: 18, fontWeight: "700", marginTop: 3 },
   categoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   errorText: { color: "#DC2626", fontSize: 13 },
-  saveArea: { padding: 16, borderTopWidth: 1 },
+  saveArea: { padding: 16, borderTopWidth: 1, gap: 10 },
   saveButton: { height: 50, borderRadius: 14, justifyContent: "center", alignItems: "center" },
   saveText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  deleteSubscriptionButton: {
+    height: 46,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  deleteSubscriptionText: { color: "#DC2626", fontSize: 15, fontWeight: "700" },
 });

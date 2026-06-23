@@ -125,6 +125,25 @@ export default function App() {
     }
   }
 
+  function updateSubscription(item: Subscription, input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) {
+    const updated = {
+      ...item,
+      ...input,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setSubscriptions((current) => {
+      const next = current.map((subscription) => subscription.id === item.id ? updated : subscription);
+      void saveSubscriptions(next);
+      return next;
+    });
+    if (session?.user.id) {
+      void upsertSubscriptions(session.user.id, [updated]).catch((error) => {
+        console.warn("Supabase subscription sync failed", error);
+      });
+    }
+  }
+
   function updateSettings(next: Settings) {
     setSettings(next);
     void saveSettings(next);
@@ -182,6 +201,7 @@ export default function App() {
                 c={c}
                 subscriptions={subscriptions}
                 onAdd={() => setShowAdd(true)}
+                onUpdate={updateSubscription}
                 onRemove={removeSubscription}
               />
             )}

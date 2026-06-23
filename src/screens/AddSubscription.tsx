@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -15,8 +15,10 @@ type AddSubscriptionProps = {
   c: Colors;
   visible: boolean;
   defaultCurrency: string;
+  subscription?: Subscription | null;
   onClose: () => void;
   onSave: (item: Omit<Subscription, "id" | "createdAt" | "updatedAt">) => void;
+  onDelete?: (item: Subscription) => void;
 };
 
 const noneCategory = "None";
@@ -87,7 +89,20 @@ function clampDate(year: number, month: number, day: number) {
   return new Date(year, month, Math.min(day, daysInMonth(year, month)));
 }
 
-export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }: AddSubscriptionProps) {
+function dateFromValue(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? startOfToday() : date;
+}
+
+export function AddSubscription({
+  c,
+  visible,
+  defaultCurrency,
+  subscription,
+  onClose,
+  onSave,
+  onDelete,
+}: AddSubscriptionProps) {
   const today = useMemo(startOfToday, [visible]);
   const dayWheelRef = useRef<ScrollView>(null);
   const monthWheelRef = useRef<ScrollView>(null);
@@ -105,6 +120,8 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
   const [backgroundColor, setBackgroundColor] = useState("#2563EB");
   const [simpleIconSlug, setSimpleIconSlug] = useState<string | undefined>();
   const [error, setError] = useState("");
+  const editing = Boolean(subscription);
+  const formCurrency = subscription?.currency ?? defaultCurrency;
   const payDay = firstPaymentDate.getDate();
   const renewal = formatDateValue(firstPaymentDate);
   const datePickerDays = Array.from(
@@ -143,6 +160,23 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
     return () => clearTimeout(scrollTimer);
   }, [firstPaymentDate, payDay, showDatePicker]);
 
+  useEffect(() => {
+    if (!visible) return;
+
+    setName(subscription?.name ?? "");
+    setPrice(subscription ? `${subscription.price}` : "");
+    setPresetSearch(subscription?.name ?? "");
+    setCategory(subscription?.category ?? noneCategory);
+    setBillingPeriod(subscription?.billingPeriod ?? "Monthly");
+    setFirstPaymentDate(subscription ? dateFromValue(subscription.nextRenewalDate) : today);
+    setIconName((subscription?.iconName as (typeof visualIconOptions)[number] | undefined) ?? "card");
+    setIconLabel(subscription?.iconLabel ?? "");
+    setIconColor(subscription?.iconColor ?? "#2563EB");
+    setBackgroundColor(subscription?.backgroundColor ?? subscription?.iconColor ?? "#2563EB");
+    setSimpleIconSlug(subscription?.simpleIconSlug);
+    setError("");
+  }, [subscription?.id, today, visible]);
+
   function applyPreset(preset: SubscriptionPreset) {
     setName(preset.name);
     setPresetSearch(preset.name);
@@ -173,7 +207,7 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
       price: parsed,
       category,
       billingPeriod,
-      currency: defaultCurrency,
+      currency: formCurrency,
       payDay,
       nextRenewalDate: renewal,
       iconName: iconLabel ? undefined : iconName,
@@ -196,6 +230,15 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
     setError("");
   }
 
+  function confirmDelete() {
+    if (!subscription || !onDelete) return;
+
+    Alert.alert(`Delete ${subscription.name}?`, "This removes the subscription from your list.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => onDelete(subscription) },
+    ]);
+  }
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={[styles.modal, { backgroundColor: c.background }]}>
@@ -203,7 +246,9 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
           <Pressable onPress={onClose}>
             <Text style={[styles.cancel, { color: c.primary }]}>Cancel</Text>
           </Pressable>
-          <Text style={[styles.modalTitle, { color: c.text }]}>Add subscription</Text>
+          <Text style={[styles.modalTitle, { color: c.text }]}>
+            {editing ? "Edit subscription" : "Add subscription"}
+          </Text>
           <View style={{ width: 48 }} />
         </View>
 
@@ -227,7 +272,7 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
             />
             <View style={styles.priceInput}>
               <Text style={[styles.currency, { color: c.textMuted }]}>
-                {symbols[defaultCurrency] ?? defaultCurrency}
+                {symbols[formCurrency] ?? formCurrency}
               </Text>
               <TextInput
                 value={price}
@@ -459,7 +504,7 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
                 <Text style={[styles.rowMeta, { color: previewMutedColor }]}>{category} · {billingPeriod}</Text>
               </View>
               <Text style={[styles.rowPrice, { color: previewTextColor }]}>
-                {symbols[defaultCurrency] ?? defaultCurrency} {price || "0.00"}
+                {symbols[formCurrency] ?? formCurrency} {price || "0.00"}
               </Text>
             </View>
             <View style={styles.iconChoiceRow}>
@@ -511,8 +556,17 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
         </ScrollView>
 
         <View style={[styles.saveArea, { borderTopColor: c.border, backgroundColor: c.background }]}>
+          {subscription && onDelete ? (
+            <Pressable
+              onPress={confirmDelete}
+              style={[styles.deleteSubscriptionButton, { backgroundColor: c.surfaceMuted }]}
+            >
+              <Ionicons name="trash-outline" size={18} color="#DC2626" />
+              <Text style={styles.deleteSubscriptionText}>Delete subscription</Text>
+            </Pressable>
+          ) : null}
           <Pressable onPress={save} style={[styles.saveButton, { backgroundColor: c.primary }]}>
-            <Text style={styles.saveText}>Add subscription</Text>
+            <Text style={styles.saveText}>{editing ? "Save changes" : "Add subscription"}</Text>
           </Pressable>
         </View>
       </SafeAreaView>

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -59,17 +58,17 @@ type SubscriptionRowProps = {
   c: Colors;
   item: Subscription;
   last: boolean;
-  onRemove?: () => void;
+  onPress?: () => void;
 };
 
-export function SubscriptionRow({ c, item, last, onRemove }: SubscriptionRowProps) {
-  const [confirmingRemove, setConfirmingRemove] = useState(false);
+export function SubscriptionRow({ c, item, last, onPress }: SubscriptionRowProps) {
   const rowBackground = item.backgroundColor ?? item.iconColor ?? colorFor(item.category);
   const rowTextColor = readableTextColor(rowBackground);
   const rowMutedColor = mutedTextColor(rowTextColor);
 
   return (
-    <View
+    <Pressable
+      onPress={onPress}
       style={[
         styles.subscriptionRow,
         { backgroundColor: rowBackground },
@@ -92,38 +91,8 @@ export function SubscriptionRow({ c, item, last, onRemove }: SubscriptionRowProp
           Renews {renewalLabel(item.nextRenewalDate)}
         </Text>
       </View>
-      {onRemove && (
-        confirmingRemove ? (
-          <View style={styles.removeConfirmActions}>
-            <Pressable
-              accessibilityLabel={`Cancel removing ${item.name}`}
-              hitSlop={8}
-              onPress={() => setConfirmingRemove(false)}
-              style={styles.removeConfirmButton}
-            >
-              <Ionicons name="close" size={18} color={rowTextColor} />
-            </Pressable>
-            <Pressable
-              accessibilityLabel={`Confirm remove ${item.name}`}
-              hitSlop={8}
-              onPress={onRemove}
-              style={styles.removeConfirmButton}
-            >
-              <Ionicons name="checkmark" size={18} color={rowTextColor} />
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable
-            accessibilityLabel={`Remove ${item.name}`}
-            hitSlop={8}
-            onPress={() => setConfirmingRemove(true)}
-            style={styles.removeButton}
-          >
-            <Ionicons name="trash-outline" size={19} color={rowTextColor} />
-          </Pressable>
-        )
-      )}
-    </View>
+      <Ionicons name="chevron-forward" size={19} color={rowMutedColor} />
+    </Pressable>
   );
 }
 
