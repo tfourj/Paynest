@@ -9,7 +9,13 @@ export type Subscription = {
   price: number;
   currency: string;
   billingPeriod: BillingPeriod;
+  payDay?: number;
   nextRenewalDate: string;
+  iconName?: string;
+  iconLabel?: string;
+  iconColor?: string;
+  backgroundColor?: string;
+  simpleIconSlug?: string;
   createdAt: string;
   updatedAt: string;
 };

@@ -10,7 +10,13 @@ type SubscriptionRow = {
   price: number | string;
   currency: string;
   billing_period: BillingPeriod;
+  pay_day?: number | null;
   next_renewal_date: string;
+  icon_name?: string | null;
+  icon_label?: string | null;
+  icon_color?: string | null;
+  background_color?: string | null;
+  simple_icon_slug?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -32,7 +38,13 @@ function toSubscription(row: SubscriptionRow): Subscription {
     price: Number(row.price),
     currency: row.currency,
     billingPeriod: row.billing_period,
+    payDay: row.pay_day ?? undefined,
     nextRenewalDate: row.next_renewal_date,
+    iconName: row.icon_name ?? undefined,
+    iconLabel: row.icon_label ?? undefined,
+    iconColor: row.icon_color ?? undefined,
+    backgroundColor: row.background_color ?? undefined,
+    simpleIconSlug: row.simple_icon_slug ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -47,7 +59,13 @@ function toSubscriptionRow(userId: string, item: Subscription) {
     price: item.price,
     currency: item.currency,
     billing_period: item.billingPeriod,
+    pay_day: item.payDay,
     next_renewal_date: item.nextRenewalDate,
+    icon_name: item.iconName,
+    icon_label: item.iconLabel,
+    icon_color: item.iconColor,
+    background_color: item.backgroundColor,
+    simple_icon_slug: item.simpleIconSlug,
     created_at: item.createdAt,
     updated_at: item.updatedAt,
   };
@@ -80,7 +98,10 @@ function newerSubscription(a: Subscription, b: Subscription) {
 export async function syncAppData(userId: string, localSubscriptions: Subscription[], localSettings: Settings) {
   if (!supabase) return { subscriptions: localSubscriptions, settings: localSettings };
 
-  const [{ data: cloudSubscriptions, error: subscriptionsError }, { data: cloudSettings, error: settingsError }] = await Promise.all([
+  const [
+    { data: cloudSubscriptions, error: subscriptionsError },
+    { data: cloudSettings, error: settingsError },
+  ] = await Promise.all([
     supabase.from("subscriptions").select("*").eq("user_id", userId),
     supabase.from("settings").select("*").eq("user_id", userId).maybeSingle(),
   ]);

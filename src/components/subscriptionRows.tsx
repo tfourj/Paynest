@@ -8,29 +8,61 @@ import { colorFor, iconFor } from "../utils/category";
 import { dayDifference, formatMoney, renewalLabel } from "../utils/subscriptions";
 
 export function RenewalRow({ c, item, last }: { c: Colors; item: Subscription; last: boolean }) {
+  const hasCustomBackground = Boolean(item.backgroundColor);
+  const rowTextColor = hasCustomBackground ? "#111827" : c.text;
+  const rowMutedColor = hasCustomBackground ? "#475569" : c.textMuted;
+
   return (
-    <View style={[styles.renewalRow, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }]}>
+    <View
+      style={[
+        styles.renewalRow,
+        item.backgroundColor && { backgroundColor: item.backgroundColor },
+        !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
+      ]}
+    >
       <IconBadge item={item} />
       <View style={styles.rowText}>
-        <Text style={[styles.rowName, { color: c.text }]}>{item.name}</Text>
-        <Text style={[styles.rowMeta, { color: c.textMuted }]}>Renews {renewalLabel(item.nextRenewalDate)}</Text>
+        <Text style={[styles.rowName, { color: rowTextColor }]}>{item.name}</Text>
+        <Text style={[styles.rowMeta, { color: rowMutedColor }]}>Renews {renewalLabel(item.nextRenewalDate)}</Text>
       </View>
-      <Text style={[styles.rowPrice, { color: c.text }]}>{formatMoney(item.price, item.currency)}</Text>
+      <Text style={[styles.rowPrice, { color: rowTextColor }]}>{formatMoney(item.price, item.currency)}</Text>
     </View>
   );
 }
 
-export function SubscriptionRow({ c, item, last, onRemove }: { c: Colors; item: Subscription; last: boolean; onRemove?: () => void }) {
+type SubscriptionRowProps = {
+  c: Colors;
+  item: Subscription;
+  last: boolean;
+  onRemove?: () => void;
+};
+
+export function SubscriptionRow({ c, item, last, onRemove }: SubscriptionRowProps) {
+  const hasCustomBackground = Boolean(item.backgroundColor);
+  const rowTextColor = hasCustomBackground ? "#111827" : c.text;
+  const rowMutedColor = hasCustomBackground ? "#475569" : c.textMuted;
+
   return (
-    <View style={[styles.subscriptionRow, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border }]}>
+    <View
+      style={[
+        styles.subscriptionRow,
+        item.backgroundColor && { backgroundColor: item.backgroundColor },
+        !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
+      ]}
+    >
       <IconBadge item={item} />
       <View style={styles.rowText}>
-        <Text style={[styles.rowName, { color: c.text }]}>{item.name}</Text>
-        <Text style={[styles.rowMeta, { color: c.textMuted }]}>{item.category} · {item.billingPeriod}</Text>
+        <Text style={[styles.rowName, { color: rowTextColor }]}>{item.name}</Text>
+        <Text style={[styles.rowMeta, { color: rowMutedColor }]}>{item.category} · {item.billingPeriod}</Text>
       </View>
       <View style={styles.priceStack}>
-        <Text style={[styles.rowPrice, { color: c.text }]}>{formatMoney(item.price, item.currency)}</Text>
-        <Text style={[styles.renewalStatus, { color: dayDifference(item.nextRenewalDate) <= 3 ? c.warning : c.textMuted }]}>
+        <Text style={[styles.rowPrice, { color: rowTextColor }]}>{formatMoney(item.price, item.currency)}</Text>
+        <Text
+          style={[
+            styles.renewalStatus,
+            { color: dayDifference(item.nextRenewalDate) <= 3 ? c.warning : rowMutedColor },
+          ]}
+        >
           Renews {renewalLabel(item.nextRenewalDate)}
         </Text>
       </View>
@@ -49,10 +81,15 @@ export function SubscriptionRow({ c, item, last, onRemove }: { c: Colors; item: 
 }
 
 function IconBadge({ item }: { item: Subscription }) {
-  const color = colorFor(item.category);
+  const color = item.iconColor ?? colorFor(item.category);
+  const iconName = (item.iconName ?? iconFor(item.category)) as keyof typeof Ionicons.glyphMap;
   return (
     <View style={[styles.iconBadge, { backgroundColor: `${color}18` }]}>
-      <Ionicons name={iconFor(item.category)} size={22} color={color} />
+      {item.iconLabel ? (
+        <Text style={[styles.iconBadgeText, { color }]}>{item.iconLabel}</Text>
+      ) : (
+        <Ionicons name={iconName} size={22} color={color} />
+      )}
     </View>
   );
 }

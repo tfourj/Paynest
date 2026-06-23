@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 import { Chip } from "../components/common";
 import { categories, symbols } from "../constants";
 import { styles } from "../styles";
+import { subscriptionPresets, type SubscriptionPreset } from "../subscriptionPresets";
 import type { Colors } from "../theme";
 import { billingPeriods, type BillingPeriod, type Subscription } from "../types";
 
@@ -18,7 +20,20 @@ type AddSubscriptionProps = {
 
 const noneCategory = "None";
 const categoryOptions = [noneCategory, ...categories];
-const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const payDayOptions = Array.from({ length: 31 }, (_, index) => index + 1);
+const quickPayDays = [1, 5, 10, 15, 20, 25, 28, 31];
+const visualIconOptions = [
+  "card",
+  "play-circle",
+  "musical-notes",
+  "cloud",
+  "game-controller",
+  "fitness",
+  "code-slash",
+  "school",
+] as const;
+const visualColorOptions = ["#2563EB", "#E50914", "#1DB954", "#8B5CF6", "#F97316", "#0891B2", "#111827", "#64748B"];
+const backgroundColorOptions = ["#EFF6FF", "#FEE2E2", "#ECFDF5", "#F5F3FF", "#FFF7ED", "#ECFEFF", "#F3F4F6", "#F8FAFC"];
 
 function startOfToday() {
   const date = new Date();
@@ -32,18 +47,19 @@ function formatDateValue(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function sameDate(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear()
-    && a.getMonth() === b.getMonth()
-    && a.getDate() === b.getDate();
-}
+function dateForPayDay(baseDate: Date, payDay: number) {
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const day = Math.min(payDay, lastDay);
+  const candidate = new Date(year, month, day);
 
-function addDays(date: Date, days: number) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
-}
+  if (candidate.getTime() >= baseDate.getTime()) {
+    return candidate;
+  }
 
-function addMonths(date: Date, months: number) {
-  return new Date(date.getFullYear(), date.getMonth() + months, date.getDate());
+  const nextMonthLastDay = new Date(year, month + 2, 0).getDate();
+  return new Date(year, month + 1, Math.min(payDay, nextMonthLastDay));
 }
 
 export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }: AddSubscriptionProps) {
@@ -52,24 +68,24 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState(noneCategory);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("Monthly");
-  const [renewalDate, setRenewalDate] = useState(today);
-  const [visibleMonth, setVisibleMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [payDay, setPayDay] = useState(today.getDate());
+  const [iconName, setIconName] = useState<(typeof visualIconOptions)[number]>("card");
+  const [iconLabel, setIconLabel] = useState("");
+  const [iconColor, setIconColor] = useState("#2563EB");
+  const [backgroundColor, setBackgroundColor] = useState("#EFF6FF");
+  const [simpleIconSlug, setSimpleIconSlug] = useState<string | undefined>();
   const [error, setError] = useState("");
+  const renewalDate = useMemo(() => dateForPayDay(today, payDay), [payDay, today]);
   const renewal = formatDateValue(renewalDate);
-  const monthDays = useMemo(() => {
-    const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
-    const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
-    const blanks = Array.from({ length: firstDay.getDay() }, () => null);
-    const dates = Array.from(
-      { length: daysInMonth },
-      (_, index) => new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), index + 1),
-    );
-    return [...blanks, ...dates];
-  }, [visibleMonth]);
+  const previewMutedColor = "#475569";
 
-  function selectRenewalDate(date: Date) {
-    setRenewalDate(date);
-    setVisibleMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+  function applyPreset(preset: SubscriptionPreset) {
+    setName(preset.name);
+    setCategory(preset.category);
+    setIconLabel(preset.iconLabel);
+    setIconColor(preset.iconColor);
+    setBackgroundColor(preset.backgroundColor);
+    setSimpleIconSlug(preset.simpleIconSlug);
   }
 
   function save() {
@@ -84,13 +100,24 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
       category,
       billingPeriod,
       currency: defaultCurrency,
+      payDay,
       nextRenewalDate: renewal,
+      iconName: iconLabel ? undefined : iconName,
+      iconLabel: iconLabel || undefined,
+      iconColor,
+      backgroundColor,
+      simpleIconSlug,
     });
     setName("");
     setPrice("");
     setCategory(noneCategory);
     setBillingPeriod("Monthly");
-    selectRenewalDate(today);
+    setPayDay(today.getDate());
+    setIconName("card");
+    setIconLabel("");
+    setIconColor("#2563EB");
+    setBackgroundColor("#EFF6FF");
+    setSimpleIconSlug(undefined);
     setError("");
   }
 
@@ -113,11 +140,20 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
               onChangeText={setName}
               placeholder="Subscription name"
               placeholderTextColor={c.textSoft}
-              style={[styles.input, { color: c.text, borderBottomColor: c.border, borderBottomWidth: StyleSheet.hairlineWidth }]}
+              style={[
+                styles.input,
+                {
+                  color: c.text,
+                  borderBottomColor: c.border,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                },
+              ]}
               autoFocus
             />
             <View style={styles.priceInput}>
-              <Text style={[styles.currency, { color: c.textMuted }]}>{symbols[defaultCurrency] ?? defaultCurrency}</Text>
+              <Text style={[styles.currency, { color: c.textMuted }]}>
+                {symbols[defaultCurrency] ?? defaultCurrency}
+              </Text>
               <TextInput
                 value={price}
                 onChangeText={setPrice}
@@ -128,6 +164,31 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
               />
             </View>
           </View>
+
+          <Text style={[styles.formLabel, { color: c.textMuted }]}>PRESETS</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetList}>
+            {subscriptionPresets.map((preset) => {
+              const selected = simpleIconSlug === preset.simpleIconSlug;
+              return (
+                <Pressable
+                  key={preset.simpleIconSlug}
+                  onPress={() => applyPreset(preset)}
+                  style={[
+                    styles.presetPill,
+                    {
+                      backgroundColor: selected ? preset.backgroundColor : c.surface,
+                      borderColor: selected ? preset.iconColor : c.border,
+                    },
+                  ]}
+                >
+                  <View style={[styles.presetIcon, { backgroundColor: preset.iconColor }]}>
+                    <Text style={styles.presetIconText}>{preset.iconLabel}</Text>
+                  </View>
+                  <Text style={[styles.presetText, { color: c.text }]}>{preset.name}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>BILLING</Text>
           <View style={styles.periods}>
@@ -148,76 +209,120 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
             ))}
           </View>
 
-          <View style={[styles.datePicker, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <View style={styles.dateHeader}>
+          <View style={[styles.payDayPicker, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={styles.payDayHeader}>
               <View>
-                <Text style={[styles.dateLabel, { color: c.textMuted }]}>Next renewal</Text>
-                <Text style={[styles.dateValue, { color: c.text }]}>{renewal}</Text>
+                <Text style={[styles.dateLabel, { color: c.textMuted }]}>Pay day</Text>
+                <Text style={[styles.dateValue, { color: c.text }]}>Day {payDay}</Text>
               </View>
-              <View style={styles.dateNav}>
-                <Pressable
-                  accessibilityLabel="Previous month"
-                  onPress={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1))}
-                  style={[styles.dateNavButton, { backgroundColor: c.surfaceMuted }]}
-                >
-                  <Text style={[styles.dateNavText, { color: c.text }]}>{"<"}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityLabel="Next month"
-                  onPress={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1))}
-                  style={[styles.dateNavButton, { backgroundColor: c.surfaceMuted }]}
-                >
-                  <Text style={[styles.dateNavText, { color: c.text }]}>{">"}</Text>
-                </Pressable>
+              <View style={[styles.nextChargePill, { backgroundColor: c.primarySoft }]}>
+                <Text style={[styles.nextChargeText, { color: c.primary }]}>Next {renewal}</Text>
               </View>
             </View>
-            <Text style={[styles.dateMonth, { color: c.text }]}>
-              {visibleMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-            </Text>
-            <View style={styles.datePresetRow}>
-              {[
-                { label: "Today", date: today },
-                { label: "Tomorrow", date: addDays(today, 1) },
-                { label: "Next week", date: addDays(today, 7) },
-                { label: "Next month", date: addMonths(today, 1) },
-              ].map((preset) => (
+            <View style={styles.quickPayDayRow}>
+              {quickPayDays.map((day) => (
                 <Pressable
-                  key={preset.label}
-                  onPress={() => selectRenewalDate(preset.date)}
-                  style={[styles.datePreset, { backgroundColor: c.surfaceMuted }]}
+                  key={day}
+                  onPress={() => setPayDay(day)}
+                  style={[
+                    styles.quickPayDay,
+                    { backgroundColor: payDay === day ? c.primarySoft : c.surfaceMuted },
+                  ]}
                 >
-                  <Text style={[styles.datePresetText, { color: c.textMuted }]}>{preset.label}</Text>
+                  <Text style={[styles.quickPayDayText, { color: payDay === day ? c.primary : c.textMuted }]}>
+                    {day}
+                  </Text>
                 </Pressable>
               ))}
             </View>
-            <View style={styles.weekdayGrid}>
-              {weekDays.map((day) => (
-                <Text key={day} style={[styles.weekdayText, { color: c.textSoft }]}>
-                  {day}
-                </Text>
+            <View style={styles.payDayGrid}>
+              {payDayOptions.map((day) => (
+                <Pressable
+                  key={day}
+                  onPress={() => setPayDay(day)}
+                  style={[
+                    styles.payDayCell,
+                    { backgroundColor: payDay === day ? c.primary : c.surfaceMuted },
+                  ]}
+                >
+                  <Text style={[styles.payDayCellText, { color: payDay === day ? "#fff" : c.text }]}>
+                    {day}
+                  </Text>
+                </Pressable>
               ))}
             </View>
-            <View style={styles.dateGrid}>
-              {monthDays.map((date, index) => {
-                const selected = date ? sameDate(date, renewalDate) : false;
-                return (
-                  <Pressable
-                    key={date ? formatDateValue(date) : `blank-${index}`}
-                    disabled={!date}
-                    onPress={() => date && selectRenewalDate(date)}
-                    style={[
-                      styles.dateCell,
-                      date && { backgroundColor: selected ? c.primary : c.surfaceMuted },
-                    ]}
-                  >
-                    {date ? (
-                      <Text style={[styles.dateCellText, { color: selected ? "#fff" : c.text }]}>
-                        {date.getDate()}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
+          </View>
+
+          <Text style={[styles.formLabel, { color: c.textMuted }]}>VISUAL STYLE</Text>
+          <View style={[styles.visualPanel, { backgroundColor, borderColor: c.border }]}>
+            <View style={styles.visualPreviewRow}>
+              <View style={[styles.iconBadge, { backgroundColor: iconColor }]}>
+                {iconLabel ? (
+                  <Text style={styles.iconBadgeText}>{iconLabel}</Text>
+                ) : (
+                  <Ionicons name={iconName} size={22} color="#fff" />
+                )}
+              </View>
+              <View style={styles.rowText}>
+                <Text style={[styles.rowName, { color: "#111827" }]}>{name.trim() || "Subscription"}</Text>
+                <Text style={[styles.rowMeta, { color: previewMutedColor }]}>{category} · {billingPeriod}</Text>
+              </View>
+              <Text style={[styles.rowPrice, { color: "#111827" }]}>
+                {symbols[defaultCurrency] ?? defaultCurrency} {price || "0.00"}
+              </Text>
+            </View>
+            <View style={styles.iconChoiceRow}>
+              {visualIconOptions.map((item) => (
+                <Pressable
+                  key={item}
+                  onPress={() => {
+                    setIconName(item);
+                    setIconLabel("");
+                    setSimpleIconSlug(undefined);
+                  }}
+                  style={[
+                    styles.iconChoice,
+                    {
+                      backgroundColor: !iconLabel && iconName === item ? c.primarySoft : c.surface,
+                      borderColor: !iconLabel && iconName === item ? c.primary : c.border,
+                    },
+                  ]}
+                >
+                  <Ionicons name={item} size={18} color={!iconLabel && iconName === item ? c.primary : c.textMuted} />
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.swatchRow}>
+              {visualColorOptions.map((color) => (
+                <Pressable
+                  key={color}
+                  accessibilityLabel={`Use accent ${color}`}
+                  onPress={() => setIconColor(color)}
+                  style={[
+                    styles.colorSwatch,
+                    {
+                      backgroundColor: color,
+                      borderColor: iconColor === color ? c.text : "transparent",
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+            <View style={styles.swatchRow}>
+              {backgroundColorOptions.map((color) => (
+                <Pressable
+                  key={color}
+                  accessibilityLabel={`Use background ${color}`}
+                  onPress={() => setBackgroundColor(color)}
+                  style={[
+                    styles.backgroundSwatch,
+                    {
+                      backgroundColor: color,
+                      borderColor: backgroundColor === color ? c.text : c.border,
+                    },
+                  ]}
+                />
+              ))}
             </View>
           </View>
 

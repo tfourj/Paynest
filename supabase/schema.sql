@@ -12,7 +12,13 @@ create table if not exists public.subscriptions (
   price numeric(12, 2) not null check (price > 0),
   currency text not null default 'EUR',
   billing_period text not null check (billing_period in ('Weekly', 'Monthly', '3 months', '6 months', 'Yearly')),
+  pay_day integer check (pay_day between 1 and 31),
   next_renewal_date date not null,
+  icon_name text,
+  icon_label text,
+  icon_color text,
+  background_color text,
+  simple_icon_slug text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
