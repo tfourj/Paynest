@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { Tab } from "../constants";
 import { styles } from "../styles";
@@ -80,6 +81,7 @@ export function StatusPill({ c, label }: { c: Colors; label: string }) {
 }
 
 export function TabBar({ c, active, onChange }: { c: Colors; active: Tab; onChange: (tab: Tab) => void }) {
+  const insets = useSafeAreaInsets();
   const tabs: { label: Tab; icon: keyof typeof Ionicons.glyphMap }[] = [
     { label: "Dashboard", icon: "home-outline" },
     { label: "Subscriptions", icon: "card-outline" },
@@ -88,9 +90,23 @@ export function TabBar({ c, active, onChange }: { c: Colors; active: Tab; onChan
   ];
 
   return (
-    <View style={[styles.tabBar, { backgroundColor: c.surface, borderColor: c.border }]}>
+    <View
+      style={[
+        styles.tabBar,
+        {
+          backgroundColor: c.surface,
+          borderColor: c.border,
+          paddingBottom: Math.max(insets.bottom, 10),
+        },
+      ]}
+    >
       {tabs.map((item) => (
-        <Pressable key={item.label} onPress={() => onChange(item.label)} style={styles.tab}>
+        <Pressable
+          key={item.label}
+          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+          onPress={() => onChange(item.label)}
+          style={styles.tab}
+        >
           <Ionicons
             name={item.icon}
             size={22}

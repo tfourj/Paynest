@@ -468,7 +468,7 @@ export function AddSubscription({
                   borderBottomWidth: StyleSheet.hairlineWidth,
                 },
               ]}
-              autoFocus
+              autoFocus={!editing}
             />
             <View style={styles.priceInput}>
               <Text style={[styles.currency, { color: c.textMuted }]}>
