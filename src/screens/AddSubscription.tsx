@@ -94,6 +94,12 @@ function readableTextColor(background: string) {
   return luminance > 0.68 ? "#111827" : "#FFFFFF";
 }
 
+function normalizeHexColor(value: string) {
+  const normalized = value.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return undefined;
+  return `#${normalized.toUpperCase()}`;
+}
+
 function daysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
@@ -132,6 +138,7 @@ export function AddSubscription({
   const [iconLabel, setIconLabel] = useState("");
   const [iconColor, setIconColor] = useState("#2563EB");
   const [backgroundColor, setBackgroundColor] = useState("#2563EB");
+  const [customBackgroundInput, setCustomBackgroundInput] = useState("#2563EB");
   const [simpleIconSlug, setSimpleIconSlug] = useState<string | undefined>();
   const [iconProvider, setIconProvider] = useState<IconProvider | undefined>();
   const [iconUrl, setIconUrl] = useState<string | undefined>();
@@ -226,11 +233,12 @@ export function AddSubscription({
     setIconLabel(subscription?.iconLabel ?? "");
     setIconColor(subscription?.iconColor ?? "#2563EB");
     setBackgroundColor(subscription?.backgroundColor ?? subscription?.iconColor ?? "#2563EB");
+    setCustomBackgroundInput(subscription?.backgroundColor ?? subscription?.iconColor ?? "#2563EB");
     setSimpleIconSlug(subscription?.simpleIconSlug);
     setIconProvider(subscription?.iconProvider as IconProvider | undefined);
     setIconUrl(subscription?.iconUrl);
     setIconSourceTitle(subscription?.iconSourceTitle);
-    setSymbolSearch(subscription?.name ?? "");
+    setSymbolSearch("");
     setRemoteIconResults([]);
     setSymbolSearchLoading(false);
     setShowPresetPicker(false);
@@ -275,11 +283,11 @@ export function AddSubscription({
     setIconLabel(preset.iconLabel);
     setIconColor(preset.iconColor);
     setBackgroundColor(preset.iconColor);
+    setCustomBackgroundInput(preset.iconColor);
     setSimpleIconSlug(preset.simpleIconSlug);
     setIconProvider("simpleicons");
     setIconUrl(undefined);
     setIconSourceTitle(preset.name);
-    setSymbolSearch(preset.name);
     setShowPresetPicker(false);
   }
 
@@ -291,6 +299,17 @@ export function AddSubscription({
     setIconLabel("");
     setIconName("card");
     setIconColor(icon.color ?? iconColor);
+  }
+
+  function selectBackgroundColor(color: string) {
+    setBackgroundColor(color);
+    setCustomBackgroundInput(color);
+  }
+
+  function updateCustomBackground(value: string) {
+    setCustomBackgroundInput(value);
+    const color = normalizeHexColor(value);
+    if (color) setBackgroundColor(color);
   }
 
   function toggleIconProvider(provider: IconProvider) {
@@ -345,6 +364,7 @@ export function AddSubscription({
     setIconLabel("");
     setIconColor("#2563EB");
     setBackgroundColor("#2563EB");
+    setCustomBackgroundInput("#2563EB");
     setSimpleIconSlug(undefined);
     setIconProvider(undefined);
     setIconUrl(undefined);
@@ -787,7 +807,7 @@ export function AddSubscription({
                 <Pressable
                   key={color}
                   accessibilityLabel={`Use background ${color}`}
-                  onPress={() => setBackgroundColor(color)}
+                  onPress={() => selectBackgroundColor(color)}
                   style={[
                     styles.backgroundSwatch,
                     {
@@ -797,6 +817,19 @@ export function AddSubscription({
                   ]}
                 />
               ))}
+            </View>
+            <View style={[styles.customBackgroundGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <View style={[styles.customBackgroundPreview, { backgroundColor }]} />
+              <TextInput
+                value={customBackgroundInput}
+                onChangeText={updateCustomBackground}
+                placeholder="#2563EB"
+                placeholderTextColor={c.textSoft}
+                style={[styles.customBackgroundInput, { color: c.text }]}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                maxLength={7}
+              />
             </View>
           </View>
 
