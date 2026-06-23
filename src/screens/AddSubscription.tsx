@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Chip } from "../components/common";
+import { getSimpleIcon, SimpleIcon } from "../components/SimpleIcon";
 import { categories, symbols } from "../constants";
 import { styles } from "../styles";
 import { subscriptionPresets, type SubscriptionPreset } from "../subscriptionPresets";
@@ -231,6 +232,7 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
             {visiblePresets.map((preset) => {
               const selected = simpleIconSlug === preset.simpleIconSlug;
               const presetTextColor = readableTextColor(preset.iconColor);
+              const presetIcon = getSimpleIcon(preset.simpleIconSlug);
               return (
                 <Pressable
                   key={preset.simpleIconSlug}
@@ -249,9 +251,17 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
                       { backgroundColor: selected ? "rgba(255,255,255,0.18)" : preset.iconColor },
                     ]}
                   >
-                    <Text style={[styles.presetIconText, { color: selected ? presetTextColor : "#fff" }]}>
-                      {preset.iconLabel}
-                    </Text>
+                    {presetIcon ? (
+                      <SimpleIcon
+                        slug={presetIcon.slug}
+                        size={19}
+                        color={selected ? presetTextColor : "#fff"}
+                      />
+                    ) : (
+                      <Text style={[styles.presetIconText, { color: selected ? presetTextColor : "#fff" }]}>
+                        {preset.iconLabel}
+                      </Text>
+                    )}
                   </View>
                   <View style={styles.rowText}>
                     <Text style={[styles.presetText, { color: selected ? presetTextColor : "#111827" }]}>
@@ -405,7 +415,9 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
           <View style={[styles.visualPanel, { backgroundColor, borderColor: c.border }]}>
             <View style={styles.visualPreviewRow}>
               <View style={[styles.iconBadge, { backgroundColor: previewBadgeBackground }]}>
-                {iconLabel ? (
+                {getSimpleIcon(simpleIconSlug) ? (
+                  <SimpleIcon slug={simpleIconSlug} size={23} color={previewTextColor} />
+                ) : iconLabel ? (
                   <Text style={[styles.iconBadgeText, { color: previewTextColor }]}>{iconLabel}</Text>
                 ) : (
                   <Ionicons name={iconName} size={22} color={previewTextColor} />

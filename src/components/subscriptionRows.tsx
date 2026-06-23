@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { getSimpleIcon, SimpleIcon } from "./SimpleIcon";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Subscription } from "../types";
@@ -107,10 +108,13 @@ function IconBadge({ item, rowTextColor }: { item: Subscription; rowTextColor: s
   const color = item.iconColor ?? colorFor(item.category);
   const iconName = (item.iconName ?? iconFor(item.category)) as keyof typeof Ionicons.glyphMap;
   const badgeBackground = rowTextColor === "#FFFFFF" ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.72)";
+  const simpleIcon = getSimpleIcon(item.simpleIconSlug);
 
   return (
     <View style={[styles.iconBadge, { backgroundColor: badgeBackground }]}>
-      {item.iconLabel ? (
+      {simpleIcon ? (
+        <SimpleIcon slug={simpleIcon.slug} size={23} color={rowTextColor} />
+      ) : item.iconLabel ? (
         <Text style={[styles.iconBadgeText, { color: rowTextColor }]}>{item.iconLabel}</Text>
       ) : (
         <Ionicons name={iconName} size={22} color={rowTextColor} />
