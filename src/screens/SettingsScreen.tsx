@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { ColorPickerSheet } from "../components/ColorPickerSheet";
 import { Chip, StatusPill } from "../components/common";
 import { clearIconCache } from "../iconCache";
 import { sendDebugNotification } from "../notifications";
@@ -316,6 +317,8 @@ function AppearanceSettings({
   onUpdate: (settings: Settings) => void;
 }) {
   const [presetInput, setPresetInput] = useState("");
+  const [showPresetColorPicker, setShowPresetColorPicker] = useState(false);
+  const [presetPickerColor, setPresetPickerColor] = useState(settings.colorPresets[0] ?? "#2563EB");
   const normalizedPresetInput = normalizeHexColor(presetInput);
   const canAddPreset = Boolean(
     normalizedPresetInput && !settings.colorPresets.includes(normalizedPresetInput),
@@ -323,8 +326,24 @@ function AppearanceSettings({
 
   function addColorPreset() {
     if (!normalizedPresetInput || !canAddPreset) return;
-    onUpdate({ ...settings, colorPresets: [...settings.colorPresets, normalizedPresetInput] });
+    addPresetColor(normalizedPresetInput);
     setPresetInput("");
+  }
+
+  function addPresetColor(color: string) {
+    if (settings.colorPresets.includes(color)) return;
+    onUpdate({ ...settings, colorPresets: [...settings.colorPresets, color] });
+  }
+
+  function openPresetColorPicker() {
+    setPresetPickerColor(normalizedPresetInput ?? settings.colorPresets[0] ?? "#2563EB");
+    setShowPresetColorPicker(true);
+  }
+
+  function addPickerPreset() {
+    addPresetColor(presetPickerColor);
+    setPresetInput("");
+    setShowPresetColorPicker(false);
   }
 
   function removeColorPreset(color: string) {
@@ -400,6 +419,16 @@ function AppearanceSettings({
               maxLength={7}
             />
             <Pressable
+              accessibilityLabel="Pick color preset"
+              onPress={openPresetColorPicker}
+              style={[
+                styles.colorPresetAddButton,
+                { backgroundColor: c.surfaceMuted },
+              ]}
+            >
+              <Ionicons name="color-palette-outline" size={20} color={c.text} />
+            </Pressable>
+            <Pressable
               disabled={!canAddPreset}
               onPress={addColorPreset}
               style={[
@@ -412,6 +441,16 @@ function AppearanceSettings({
           </View>
         </View>
       </View>
+      <ColorPickerSheet
+        c={c}
+        visible={showPresetColorPicker}
+        title="Color preset"
+        value={presetPickerColor}
+        presets={settings.colorPresets}
+        onClose={() => setShowPresetColorPicker(false)}
+        onChangeColor={setPresetPickerColor}
+        onDone={addPickerPreset}
+      />
     </>
   );
 }
