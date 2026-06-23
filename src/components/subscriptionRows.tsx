@@ -6,7 +6,7 @@ import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Subscription } from "../types";
 import { colorFor, iconFor } from "../utils/category";
-import { dayDifference, formatMoney, renewalLabel } from "../utils/subscriptions";
+import { formatMoney, renewalLabel } from "../utils/subscriptions";
 import type { IconSource } from "../iconSearch";
 
 function hexToRgb(hex: string) {
@@ -86,7 +86,7 @@ export function SubscriptionRow({ c, item, last, onPress }: SubscriptionRowProps
         <Text
           style={[
             styles.renewalStatus,
-            { color: dayDifference(item.nextRenewalDate) <= 3 ? c.warning : rowMutedColor },
+            { color: rowMutedColor },
           ]}
         >
           Renews {renewalLabel(item.nextRenewalDate)}
