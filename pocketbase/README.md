@@ -30,26 +30,29 @@ Recommended auth settings:
 
 Paynest calls PocketBase's password auth, request verification, and password reset APIs.
 
-## SQL Collection Setup
+## Collection Import Setup
 
-Use the SQL file in this folder to create the Paynest app collections.
+Use the collection import file in this folder to create the Paynest app collections.
 
 Open PocketBase admin:
 
 ```text
-Settings -> Database -> New query
+Collections -> Import collections
 ```
 
-Paste and run:
+Import:
 
 ```text
-pocketbase/paynest.sql
+pocketbase/paynest.collections.json
 ```
 
-After running it, restart PocketBase if the new collections do not appear immediately in the
-Collections screen.
+You can regenerate the import file from the repo root with:
 
-The SQL creates:
+```sh
+npm run pb:collections
+```
+
+The import file creates:
 
 - `subscriptions`
 - `settings`
