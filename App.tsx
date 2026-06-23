@@ -46,6 +46,7 @@ import { defaultSettings, type Settings, type Subscription } from "./src/types";
 import {
   dayDifference,
   monthlyCost,
+  nextRenewalDate,
   nextMonthlyPayday,
   nextMonthStart,
   spendUntil,
@@ -223,7 +224,10 @@ export default function App() {
   );
   const upcoming = useMemo(
     () => subscriptions
-      .filter((item) => dayDifference(item.nextRenewalDate) >= 0)
+      .map((item) => ({
+        ...item,
+        nextRenewalDate: nextRenewalDate(item),
+      }))
       .sort((a, b) => dayDifference(a.nextRenewalDate) - dayDifference(b.nextRenewalDate)),
     [subscriptions],
   );
