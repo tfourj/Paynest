@@ -20,8 +20,8 @@ type AddSubscriptionProps = {
 
 const noneCategory = "None";
 const categoryOptions = [noneCategory, ...categories];
-const payDayOptions = Array.from({ length: 31 }, (_, index) => index + 1);
-const quickPayDays = [1, 15, 28, 31];
+const yearOptions = Array.from({ length: 6 }, (_, index) => new Date().getFullYear() + index);
+const monthOptions = Array.from({ length: 12 }, (_, index) => index);
 const visualIconOptions = [
   "card",
   "play-circle",
@@ -57,7 +57,7 @@ function formatDateValue(date: Date) {
 }
 
 function formatLongDate(date: Date) {
-  return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
 function ordinal(day: number) {
@@ -78,36 +78,40 @@ function readableTextColor(background: string) {
   return luminance > 0.68 ? "#111827" : "#FFFFFF";
 }
 
-function dateForPayDay(baseDate: Date, payDay: number) {
-  const year = baseDate.getFullYear();
-  const month = baseDate.getMonth();
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const day = Math.min(payDay, lastDay);
-  const candidate = new Date(year, month, day);
+function daysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
 
-  if (candidate.getTime() >= baseDate.getTime()) {
-    return candidate;
-  }
-
-  const nextMonthLastDay = new Date(year, month + 2, 0).getDate();
-  return new Date(year, month + 1, Math.min(payDay, nextMonthLastDay));
+function clampDate(year: number, month: number, day: number) {
+  return new Date(year, month, Math.min(day, daysInMonth(year, month)));
 }
 
 export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }: AddSubscriptionProps) {
   const today = useMemo(startOfToday, [visible]);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [presetSearch, setPresetSearch] = useState("");
   const [category, setCategory] = useState(noneCategory);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("Monthly");
-  const [payDay, setPayDay] = useState(today.getDate());
+  const [firstPaymentDate, setFirstPaymentDate] = useState(today);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [iconName, setIconName] = useState<(typeof visualIconOptions)[number]>("card");
   const [iconLabel, setIconLabel] = useState("");
   const [iconColor, setIconColor] = useState("#2563EB");
   const [backgroundColor, setBackgroundColor] = useState("#2563EB");
   const [simpleIconSlug, setSimpleIconSlug] = useState<string | undefined>();
   const [error, setError] = useState("");
-  const renewalDate = useMemo(() => dateForPayDay(today, payDay), [payDay, today]);
-  const renewal = formatDateValue(renewalDate);
+  const payDay = firstPaymentDate.getDate();
+  const renewal = formatDateValue(firstPaymentDate);
+  const datePickerDays = Array.from(
+    { length: daysInMonth(firstPaymentDate.getFullYear(), firstPaymentDate.getMonth()) },
+    (_, index) => index + 1,
+  );
+  const visiblePresets = useMemo(() => {
+    const query = presetSearch.trim().toLowerCase();
+    if (!query) return subscriptionPresets.slice(0, 18);
+    return subscriptionPresets.filter((preset) => preset.name.toLowerCase().includes(query)).slice(0, 24);
+  }, [presetSearch]);
   const previewTextColor = readableTextColor(backgroundColor);
   const previewMutedColor = previewTextColor === "#FFFFFF" ? "rgba(255,255,255,0.78)" : "#475569";
   const previewBadgeBackground = previewTextColor === "#FFFFFF"
@@ -116,6 +120,7 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
 
   function applyPreset(preset: SubscriptionPreset) {
     setName(preset.name);
+    setPresetSearch(preset.name);
     setCategory(preset.category);
     setIconLabel(preset.iconLabel);
     setIconColor(preset.iconColor);
@@ -123,8 +128,13 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
     setSimpleIconSlug(preset.simpleIconSlug);
   }
 
-  function adjustPayDay(delta: number) {
-    setPayDay((current) => Math.min(31, Math.max(1, current + delta)));
+  function updateFirstPaymentDate(part: "day" | "month" | "year", value: number) {
+    setFirstPaymentDate((current) => {
+      const nextYear = part === "year" ? value : current.getFullYear();
+      const nextMonth = part === "month" ? value : current.getMonth();
+      const nextDay = part === "day" ? value : current.getDate();
+      return clampDate(nextYear, nextMonth, nextDay);
+    });
   }
 
   function save() {
@@ -149,9 +159,10 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
     });
     setName("");
     setPrice("");
+    setPresetSearch("");
     setCategory(noneCategory);
     setBillingPeriod("Monthly");
-    setPayDay(today.getDate());
+    setFirstPaymentDate(today);
     setIconName("card");
     setIconLabel("");
     setIconColor("#2563EB");
@@ -205,29 +216,56 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
           </View>
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>PRESETS</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetList}>
-            {subscriptionPresets.map((preset) => {
+          <View style={[styles.presetSearchGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Ionicons name="search" size={18} color={c.textSoft} />
+            <TextInput
+              value={presetSearch}
+              onChangeText={setPresetSearch}
+              placeholder="Search subscription presets"
+              placeholderTextColor={c.textSoft}
+              style={[styles.presetSearchInput, { color: c.text }]}
+              autoCapitalize="none"
+            />
+          </View>
+          <View style={styles.presetList}>
+            {visiblePresets.map((preset) => {
               const selected = simpleIconSlug === preset.simpleIconSlug;
+              const presetTextColor = readableTextColor(preset.iconColor);
               return (
                 <Pressable
                   key={preset.simpleIconSlug}
                   onPress={() => applyPreset(preset)}
                   style={[
-                    styles.presetPill,
+                    styles.presetRow,
                     {
-                      backgroundColor: selected ? preset.backgroundColor : c.surface,
+                      backgroundColor: selected ? preset.iconColor : preset.backgroundColor,
                       borderColor: selected ? preset.iconColor : c.border,
                     },
                   ]}
                 >
-                  <View style={[styles.presetIcon, { backgroundColor: preset.iconColor }]}>
-                    <Text style={styles.presetIconText}>{preset.iconLabel}</Text>
+                  <View
+                    style={[
+                      styles.presetIcon,
+                      { backgroundColor: selected ? "rgba(255,255,255,0.18)" : preset.iconColor },
+                    ]}
+                  >
+                    <Text style={[styles.presetIconText, { color: selected ? presetTextColor : "#fff" }]}>
+                      {preset.iconLabel}
+                    </Text>
                   </View>
-                  <Text style={[styles.presetText, { color: c.text }]}>{preset.name}</Text>
+                  <View style={styles.rowText}>
+                    <Text style={[styles.presetText, { color: selected ? presetTextColor : "#111827" }]}>
+                      {preset.name}
+                    </Text>
+                    <Text style={[styles.presetCategory, { color: selected ? "rgba(255,255,255,0.78)" : "#475569" }]}>
+                      {preset.category}
+                    </Text>
+                  </View>
+                  {selected ? <Ionicons name="checkmark-circle" size={20} color={presetTextColor} /> : null}
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>BILLING</Text>
           <View style={styles.periods}>
@@ -248,82 +286,120 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
             ))}
           </View>
 
-          <View style={[styles.payDatePanel, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <View style={styles.payDateTopRow}>
+          <Pressable
+            onPress={() => setShowDatePicker(true)}
+            style={[styles.payDateRow, { backgroundColor: c.surface, borderColor: c.border }]}
+          >
+            <View style={styles.payDateRowIcon}>
+              <Ionicons name="calendar-outline" size={21} color={c.primary} />
+            </View>
+            <View style={styles.rowText}>
+              <Text style={[styles.payDateRowLabel, { color: c.textMuted }]}>First payment</Text>
+              <Text style={[styles.payDateRowValue, { color: c.text }]}>{formatLongDate(firstPaymentDate)}</Text>
+            </View>
+            <View style={styles.payDateRowMeta}>
+              <Text style={[styles.payDateRowDay, { color: c.primary }]}>Day {payDay}</Text>
+              <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
+            </View>
+          </Pressable>
+
+          <Modal
+            visible={showDatePicker}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setShowDatePicker(false)}
+          >
+            <Pressable style={styles.sheetScrim} onPress={() => setShowDatePicker(false)} />
+            <View style={[styles.dateSheet, { backgroundColor: c.background }]}>
+              <View style={styles.dateSheetHandle} />
+              <View style={styles.dateSheetHeader}>
               <View>
-                <Text style={[styles.dateLabel, { color: c.textMuted }]}>PAY DATE</Text>
-                <Text style={[styles.payDateTitle, { color: c.text }]}>
-                  Every {ordinal(payDay)}
-                </Text>
-                <Text style={[styles.payDateSubtitle, { color: c.textMuted }]}>
-                  Next charge {formatLongDate(renewalDate)}
-                </Text>
-              </View>
-              <View style={styles.payDateStepper}>
-                <Pressable
-                  accessibilityLabel="Previous pay day"
-                  onPress={() => adjustPayDay(-1)}
-                  style={[styles.payDateStepButton, { backgroundColor: c.surfaceMuted }]}
-                >
-                  <Ionicons name="remove" size={18} color={c.text} />
-                </Pressable>
-                <View style={[styles.payDateNumber, { backgroundColor: c.primary }]}>
-                  <Text style={styles.payDateNumberText}>{payDay}</Text>
+                  <Text style={[styles.dateLabel, { color: c.textMuted }]}>FIRST PAYMENT</Text>
+                  <Text style={[styles.payDateTitle, { color: c.text }]}>
+                    {formatLongDate(firstPaymentDate)}
+                  </Text>
+                  <Text style={[styles.payDateSubtitle, { color: c.textMuted }]}>
+                    Recurs every {ordinal(payDay)}
+                  </Text>
                 </View>
-                <Pressable
-                  accessibilityLabel="Next pay day"
-                  onPress={() => adjustPayDay(1)}
-                  style={[styles.payDateStepButton, { backgroundColor: c.surfaceMuted }]}
-                >
-                  <Ionicons name="add" size={18} color={c.text} />
+                <Pressable onPress={() => setShowDatePicker(false)} style={styles.doneButton}>
+                  <Text style={[styles.doneButtonText, { color: c.primary }]}>Done</Text>
                 </Pressable>
               </View>
-            </View>
 
-            <View style={styles.payDateQuickRow}>
-              {quickPayDays.map((day) => (
-                <Pressable
-                  key={day}
-                  onPress={() => setPayDay(day)}
-                  style={[
-                    styles.payDateQuickChip,
-                    {
-                      backgroundColor: payDay === day ? c.primarySoft : c.surfaceMuted,
-                      borderColor: payDay === day ? c.primary : "transparent",
-                    },
-                  ]}
-                >
-                  <Text style={[styles.payDateQuickText, { color: payDay === day ? c.primary : c.textMuted }]}>
-                    {day === 31 ? "Last day" : ordinal(day)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+              <View style={styles.dateWheelRow}>
+                <View style={styles.dateWheelColumn}>
+                  <Text style={[styles.dateWheelLabel, { color: c.textMuted }]}>Day</Text>
+                  <ScrollView showsVerticalScrollIndicator={false} style={styles.dateWheel}>
+                    {datePickerDays.map((day) => (
+                      <Pressable
+                        key={day}
+                        onPress={() => updateFirstPaymentDate("day", day)}
+                        style={[
+                          styles.dateWheelItem,
+                          { backgroundColor: payDay === day ? c.primarySoft : "transparent" },
+                        ]}
+                      >
+                        <Text style={[styles.dateWheelText, { color: payDay === day ? c.primary : c.text }]}>
+                          {day}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.payDateRail}
-            >
-              {payDayOptions.map((day) => (
-                <Pressable
-                  key={day}
-                  onPress={() => setPayDay(day)}
-                  style={[
-                    styles.payDateRailItem,
-                    {
-                      backgroundColor: payDay === day ? c.primary : c.surfaceMuted,
-                      borderColor: payDay === day ? c.primary : c.border,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.payDateRailText, { color: payDay === day ? "#fff" : c.textMuted }]}>
-                    {day}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
+                <View style={styles.dateWheelColumn}>
+                  <Text style={[styles.dateWheelLabel, { color: c.textMuted }]}>Month</Text>
+                  <ScrollView showsVerticalScrollIndicator={false} style={styles.dateWheel}>
+                    {monthOptions.map((month) => (
+                      <Pressable
+                        key={month}
+                        onPress={() => updateFirstPaymentDate("month", month)}
+                        style={[
+                          styles.dateWheelItem,
+                          { backgroundColor: firstPaymentDate.getMonth() === month ? c.primarySoft : "transparent" },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.dateWheelText,
+                            { color: firstPaymentDate.getMonth() === month ? c.primary : c.text },
+                          ]}
+                        >
+                          {new Date(2026, month, 1).toLocaleDateString(undefined, { month: "short" })}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                <View style={styles.dateWheelColumn}>
+                  <Text style={[styles.dateWheelLabel, { color: c.textMuted }]}>Year</Text>
+                  <ScrollView showsVerticalScrollIndicator={false} style={styles.dateWheel}>
+                    {yearOptions.map((year) => (
+                      <Pressable
+                        key={year}
+                        onPress={() => updateFirstPaymentDate("year", year)}
+                        style={[
+                          styles.dateWheelItem,
+                          { backgroundColor: firstPaymentDate.getFullYear() === year ? c.primarySoft : "transparent" },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.dateWheelText,
+                            { color: firstPaymentDate.getFullYear() === year ? c.primary : c.text },
+                          ]}
+                        >
+                          {year}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+            </View>
+          </Modal>
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>VISUAL STYLE</Text>
           <View style={[styles.visualPanel, { backgroundColor, borderColor: c.border }]}>
