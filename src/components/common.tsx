@@ -52,11 +52,30 @@ export function SectionHeader({ c, title, action, onPress }: { c: Colors; title:
   );
 }
 
-export function Chip({ c, label, selected = false, onPress }: { c: Colors; label: string; selected?: boolean; onPress?: () => void }) {
+export function Chip({
+  c,
+  label,
+  selected = false,
+  bordered = false,
+  onPress,
+}: {
+  c: Colors;
+  label: string;
+  selected?: boolean;
+  bordered?: boolean;
+  onPress?: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.chip, { backgroundColor: selected ? c.primarySoft : c.surfaceMuted }]}
+      style={[
+        styles.chip,
+        {
+          backgroundColor: selected ? c.primarySoft : c.surfaceMuted,
+          borderColor: selected ? c.primary : c.border,
+          borderWidth: bordered ? 1 : 0,
+        },
+      ]}
     >
       <Text style={[styles.chipText, { color: selected ? c.primary : c.textMuted }]}>{label}</Text>
     </Pressable>

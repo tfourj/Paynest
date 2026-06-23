@@ -144,119 +144,146 @@ export function AuthModal({
 
   return (
     <Modal visible={mode !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
-      <View style={[styles.modal, { backgroundColor: c.background }]}>
-        <View style={styles.modalHeader}>
-          <Pressable onPress={close}>
-            <Text style={[styles.cancel, { color: c.primary }]}>Cancel</Text>
-          </Pressable>
-          <Text style={[styles.modalTitle, { color: c.text }]}>{title}</Text>
-          <View style={{ width: 48 }} />
-        </View>
-
-        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.formLabel, { color: c.textMuted }]}>SERVER</Text>
-          <View style={styles.chips}>
-            <Chip
-              c={c}
-              label="Paynest"
-              selected={serverChoice === "paynest"}
-              onPress={() => setServerChoice("paynest")}
-            />
-            <Chip
-              c={c}
-              label="Custom"
-              selected={serverChoice === "custom"}
-              onPress={() => setServerChoice("custom")}
-            />
+      <View style={[styles.authModalOverlay, { backgroundColor: c.background }]}>
+        <View
+          style={[
+            styles.authModalPanel,
+            {
+              backgroundColor: c.background,
+              borderColor: c.border,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.modalHeader,
+              {
+                borderBottomColor: c.border,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+              },
+            ]}
+          >
+            <Pressable onPress={close}>
+              <Text style={[styles.cancel, { color: c.primary }]}>Cancel</Text>
+            </Pressable>
+            <Text style={[styles.modalTitle, { color: c.text }]}>{title}</Text>
+            <View style={{ width: 48 }} />
           </View>
 
-          {serverChoice === "custom" && (
-            <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <TextInput
-                value={url}
-                onChangeText={setUrl}
-                placeholder="PocketBase URL"
-                placeholderTextColor={c.textSoft}
-                style={[styles.input, { color: c.text }]}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-                textContentType="URL"
+          <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+            <Text style={[styles.formLabel, { color: c.textMuted }]}>SERVER</Text>
+            <View style={styles.chips}>
+              <Chip
+                c={c}
+                label="Paynest"
+                bordered
+                selected={serverChoice === "paynest"}
+                onPress={() => setServerChoice("paynest")}
+              />
+              <Chip
+                c={c}
+                label="Custom"
+                bordered
+                selected={serverChoice === "custom"}
+                onPress={() => setServerChoice("custom")}
               />
             </View>
-          )}
 
-          <Text style={[styles.formLabel, { color: c.textMuted }]}>ACCOUNT</Text>
-          <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Email"
-              placeholderTextColor={c.textSoft}
-              style={[
-                styles.input,
-                {
-                  color: c.text,
-                  borderBottomColor: mode === "forgot" ? "transparent" : c.border,
-                  borderBottomWidth: mode === "forgot" ? 0 : StyleSheet.hairlineWidth,
-                },
-              ]}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-            />
+            {serverChoice === "custom" && (
+              <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+                <TextInput
+                  value={url}
+                  onChangeText={setUrl}
+                  placeholder="PocketBase URL"
+                  placeholderTextColor={c.textSoft}
+                  style={[styles.input, { color: c.text }]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  textContentType="URL"
+                />
+              </View>
+            )}
 
-            {mode !== "forgot" && (
+            <Text style={[styles.formLabel, { color: c.textMuted }]}>ACCOUNT</Text>
+            <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
               <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Password"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Email"
                 placeholderTextColor={c.textSoft}
                 style={[
                   styles.input,
                   {
                     color: c.text,
-                    borderBottomColor: mode === "create" ? c.border : "transparent",
-                    borderBottomWidth: mode === "create" ? StyleSheet.hairlineWidth : 0,
+                    borderBottomColor: mode === "forgot" ? "transparent" : c.border,
+                    borderBottomWidth: mode === "forgot" ? 0 : StyleSheet.hairlineWidth,
                   },
                 ]}
-                secureTextEntry
-                textContentType={mode === "create" ? "newPassword" : "password"}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
               />
-            )}
 
-            {mode === "create" && (
-              <TextInput
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Confirm password"
-                placeholderTextColor={c.textSoft}
-                style={[styles.input, { color: c.text }]}
-                secureTextEntry
-                textContentType="newPassword"
-              />
-            )}
-          </View>
+              {mode !== "forgot" && (
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Password"
+                  placeholderTextColor={c.textSoft}
+                  style={[
+                    styles.input,
+                    {
+                      color: c.text,
+                      borderBottomColor: mode === "create" ? c.border : "transparent",
+                      borderBottomWidth: mode === "create" ? StyleSheet.hairlineWidth : 0,
+                    },
+                  ]}
+                  secureTextEntry
+                  textContentType={mode === "create" ? "newPassword" : "password"}
+                />
+              )}
 
-          {mode === "login" && (
-            <Pressable disabled={busy} onPress={() => onModeChange("forgot")} style={styles.textButton}>
-              <Text style={[styles.textButtonText, { color: c.primary }]}>Forgot password?</Text>
+              {mode === "create" && (
+                <TextInput
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm password"
+                  placeholderTextColor={c.textSoft}
+                  style={[styles.input, { color: c.text }]}
+                  secureTextEntry
+                  textContentType="newPassword"
+                />
+              )}
+            </View>
+
+            {mode === "login" && (
+              <Pressable disabled={busy} onPress={() => onModeChange("forgot")} style={styles.textButton}>
+                <Text style={[styles.textButtonText, { color: c.primary }]}>Forgot password?</Text>
+              </Pressable>
+            )}
+            {message ? (
+              <Text style={[styles.statusText, { color: success ? c.textMuted : "#DC2626" }]}>{message}</Text>
+            ) : null}
+          </ScrollView>
+
+          <View style={[styles.saveArea, { borderTopColor: c.border, backgroundColor: c.background }]}>
+            <Pressable
+              disabled={busy}
+              onPress={() => void submit()}
+              style={[
+                styles.saveButton,
+                styles.authSaveButton,
+                {
+                  backgroundColor: c.primary,
+                  borderColor: c.border,
+                },
+              ]}
+            >
+              <Text style={styles.saveText}>{submitLabel}</Text>
             </Pressable>
-          )}
-          {message ? (
-            <Text style={[styles.statusText, { color: success ? c.textMuted : "#DC2626" }]}>{message}</Text>
-          ) : null}
-        </ScrollView>
-
-        <View style={[styles.saveArea, { borderTopColor: c.border, backgroundColor: c.background }]}>
-          <Pressable
-            disabled={busy}
-            onPress={() => void submit()}
-            style={[styles.saveButton, { backgroundColor: c.primary }]}
-          >
-            <Text style={styles.saveText}>{submitLabel}</Text>
-          </Pressable>
+          </View>
         </View>
       </View>
     </Modal>

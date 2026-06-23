@@ -241,6 +241,20 @@ export const styles = StyleSheet.create({
   tab: { flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", gap: 4 },
   tabText: { fontSize: 10, fontWeight: "600" },
   modal: { flex: 1 },
+  authModalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+  authModalPanel: {
+    width: "100%",
+    maxWidth: 460,
+    maxHeight: "92%",
+    alignSelf: "center",
+    borderRadius: 22,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
   modalHeader: { flexDirection: "row", padding: 20, alignItems: "center", justifyContent: "space-between" },
   cancel: { fontSize: 16, fontWeight: "600" },
   modalTitle: { fontSize: 17, fontWeight: "700" },
@@ -466,6 +480,7 @@ export const styles = StyleSheet.create({
   errorText: { color: "#DC2626", fontSize: 13 },
   saveArea: { padding: 16, borderTopWidth: 1, gap: 10 },
   saveButton: { height: 50, borderRadius: 14, justifyContent: "center", alignItems: "center" },
+  authSaveButton: { borderWidth: 1 },
   saveText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   deleteSubscriptionButton: {
     height: 46,
