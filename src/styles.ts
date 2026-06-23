@@ -101,6 +101,7 @@ export const styles = StyleSheet.create({
   statusPill: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, marginTop: 2 },
   statusPillText: { fontSize: 12, fontWeight: "700" },
   comingSoon: { fontSize: 12, fontWeight: "600" },
+  paydayInput: { minHeight: 46, borderRadius: 12, paddingHorizontal: 14, fontSize: 16, fontWeight: "700" },
   dangerRow: { flexDirection: "row", gap: 12, padding: 16, borderRadius: 18, borderWidth: 1, alignItems: "center" },
   dangerText: { color: "#DC2626", fontSize: 16, fontWeight: "600" },
   version: { textAlign: "center", marginTop: 16, fontSize: 12 },

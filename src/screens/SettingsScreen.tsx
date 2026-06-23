@@ -178,7 +178,11 @@ function PaydaySettings({
   settings: Settings;
   onUpdate: (settings: Settings) => void;
 }) {
-  const paydayOptions = [1, 5, 10, 15, 20, 25, 31];
+  function updatePayday(value: string) {
+    const parsed = Number.parseInt(value.replace(/\D/g, ""), 10);
+    if (Number.isNaN(parsed)) return;
+    onUpdate({ ...settings, payday: Math.max(1, Math.min(parsed, 31)) });
+  }
 
   return (
     <>
@@ -202,17 +206,21 @@ function PaydaySettings({
         {settings.paydayEnabled && (
           <View style={[styles.settingOption, { borderTopColor: c.border }]}>
             <Text style={[styles.rowMeta, { color: c.textMuted }]}>Payday date</Text>
-            <View style={styles.chips}>
-              {paydayOptions.map((payday) => (
-                <Chip
-                  key={payday}
-                  c={c}
-                  label={`${payday}`}
-                  selected={settings.payday === payday}
-                  onPress={() => onUpdate({ ...settings, payday })}
-                />
-              ))}
-            </View>
+            <TextInput
+              value={`${settings.payday}`}
+              onChangeText={updatePayday}
+              placeholder="Day of month"
+              placeholderTextColor={c.textSoft}
+              keyboardType="number-pad"
+              maxLength={2}
+              style={[
+                styles.paydayInput,
+                {
+                  backgroundColor: c.surfaceMuted,
+                  color: c.text,
+                },
+              ]}
+            />
           </View>
         )}
       </View>
