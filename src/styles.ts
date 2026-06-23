@@ -204,7 +204,6 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
   },
   swatchRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  colorSwatch: { width: 32, height: 32, borderRadius: 999, borderWidth: 3 },
   backgroundSwatch: { width: 42, height: 32, borderRadius: 10, borderWidth: 2 },
   dateLabel: { fontSize: 12, fontWeight: "700", letterSpacing: 0.8 },
   dateValue: { fontSize: 18, fontWeight: "700", marginTop: 3 },

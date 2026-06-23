@@ -33,7 +33,6 @@ const visualIconOptions = [
   "code-slash",
   "school",
 ] as const;
-const visualColorOptions = ["#2563EB", "#E50914", "#1DB954", "#8B5CF6", "#F97316", "#0891B2", "#111827", "#64748B"];
 const backgroundColorOptions = [
   "#2563EB",
   "#E50914",
@@ -457,22 +456,6 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
                 >
                   <Ionicons name={item} size={18} color={!iconLabel && iconName === item ? c.primary : c.textMuted} />
                 </Pressable>
-              ))}
-            </View>
-            <View style={styles.swatchRow}>
-              {visualColorOptions.map((color) => (
-                <Pressable
-                  key={color}
-                  accessibilityLabel={`Use accent ${color}`}
-                  onPress={() => setIconColor(color)}
-                  style={[
-                    styles.colorSwatch,
-                    {
-                      backgroundColor: color,
-                      borderColor: iconColor === color ? c.text : "transparent",
-                    },
-                  ]}
-                />
               ))}
             </View>
             <View style={styles.swatchRow}>
