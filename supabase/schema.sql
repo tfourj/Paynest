@@ -6,6 +6,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.subscriptions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  local_id text not null default gen_random_uuid()::text,
   name text not null,
   category text not null default 'Other',
   price numeric(12, 2) not null check (price > 0),
@@ -103,3 +104,6 @@ with check (auth.uid() = user_id);
 
 create index if not exists subscriptions_user_id_next_renewal_date_idx
 on public.subscriptions (user_id, next_renewal_date);
+
+create unique index if not exists subscriptions_user_id_local_id_idx
+on public.subscriptions (user_id, local_id);
