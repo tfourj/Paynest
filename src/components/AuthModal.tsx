@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import {
@@ -43,6 +44,8 @@ export function AuthModal({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [focusedInputGroup, setFocusedInputGroup] = useState<"connection" | "account" | null>(null);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const title = mode === "create" ? "Create account" : mode === "forgot" ? "Reset password" : "Log in";
   const submitLabel = busy
     ? "Working"
@@ -68,6 +71,8 @@ export function AuthModal({
     setServerChoice(initialServerChoice(pocketBaseConnection));
     setUrl(pocketBaseConnection.url);
     setMessage("");
+    setPasswordVisible(false);
+    setConfirmPasswordVisible(false);
   }
 
   function currentConnection(): PocketBaseConnectionSettings {
@@ -113,6 +118,8 @@ export function AuthModal({
       onUpdatePocketBaseConnection(connection);
       setPassword("");
       setConfirmPassword("");
+      setPasswordVisible(false);
+      setConfirmPasswordVisible(false);
       setMessage("Check your email to verify your account.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Authentication failed");
@@ -254,39 +261,65 @@ export function AuthModal({
               />
 
               {mode !== "forgot" && (
-                <TextInput
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Password"
-                  placeholderTextColor={c.textSoft}
+                <View
                   style={[
-                    styles.input,
-                    styles.inputNoOutline,
+                    styles.passwordInputRow,
                     {
-                      color: c.text,
                       borderBottomColor: mode === "create" ? c.border : "transparent",
                       borderBottomWidth: mode === "create" ? StyleSheet.hairlineWidth : 0,
                     },
                   ]}
-                  onFocus={() => setFocusedInputGroup("account")}
-                  onBlur={() => setFocusedInputGroup(null)}
-                  secureTextEntry
-                  textContentType={mode === "create" ? "newPassword" : "password"}
-                />
+                >
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Password"
+                    placeholderTextColor={c.textSoft}
+                    style={[styles.input, styles.inputNoOutline, styles.passwordInput, { color: c.text }]}
+                    onFocus={() => setFocusedInputGroup("account")}
+                    onBlur={() => setFocusedInputGroup(null)}
+                    secureTextEntry={!passwordVisible}
+                    textContentType={mode === "create" ? "newPassword" : "password"}
+                  />
+                  <Pressable
+                    accessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
+                    onPress={() => setPasswordVisible((visible) => !visible)}
+                    style={styles.passwordToggle}
+                  >
+                    <Ionicons
+                      name={passwordVisible ? "eye-off-outline" : "eye-outline"}
+                      size={21}
+                      color={c.textMuted}
+                    />
+                  </Pressable>
+                </View>
               )}
 
               {mode === "create" && (
-                <TextInput
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="Confirm password"
-                  placeholderTextColor={c.textSoft}
-                  style={[styles.input, styles.inputNoOutline, { color: c.text }]}
-                  onFocus={() => setFocusedInputGroup("account")}
-                  onBlur={() => setFocusedInputGroup(null)}
-                  secureTextEntry
-                  textContentType="newPassword"
-                />
+                <View style={styles.passwordInputRow}>
+                  <TextInput
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Confirm password"
+                    placeholderTextColor={c.textSoft}
+                    style={[styles.input, styles.inputNoOutline, styles.passwordInput, { color: c.text }]}
+                    onFocus={() => setFocusedInputGroup("account")}
+                    onBlur={() => setFocusedInputGroup(null)}
+                    secureTextEntry={!confirmPasswordVisible}
+                    textContentType="newPassword"
+                  />
+                  <Pressable
+                    accessibilityLabel={confirmPasswordVisible ? "Hide confirm password" : "Show confirm password"}
+                    onPress={() => setConfirmPasswordVisible((visible) => !visible)}
+                    style={styles.passwordToggle}
+                  >
+                    <Ionicons
+                      name={confirmPasswordVisible ? "eye-off-outline" : "eye-outline"}
+                      size={21}
+                      color={c.textMuted}
+                    />
+                  </Pressable>
+                </View>
               )}
             </View>
 
