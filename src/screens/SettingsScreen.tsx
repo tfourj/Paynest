@@ -480,7 +480,7 @@ function AuthModal({
     if (validationError) return setMessage(validationError);
     if (!email.trim()) return setMessage("Enter your email address.");
     if (mode === "forgot") return resetPassword();
-    if (password.length < 6) return setMessage("Enter a password with at least 6 characters.");
+    if (password.length < 8) return setMessage("Enter a password with at least 8 characters.");
     if (mode === "create" && password !== confirmPassword) return setMessage("Passwords do not match.");
 
     const config = resolvePocketBaseConfig(connection);
