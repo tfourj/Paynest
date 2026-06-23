@@ -67,16 +67,31 @@ export default function App() {
 
   const dark = settings.theme === "dark" || (settings.theme === "system" && deviceTheme === "dark");
   const c = dark ? darkColors : lightColors;
-  const monthly = useMemo(() => subscriptions.reduce((total, item) => total + monthlyCost(item), 0), [subscriptions]);
-  const upcoming = useMemo(() => [...subscriptions].sort((a, b) => dayDifference(a.nextRenewalDate) - dayDifference(b.nextRenewalDate)), [subscriptions]);
+  const monthly = useMemo(
+    () => subscriptions.reduce((total, item) => total + monthlyCost(item), 0),
+    [subscriptions],
+  );
+  const upcoming = useMemo(
+    () => [...subscriptions].sort((a, b) => dayDifference(a.nextRenewalDate) - dayDifference(b.nextRenewalDate)),
+    [subscriptions],
+  );
 
   async function addSubscription(input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) {
     const now = new Date().toISOString();
-    const subscription = { ...input, id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, createdAt: now, updatedAt: now };
+    const subscription = {
+      ...input,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      createdAt: now,
+      updatedAt: now,
+    };
     const next = [...subscriptions, subscription];
     setSubscriptions(next);
     await saveSubscriptions(next);
-    if (session?.user.id) void upsertSubscriptions(session.user.id, [subscription]).catch((error) => console.warn("Supabase subscription sync failed", error));
+    if (session?.user.id) {
+      void upsertSubscriptions(session.user.id, [subscription]).catch((error) => {
+        console.warn("Supabase subscription sync failed", error);
+      });
+    }
     setShowAdd(false);
     setTab("Subscriptions");
   }
@@ -88,7 +103,11 @@ export default function App() {
         const next = subscriptions.filter((subscription) => subscription.id !== item.id);
         setSubscriptions(next);
         void saveSubscriptions(next);
-        if (session?.user.id) void deleteSubscriptionFromCloud(session.user.id, item.id).catch((error) => console.warn("Supabase delete failed", error));
+        if (session?.user.id) {
+          void deleteSubscriptionFromCloud(session.user.id, item.id).catch((error) => {
+            console.warn("Supabase delete failed", error);
+          });
+        }
       } },
     ]);
   }
@@ -96,7 +115,11 @@ export default function App() {
   function updateSettings(next: Settings) {
     setSettings(next);
     void saveSettings(next);
-    if (session?.user.id) void upsertSettings(session.user.id, next).catch((error) => console.warn("Supabase settings sync failed", error));
+    if (session?.user.id) {
+      void upsertSettings(session.user.id, next).catch((error) => {
+        console.warn("Supabase settings sync failed", error);
+      });
+    }
   }
 
   function resetData() {
@@ -111,17 +134,69 @@ export default function App() {
   }
 
   if (!ready) {
-    return <SafeAreaProvider><SafeAreaView style={[styles.loading, { backgroundColor: c.background }]}><ActivityIndicator size="large" color={c.primary} /><Text style={[styles.loadingText, { color: c.textMuted }]}>Loading Paynest</Text></SafeAreaView></SafeAreaProvider>;
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={[styles.loading, { backgroundColor: c.background }]}>
+          <ActivityIndicator size="large" color={c.primary} />
+          <Text style={[styles.loadingText, { color: c.textMuted }]}>Loading Paynest</Text>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
   }
 
-  return <SafeAreaProvider><SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
-    <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
-    <View style={styles.shell}><View style={styles.content}>
-      {tab === "Dashboard" && <Dashboard c={c} subscriptions={subscriptions} upcoming={upcoming} monthly={monthly} currency={settings.currency} onAdd={() => setShowAdd(true)} onSeeAll={() => setTab("Subscriptions")} />}
-      {tab === "Subscriptions" && <SubscriptionList c={c} subscriptions={subscriptions} onAdd={() => setShowAdd(true)} onRemove={removeSubscription} />}
-      {tab === "Insights" && <Insights c={c} subscriptions={subscriptions} monthly={monthly} currency={settings.currency} />}
-      {tab === "Settings" && <SettingsScreen c={c} settings={settings} session={session} onUpdate={updateSettings} onReset={resetData} />}
-    </View><TabBar c={c} active={tab} onChange={setTab} /></View>
-    <AddSubscription c={c} visible={showAdd} defaultCurrency={settings.currency} onClose={() => setShowAdd(false)} onSave={addSubscription} />
-  </SafeAreaView></SafeAreaProvider>;
+  return (
+    <SafeAreaProvider>
+      <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
+        <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
+        <View style={styles.shell}>
+          <View style={styles.content}>
+            {tab === "Dashboard" && (
+              <Dashboard
+                c={c}
+                subscriptions={subscriptions}
+                upcoming={upcoming}
+                monthly={monthly}
+                currency={settings.currency}
+                onAdd={() => setShowAdd(true)}
+                onSeeAll={() => setTab("Subscriptions")}
+              />
+            )}
+            {tab === "Subscriptions" && (
+              <SubscriptionList
+                c={c}
+                subscriptions={subscriptions}
+                onAdd={() => setShowAdd(true)}
+                onRemove={removeSubscription}
+              />
+            )}
+            {tab === "Insights" && (
+              <Insights
+                c={c}
+                subscriptions={subscriptions}
+                monthly={monthly}
+                currency={settings.currency}
+              />
+            )}
+            {tab === "Settings" && (
+              <SettingsScreen
+                c={c}
+                settings={settings}
+                session={session}
+                onUpdate={updateSettings}
+                onReset={resetData}
+              />
+            )}
+          </View>
+          <TabBar c={c} active={tab} onChange={setTab} />
+        </View>
+        <AddSubscription
+          c={c}
+          visible={showAdd}
+          defaultCurrency={settings.currency}
+          onClose={() => setShowAdd(false)}
+          onSave={addSubscription}
+        />
+      </SafeAreaView>
+    </SafeAreaProvider>
+  );
 }
