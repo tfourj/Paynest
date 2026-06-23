@@ -1,12 +1,11 @@
 import { ScrollView, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { EmptyState, Metric } from "../components/common";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Subscription } from "../types";
 import { colorFor } from "../utils/category";
-import { dayDifference, formatMoney, monthlyCost } from "../utils/subscriptions";
+import { formatMoney, monthlyCost } from "../utils/subscriptions";
 
 type InsightsProps = {
   c: Colors;
@@ -17,10 +16,12 @@ type InsightsProps = {
 
 export function Insights({ c, subscriptions, monthly, currency }: InsightsProps) {
   const max = Math.max(1, ...subscriptions.map(monthlyCost));
-  const thisMonth = subscriptions.filter((item) => {
-    const days = dayDifference(item.nextRenewalDate);
-    return days >= 0 && days < 31;
-  }).length;
+  const calendarDays = buildRenewalCalendar(subscriptions);
+  const calendarWeeks = chunkCalendarWeeks(calendarDays);
+  const monthLabel = new Date().toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
@@ -60,22 +61,134 @@ export function Insights({ c, subscriptions, monthly, currency }: InsightsProps)
             ))}
           </View>
 
-          <Text style={[styles.sectionTitle, { color: c.text }]}>At a glance</Text>
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <View style={styles.insightRow}>
-              <Ionicons name="calendar-outline" size={22} color={c.primary} />
-              <View>
-                <Text style={[styles.insightTitle, { color: c.text }]}>
-                  {thisMonth} renewal{thisMonth === 1 ? "" : "s"} in the next 30 days
+          <Text style={[styles.sectionTitle, { color: c.text }]}>Renewal calendar</Text>
+          <View
+            style={[
+              styles.card,
+              styles.calendarCard,
+              { backgroundColor: c.surface, borderColor: c.border },
+            ]}
+          >
+            <Text style={[styles.calendarMonth, { color: c.text }]}>{monthLabel}</Text>
+            <View style={styles.calendarWeekHeader}>
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                <Text key={day} style={[styles.calendarWeekday, { color: c.textMuted }]}>
+                  {day}
                 </Text>
-                <Text style={[styles.insightDetail, { color: c.textMuted }]}>
-                  Keep an eye on upcoming payment dates.
-                </Text>
-              </View>
+              ))}
+            </View>
+            <View style={styles.calendarGrid}>
+              {calendarWeeks.map((week, weekIndex) => (
+                <View key={`week-${weekIndex}`} style={styles.calendarWeek}>
+                  {week.map((day, dayIndex) => (
+                    <View
+                      key={day.dateKey ?? `empty-${weekIndex}-${dayIndex}`}
+                      style={[
+                        styles.calendarDay,
+                        {
+                          backgroundColor: day.dateKey ? c.surfaceMuted : "transparent",
+                          borderColor: day.isToday ? c.primary : c.border,
+                        },
+                      ]}
+                    >
+                      {day.dateKey ? (
+                        <>
+                          <Text style={[styles.calendarDayNumber, { color: c.text }]}>
+                            {day.dayOfMonth}
+                          </Text>
+                          <View style={styles.calendarRenewalStack}>
+                            {day.subscriptions.slice(0, 2).map((item) => (
+                              <View
+                                key={item.id}
+                                style={[
+                                  styles.calendarRenewalPill,
+                                  { backgroundColor: colorFor(item.category) },
+                                ]}
+                              >
+                                <Text numberOfLines={1} style={styles.calendarRenewalText}>
+                                  {item.name}
+                                </Text>
+                              </View>
+                            ))}
+                            {day.subscriptions.length > 2 ? (
+                              <Text style={[styles.calendarMoreText, { color: c.textMuted }]}>
+                                +{day.subscriptions.length - 2}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              ))}
             </View>
           </View>
         </>
       )}
     </ScrollView>
   );
+}
+
+type CalendarDay = {
+  dateKey?: string;
+  dayOfMonth?: number;
+  isToday?: boolean;
+  subscriptions: Subscription[];
+};
+
+function buildRenewalCalendar(subscriptions: Subscription[]): CalendarDay[] {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const leadingEmptyDays = (firstDay.getDay() + 6) % 7;
+  const renewalsByDate = new Map<string, Subscription[]>();
+
+  subscriptions.forEach((item) => {
+    const renewal = new Date(`${item.nextRenewalDate}T00:00:00`);
+    if (renewal.getFullYear() !== year || renewal.getMonth() !== month) return;
+
+    const dateKey = formatDateKey(renewal);
+    const existing = renewalsByDate.get(dateKey) ?? [];
+    renewalsByDate.set(dateKey, [...existing, item]);
+  });
+
+  const days: CalendarDay[] = Array.from(
+    { length: leadingEmptyDays },
+    () => ({ subscriptions: [] }),
+  );
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = new Date(year, month, day);
+    const dateKey = formatDateKey(date);
+
+    days.push({
+      dateKey,
+      dayOfMonth: day,
+      isToday: formatDateKey(today) === dateKey,
+      subscriptions: renewalsByDate.get(dateKey) ?? [],
+    });
+  }
+
+  const trailingEmptyDays = (7 - (days.length % 7)) % 7;
+  return days.concat(
+    Array.from({ length: trailingEmptyDays }, () => ({ subscriptions: [] })),
+  );
+}
+
+function chunkCalendarWeeks(days: CalendarDay[]) {
+  const weeks: CalendarDay[][] = [];
+  for (let index = 0; index < days.length; index += 7) {
+    weeks.push(days.slice(index, index + 7));
+  }
+
+  return weeks;
+}
+
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
