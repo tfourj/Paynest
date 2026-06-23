@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 export function iconFor(category: string): keyof typeof Ionicons.glyphMap {
   return ({
+    None: "pricetag-outline",
     Streaming: "film",
     Music: "musical-notes",
     Software: "code-slash",
@@ -17,6 +18,7 @@ export function iconFor(category: string): keyof typeof Ionicons.glyphMap {
 
 export function colorFor(category: string) {
   return ({
+    None: "#64748B",
     Streaming: "#E50914",
     Music: "#1DB954",
     Software: "#8B5CF6",

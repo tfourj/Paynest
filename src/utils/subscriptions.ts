@@ -1,9 +1,17 @@
 import { symbols } from "../constants";
-import type { Subscription } from "../types";
+import type { BillingPeriod, Subscription } from "../types";
 
 export const formatMoney = (value: number, currency: string) => `${symbols[currency] ?? currency} ${value.toFixed(2)}`;
 
-export const monthlyCost = (item: Subscription) => item.billingPeriod === "Monthly" ? item.price : item.price / 12;
+const monthlyCostMultipliers: Record<BillingPeriod, number> = {
+  Weekly: 52 / 12,
+  Monthly: 1,
+  "3 months": 1 / 3,
+  "6 months": 1 / 6,
+  Yearly: 1 / 12,
+};
+
+export const monthlyCost = (item: Subscription) => item.price * monthlyCostMultipliers[item.billingPeriod];
 
 export function dayDifference(date: string) {
   const target = new Date(`${date}T00:00:00`).getTime();

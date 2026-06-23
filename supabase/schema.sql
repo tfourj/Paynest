@@ -8,10 +8,10 @@ create table if not exists public.subscriptions (
   user_id uuid not null references auth.users(id) on delete cascade,
   local_id text not null default gen_random_uuid()::text,
   name text not null,
-  category text not null default 'Other',
+  category text not null default 'None',
   price numeric(12, 2) not null check (price > 0),
   currency text not null default 'EUR',
-  billing_period text not null check (billing_period in ('Monthly', 'Yearly')),
+  billing_period text not null check (billing_period in ('Weekly', 'Monthly', '3 months', '6 months', 'Yearly')),
   next_renewal_date date not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

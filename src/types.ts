@@ -1,4 +1,5 @@
-export type BillingPeriod = "Monthly" | "Yearly";
+export const billingPeriods = ["Weekly", "Monthly", "3 months", "6 months", "Yearly"] as const;
+export type BillingPeriod = (typeof billingPeriods)[number];
 export type ThemePreference = "system" | "light" | "dark";
 
 export type Subscription = {

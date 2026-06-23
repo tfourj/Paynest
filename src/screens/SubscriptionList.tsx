@@ -5,7 +5,7 @@ import { Chip, EmptyState, Header } from "../components/common";
 import { SubscriptionRow } from "../components/subscriptionRows";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
-import type { BillingPeriod, Subscription } from "../types";
+import { billingPeriods, type BillingPeriod, type Subscription } from "../types";
 
 type SubscriptionListProps = {
   c: Colors;
@@ -24,7 +24,7 @@ export function SubscriptionList({ c, subscriptions, onAdd, onRemove }: Subscrip
     <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
       <Header c={c} eyebrow="All recurring payments" title="Subscriptions" onAdd={onAdd} />
       <View style={styles.chips}>
-        {(["All", "Monthly", "Yearly"] as const).map((item) => (
+        {(["All", ...billingPeriods] as const).map((item) => (
           <Chip
             key={item}
             c={c}
