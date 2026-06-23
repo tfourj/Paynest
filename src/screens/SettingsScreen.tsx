@@ -52,7 +52,7 @@ export function SettingsScreen({
     : "Add your PocketBase URL";
 
   return (
-    <ScrollView contentContainerStyle={styles.screen}>
+    <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
       <Text style={[styles.greeting, { color: c.textMuted }]}>Saved on this device</Text>
       <Text style={[styles.title, { color: c.text }]}>Settings</Text>
 
