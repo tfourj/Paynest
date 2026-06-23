@@ -1,4 +1,4 @@
-import { ScrollView, Text, View } from "react-native";
+import { RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { EmptyState, Header, SectionHeader } from "../components/common";
 import { RenewalRow } from "../components/subscriptionRows";
@@ -16,7 +16,9 @@ type DashboardProps = {
   spendingBoundary: Date;
   paydayEnabled: boolean;
   currency: string;
+  refreshing: boolean;
   onAdd: () => void;
+  onRefresh: () => void;
   onSeeAll: () => void;
 };
 
@@ -29,7 +31,9 @@ export function Dashboard({
   spendingBoundary,
   paydayEnabled,
   currency,
+  refreshing,
   onAdd,
+  onRefresh,
   onSeeAll,
 }: DashboardProps) {
   const visibleUpcoming = upcoming.slice(0, 5);
@@ -37,7 +41,18 @@ export function Dashboard({
   const spendingLabel = paydayEnabled ? `Until payday on ${spendingDate}` : `Until ${spendingDate}`;
 
   return (
-    <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.screen}
+      refreshControl={(
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={c.primary}
+          colors={[c.primary]}
+        />
+      )}
+      showsVerticalScrollIndicator={false}
+    >
       <Header c={c} eyebrow="Your recurring payments" title="Dashboard" onAdd={onAdd} />
 
       <View style={[styles.totalCard, { backgroundColor: c.primary }]}>

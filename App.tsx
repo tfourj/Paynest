@@ -70,6 +70,7 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [refreshingDashboard, setRefreshingDashboard] = useState(false);
   const syncedUserId = useRef<string | null>(null);
   const loginPromptUserId = useRef<string | null>(null);
 
@@ -257,6 +258,27 @@ export default function App() {
     await syncUserData(userId, "merge");
   }
 
+  async function refreshDashboard() {
+    if (refreshingDashboard) return;
+
+    setRefreshingDashboard(true);
+    try {
+      const userId = session?.user.id;
+      if (userId) {
+        await syncUserData(userId, "cloud");
+        return;
+      }
+
+      const data = await loadAppData();
+      setSubscriptions(data.subscriptions);
+      setSettings(data.settings);
+    } catch (error) {
+      console.warn("Dashboard refresh failed", error);
+    } finally {
+      setRefreshingDashboard(false);
+    }
+  }
+
   function resetData() {
     Alert.alert("Delete all local data?", "This removes all subscriptions and resets preferences on this device.", [
       { text: "Cancel", style: "cancel" },
@@ -295,7 +317,9 @@ export default function App() {
                 spendingBoundary={spendingBoundary}
                 paydayEnabled={settings.paydayEnabled}
                 currency={settings.currency}
+                refreshing={refreshingDashboard}
                 onAdd={() => setShowAdd(true)}
+                onRefresh={() => void refreshDashboard()}
                 onSeeAll={() => setTab("Subscriptions")}
               />
             )}
