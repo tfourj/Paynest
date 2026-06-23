@@ -327,7 +327,9 @@ export default function App() {
               <SubscriptionList
                 c={c}
                 subscriptions={subscriptions}
+                refreshing={refreshingDashboard}
                 onAdd={() => setShowAdd(true)}
+                onRefresh={() => void refreshDashboard()}
                 onUpdate={updateSubscription}
                 onRemove={removeSubscription}
               />

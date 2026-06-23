@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
 
 import { Chip, EmptyState, Header } from "../components/common";
 import { SubscriptionRow } from "../components/subscriptionRows";
@@ -11,12 +11,22 @@ import { billingPeriods, type BillingPeriod, type Subscription } from "../types"
 type SubscriptionListProps = {
   c: Colors;
   subscriptions: Subscription[];
+  refreshing: boolean;
   onAdd: () => void;
+  onRefresh: () => void;
   onUpdate: (item: Subscription, input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) => void;
   onRemove: (item: Subscription) => void;
 };
 
-export function SubscriptionList({ c, subscriptions, onAdd, onUpdate, onRemove }: SubscriptionListProps) {
+export function SubscriptionList({
+  c,
+  subscriptions,
+  refreshing,
+  onAdd,
+  onRefresh,
+  onUpdate,
+  onRemove,
+}: SubscriptionListProps) {
   const [filter, setFilter] = useState<"All" | BillingPeriod>("All");
   const [editing, setEditing] = useState<Subscription | null>(null);
   const visible = filter === "All"
@@ -25,7 +35,18 @@ export function SubscriptionList({ c, subscriptions, onAdd, onUpdate, onRemove }
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.screen}
+        refreshControl={(
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={c.primary}
+            colors={[c.primary]}
+          />
+        )}
+        showsVerticalScrollIndicator={false}
+      >
         <Header c={c} eyebrow="All recurring payments" title="Subscriptions" onAdd={onAdd} />
         <View style={styles.chips}>
           {(["All", ...billingPeriods] as const).map((item) => (
