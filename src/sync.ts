@@ -27,6 +27,8 @@ type SettingsRow = {
   reminders_enabled: boolean;
   reminder_days: number;
   currency: string;
+  payday_enabled?: boolean | null;
+  payday?: number | null;
   updated_at: string;
 };
 
@@ -78,6 +80,8 @@ function toSettings(row: SettingsRow): Settings {
     remindersEnabled: row.reminders_enabled,
     reminderDays: row.reminder_days,
     currency: row.currency,
+    paydayEnabled: row.payday_enabled ?? defaultSettings.paydayEnabled,
+    payday: row.payday ?? defaultSettings.payday,
   };
 }
 
@@ -88,6 +92,8 @@ function toSettingsRow(userId: string, settings: Settings) {
     reminders_enabled: settings.remindersEnabled,
     reminder_days: settings.reminderDays,
     currency: settings.currency,
+    payday_enabled: settings.paydayEnabled,
+    payday: settings.payday,
   };
 }
 

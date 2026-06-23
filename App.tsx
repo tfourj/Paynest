@@ -16,7 +16,13 @@ import { styles } from "./src/styles";
 import { supabase } from "./src/supabase";
 import { darkColors, lightColors } from "./src/theme";
 import { defaultSettings, type Settings, type Subscription } from "./src/types";
-import { dayDifference, monthlyCost } from "./src/utils/subscriptions";
+import {
+  dayDifference,
+  monthlyCost,
+  nextMonthlyPayday,
+  nextMonthStart,
+  spendUntil,
+} from "./src/utils/subscriptions";
 
 export default function App() {
   const deviceTheme = useColorScheme();
@@ -72,8 +78,18 @@ export default function App() {
     [subscriptions],
   );
   const upcoming = useMemo(
-    () => [...subscriptions].sort((a, b) => dayDifference(a.nextRenewalDate) - dayDifference(b.nextRenewalDate)),
+    () => subscriptions
+      .filter((item) => dayDifference(item.nextRenewalDate) >= 0)
+      .sort((a, b) => dayDifference(a.nextRenewalDate) - dayDifference(b.nextRenewalDate)),
     [subscriptions],
+  );
+  const spendingBoundary = useMemo(
+    () => settings.paydayEnabled ? nextMonthlyPayday(settings.payday) : nextMonthStart(),
+    [settings.payday, settings.paydayEnabled],
+  );
+  const spendingUntilBoundary = useMemo(
+    () => spendUntil(subscriptions, spendingBoundary, settings.paydayEnabled),
+    [spendingBoundary, settings.paydayEnabled, subscriptions],
   );
 
   async function addSubscription(input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) {
@@ -153,6 +169,9 @@ export default function App() {
                 subscriptions={subscriptions}
                 upcoming={upcoming}
                 monthly={monthly}
+                spendingUntilBoundary={spendingUntilBoundary}
+                spendingBoundary={spendingBoundary}
+                paydayEnabled={settings.paydayEnabled}
                 currency={settings.currency}
                 onAdd={() => setShowAdd(true)}
                 onSeeAll={() => setTab("Subscriptions")}

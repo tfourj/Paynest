@@ -1,7 +1,7 @@
 import { ScrollView, Text, View } from "react-native";
 
 import { EmptyState, Header, SectionHeader } from "../components/common";
-import { RenewalRow, SubscriptionRow } from "../components/subscriptionRows";
+import { RenewalRow } from "../components/subscriptionRows";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Subscription } from "../types";
@@ -12,12 +12,30 @@ type DashboardProps = {
   subscriptions: Subscription[];
   upcoming: Subscription[];
   monthly: number;
+  spendingUntilBoundary: number;
+  spendingBoundary: Date;
+  paydayEnabled: boolean;
   currency: string;
   onAdd: () => void;
   onSeeAll: () => void;
 };
 
-export function Dashboard({ c, subscriptions, upcoming, monthly, currency, onAdd, onSeeAll }: DashboardProps) {
+export function Dashboard({
+  c,
+  subscriptions,
+  upcoming,
+  monthly,
+  spendingUntilBoundary,
+  spendingBoundary,
+  paydayEnabled,
+  currency,
+  onAdd,
+  onSeeAll,
+}: DashboardProps) {
+  const visibleUpcoming = upcoming.slice(0, 5);
+  const spendingDate = spendingBoundary.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const spendingLabel = paydayEnabled ? `Until payday on ${spendingDate}` : `Until ${spendingDate}`;
+
   return (
     <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
       <Header c={c} eyebrow="Your recurring payments" title="Dashboard" onAdd={onAdd} />
@@ -37,26 +55,21 @@ export function Dashboard({ c, subscriptions, upcoming, monthly, currency, onAdd
         <>
           <SectionHeader c={c} title="Upcoming" action="See all" onPress={onSeeAll} />
           <View style={styles.subscriptionStack}>
-            {upcoming.slice(0, 3).map((item, index) => (
+            {visibleUpcoming.map((item, index) => (
               <RenewalRow
                 key={item.id}
                 c={c}
                 item={item}
-                last={index === Math.min(upcoming.length, 3) - 1}
+                last={index === visibleUpcoming.length - 1}
               />
             ))}
           </View>
-
-          <SectionHeader c={c} title="Recent subscriptions" action="Manage" onPress={onSeeAll} />
-          <View style={styles.subscriptionStack}>
-            {subscriptions.slice(-3).reverse().map((item, index) => (
-              <SubscriptionRow
-                key={item.id}
-                c={c}
-                item={item}
-                last={index === Math.min(subscriptions.length, 3) - 1}
-              />
-            ))}
+          <View style={[styles.spendingPill, { backgroundColor: c.primarySoft }]}>
+            <Text style={[styles.spendingPillLabel, { color: c.primary }]}>Planned spend</Text>
+            <Text style={[styles.spendingPillValue, { color: c.text }]}>
+              {formatMoney(spendingUntilBoundary, currency)}
+            </Text>
+            <Text style={[styles.spendingPillMeta, { color: c.textMuted }]}>{spendingLabel}</Text>
           </View>
         </>
       )}

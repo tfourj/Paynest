@@ -29,6 +29,8 @@ create table if not exists public.settings (
   reminders_enabled boolean not null default true,
   reminder_days integer not null default 3 check (reminder_days >= 0),
   currency text not null default 'EUR',
+  payday_enabled boolean not null default false,
+  payday integer not null default 1 check (payday between 1 and 31),
   updated_at timestamptz not null default now()
 );
 

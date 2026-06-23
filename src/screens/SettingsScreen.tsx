@@ -31,6 +31,7 @@ export function SettingsScreen({ c, settings, session, onUpdate, onReset }: Sett
 
       <AccountSettings c={c} session={session} />
       <ReminderSettings c={c} settings={settings} onUpdate={onUpdate} />
+      <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
       <AppearanceSettings c={c} settings={settings} onUpdate={onUpdate} />
       <SyncSettings c={c} session={session} syncStatus={syncStatus} />
 
@@ -158,6 +159,57 @@ function ReminderSettings({
                   label={days === 0 ? "Same day" : `${days} day${days > 1 ? "s" : ""}`}
                   selected={settings.reminderDays === days}
                   onPress={() => onUpdate({ ...settings, reminderDays: days })}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+      </View>
+    </>
+  );
+}
+
+function PaydaySettings({
+  c,
+  settings,
+  onUpdate,
+}: {
+  c: Colors;
+  settings: Settings;
+  onUpdate: (settings: Settings) => void;
+}) {
+  const paydayOptions = [1, 5, 10, 15, 20, 25, 31];
+
+  return (
+    <>
+      <Text style={[styles.settingsLabel, { color: c.textMuted }]}>PAYDAY</Text>
+      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <View style={styles.settingRow}>
+          <Ionicons name="wallet-outline" size={21} color={c.primary} />
+          <View style={styles.rowText}>
+            <Text style={[styles.rowName, { color: c.text }]}>Monthly payday</Text>
+            <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+              Count upcoming spend until your next payday
+            </Text>
+          </View>
+          <Switch
+            value={settings.paydayEnabled}
+            onValueChange={(paydayEnabled) => onUpdate({ ...settings, paydayEnabled })}
+            trackColor={{ false: c.surfaceMuted, true: c.primary }}
+          />
+        </View>
+
+        {settings.paydayEnabled && (
+          <View style={[styles.settingOption, { borderTopColor: c.border }]}>
+            <Text style={[styles.rowMeta, { color: c.textMuted }]}>Payday date</Text>
+            <View style={styles.chips}>
+              {paydayOptions.map((payday) => (
+                <Chip
+                  key={payday}
+                  c={c}
+                  label={`${payday}`}
+                  selected={settings.payday === payday}
+                  onPress={() => onUpdate({ ...settings, payday })}
                 />
               ))}
             </View>

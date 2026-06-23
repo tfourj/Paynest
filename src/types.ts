@@ -25,6 +25,8 @@ export type Settings = {
   remindersEnabled: boolean;
   reminderDays: number;
   currency: string;
+  paydayEnabled: boolean;
+  payday: number;
 };
 
 export const defaultSettings: Settings = {
@@ -32,4 +34,6 @@ export const defaultSettings: Settings = {
   remindersEnabled: true,
   reminderDays: 3,
   currency: "EUR",
+  paydayEnabled: false,
+  payday: 1,
 };
