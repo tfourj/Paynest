@@ -1,5 +1,5 @@
 import { Component, type ReactNode, useEffect, useState } from "react";
-import { Image, Text } from "react-native";
+import { Image, Platform, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SvgXml } from "react-native-svg";
 
@@ -62,7 +62,7 @@ export function SubscriptionIcon({
     let active = true;
 
     setCachedSvgXml(undefined);
-    if (!remoteSvgUrl) return undefined;
+    if (!remoteSvgUrl || Platform.OS === "web") return undefined;
 
     void loadCachedIconXml(remoteSvgUrl)
       .then((xml) => {
@@ -82,6 +82,16 @@ export function SubscriptionIcon({
   }
 
   if (remoteUrl) {
+    if (Platform.OS === "web" && remoteSvgUrl) {
+      return (
+        <Image
+          source={{ uri: remoteSvgUrl }}
+          resizeMode="contain"
+          style={{ width: size, height: size }}
+        />
+      );
+    }
+
     if (cachedSvgXml) {
       return (
         <SvgIconBoundary fallback={fallbackIcon} resetKey={remoteSvgUrl}>

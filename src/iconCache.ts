@@ -17,6 +17,71 @@ function isCompatibleSvgXml(value: string) {
   return !/<style[\s>]/i.test(value) && !/\sclass=/i.test(value) && !/\sstyle=/i.test(value);
 }
 
+function attributeName(property: string) {
+  return property.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+}
+
+function parseStyleDeclarations(value: string) {
+  return value.split(";").reduce<Record<string, string>>((styles, declaration) => {
+    const [rawProperty, ...rawValue] = declaration.split(":");
+    const property = rawProperty?.trim();
+    const styleValue = rawValue.join(":").trim();
+
+    if (!property || !styleValue) return styles;
+    return {
+      ...styles,
+      [attributeName(property)]: styleValue,
+    };
+  }, {});
+}
+
+function parseClassStyles(xml: string) {
+  const classStyles = new Map<string, Record<string, string>>();
+  const styleBlocks = xml.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi);
+
+  Array.from(styleBlocks).forEach((styleBlock) => {
+    const css = styleBlock[1] ?? "";
+    const classRules = css.matchAll(/\.([_a-zA-Z][\w-]*)\s*\{([^}]*)\}/g);
+
+    Array.from(classRules).forEach((classRule) => {
+      const className = classRule[1];
+      const declarations = parseStyleDeclarations(classRule[2] ?? "");
+      classStyles.set(className, {
+        ...(classStyles.get(className) ?? {}),
+        ...declarations,
+      });
+    });
+  });
+
+  return classStyles;
+}
+
+function inlineStyleAttributes(xml: string) {
+  return xml.replace(/\sstyle=(["'])(.*?)\1/gis, (_match, quote: string, styleValue: string) => {
+    const declarations = parseStyleDeclarations(styleValue);
+    const attributes = Object.entries(declarations)
+      .map(([property, value]) => ` ${property}=${quote}${value}${quote}`)
+      .join("");
+
+    return attributes;
+  });
+}
+
+function inlineClassAttributes(xml: string) {
+  const classStyles = parseClassStyles(xml);
+  const withoutStyleBlocks = xml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+
+  return withoutStyleBlocks.replace(/\sclass=(["'])(.*?)\1/g, (_match, quote: string, classValue: string) => {
+    const attributes = classValue
+      .split(/\s+/)
+      .flatMap((className) => Object.entries(classStyles.get(className) ?? {}))
+      .map(([property, value]) => ` ${property}=${quote}${value}${quote}`)
+      .join("");
+
+    return attributes;
+  });
+}
+
 function rgbaFromLongHexColor(hex: string) {
   const color = hex.slice(0, 8);
   const red = Number.parseInt(color.slice(0, 2), 16);
@@ -28,9 +93,10 @@ function rgbaFromLongHexColor(hex: string) {
 }
 
 function sanitizeSvgXml(xml: string) {
-  return xml.replace(/#([0-9a-fA-F]{8,})(?![0-9a-fA-F])/g, (_match, hex: string) => {
-    return rgbaFromLongHexColor(hex);
-  });
+  return inlineClassAttributes(inlineStyleAttributes(xml))
+    .replace(/#([0-9a-fA-F]{8,})(?![0-9a-fA-F])/g, (_match, hex: string) => {
+      return rgbaFromLongHexColor(hex);
+    });
 }
 
 function readCacheKeys(rawKeys: string | null) {
