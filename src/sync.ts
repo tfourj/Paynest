@@ -99,7 +99,7 @@ function toSubscriptionRow(userId: string, item: Subscription) {
 function toSettings(row: SettingsRow): Settings {
   return {
     ...defaultSettings,
-    theme: row.theme === "system" ? "light" : row.theme,
+    theme: defaultSettings.theme,
     remindersEnabled: row.reminders_enabled,
     reminderDays: row.reminder_days,
     currency: row.currency,
@@ -111,7 +111,6 @@ function toSettings(row: SettingsRow): Settings {
 function toSettingsRow(userId: string, settings: Settings) {
   return {
     user_id: userId,
-    theme: settings.theme,
     reminders_enabled: settings.remindersEnabled,
     reminder_days: settings.reminderDays,
     currency: settings.currency,
@@ -156,7 +155,7 @@ export async function syncAppData(
   const cloud = await loadCloudAppData(userId);
 
   if (strategy === "cloud") {
-    const settings = cloud.settings ?? localSettings;
+    const settings = { ...(cloud.settings ?? localSettings), theme: localSettings.theme };
     if (!cloud.settings) await upsertSettings(userId, settings);
     return { subscriptions: cloud.subscriptions, settings };
   }
@@ -181,7 +180,7 @@ export async function syncAppData(
   }
 
   const subscriptions = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
-  const settings = cloud.settings ?? localSettings;
+  const settings = { ...(cloud.settings ?? localSettings), theme: localSettings.theme };
 
   await Promise.all([
     upsertSubscriptions(userId, subscriptions),

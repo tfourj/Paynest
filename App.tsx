@@ -232,9 +232,15 @@ export default function App() {
   }
 
   function updateSettings(next: Settings) {
+    const shouldSyncSettings = settings.remindersEnabled !== next.remindersEnabled
+      || settings.reminderDays !== next.reminderDays
+      || settings.currency !== next.currency
+      || settings.paydayEnabled !== next.paydayEnabled
+      || settings.payday !== next.payday;
+
     setSettings(next);
     void saveSettings(next);
-    if (session?.user.id) {
+    if (session?.user.id && shouldSyncSettings) {
       void upsertSettings(session.user.id, next).catch((error) => {
         console.warn("Supabase settings sync failed", error);
       });
