@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 
 import { Chip, StatusPill } from "../components/common";
 import { clearIconCache } from "../iconCache";
+import { sendDebugNotification } from "../notifications";
 import { styles } from "../styles";
 import { supabase, supabaseConfig } from "../supabase";
 import type { Colors } from "../theme";
@@ -32,7 +33,7 @@ export function SettingsScreen({ c, settings, session, onUpdate, onForceSync, on
       <Text style={[styles.title, { color: c.text }]}>Settings</Text>
 
       <AccountSettings c={c} session={session} />
-      <ReminderSettings c={c} settings={settings} onUpdate={onUpdate} />
+      <NotificationSettings c={c} />
       <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
       <AppearanceSettings c={c} settings={settings} onUpdate={onUpdate} />
       <SyncSettings c={c} session={session} syncStatus={syncStatus} onForceSync={onForceSync} />
@@ -153,48 +154,34 @@ function AccountSettings({ c, session }: { c: Colors; session: Session | null })
   );
 }
 
-function ReminderSettings({
-  c,
-  settings,
-  onUpdate,
-}: {
-  c: Colors;
-  settings: Settings;
-  onUpdate: (settings: Settings) => void;
-}) {
+function NotificationSettings({ c }: { c: Colors }) {
+  const [status, setStatus] = useState("");
+
+  async function testNotifications() {
+    setStatus("Requesting notification permission");
+    try {
+      const scheduled = await sendDebugNotification();
+      setStatus(scheduled ? "Test notification scheduled" : "Notification permission not granted");
+    } catch {
+      setStatus("Could not schedule notification");
+    }
+  }
+
   return (
     <>
-      <Text style={[styles.settingsLabel, { color: c.textMuted }]}>REMINDERS</Text>
+      <Text style={[styles.settingsLabel, { color: c.textMuted }]}>NOTIFICATIONS</Text>
       <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <View style={styles.settingRow}>
+        <Pressable onPress={() => void testNotifications()} style={styles.settingRow}>
           <Ionicons name="notifications-outline" size={21} color={c.primary} />
           <View style={styles.rowText}>
-            <Text style={[styles.rowName, { color: c.text }]}>Renewal reminders</Text>
-            <Text style={[styles.rowMeta, { color: c.textMuted }]}>Show reminders before a renewal</Text>
+            <Text style={[styles.rowName, { color: c.text }]}>Send test notification</Text>
+            <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+              Request permission and schedule a local test
+            </Text>
+            {status ? <Text style={[styles.rowMeta, { color: c.textSoft }]}>{status}</Text> : null}
           </View>
-          <Switch
-            value={settings.remindersEnabled}
-            onValueChange={(remindersEnabled) => onUpdate({ ...settings, remindersEnabled })}
-            trackColor={{ false: c.surfaceMuted, true: c.primary }}
-          />
-        </View>
-
-        {settings.remindersEnabled && (
-          <View style={[styles.settingOption, { borderTopColor: c.border }]}>
-            <Text style={[styles.rowMeta, { color: c.textMuted }]}>Remind me</Text>
-            <View style={styles.chips}>
-              {[0, 1, 3, 7].map((days) => (
-                <Chip
-                  key={days}
-                  c={c}
-                  label={days === 0 ? "Same day" : `${days} day${days > 1 ? "s" : ""}`}
-                  selected={settings.reminderDays === days}
-                  onPress={() => onUpdate({ ...settings, reminderDays: days })}
-                />
-              ))}
-            </View>
-          </View>
-        )}
+          <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
+        </Pressable>
       </View>
     </>
   );
@@ -384,6 +371,13 @@ function AuthModal({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const title = mode === "create" ? "Create account" : mode === "forgot" ? "Reset password" : "Log in";
+  const submitLabel = busy
+    ? "Working"
+    : mode === "create"
+      ? "Create account"
+      : mode === "forgot"
+        ? "Send reset email"
+        : "Log in";
   const success = message.includes("Check") || message.includes("Signed") || message.includes("sent");
 
   function close() {
@@ -508,9 +502,7 @@ function AuthModal({
             onPress={() => void submit()}
             style={[styles.saveButton, { backgroundColor: c.primary }]}
           >
-            <Text style={styles.saveText}>
-              {busy ? "Working" : mode === "create" ? "Create account" : mode === "forgot" ? "Send reset email" : "Log in"}
-            </Text>
+            <Text style={styles.saveText}>{submitLabel}</Text>
           </Pressable>
         </View>
       </View>

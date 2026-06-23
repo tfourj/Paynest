@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 
 import { TabBar } from "./src/components/common";
 import type { Tab } from "./src/constants";
+import { requestNotificationPermission, scheduleRenewalNotifications } from "./src/notifications";
 import { AddSubscription } from "./src/screens/AddSubscription";
 import { Dashboard } from "./src/screens/Dashboard";
 import { Insights } from "./src/screens/Insights";
@@ -41,6 +42,9 @@ function comparableSubscription(item: Subscription) {
     billingPeriod: item.billingPeriod,
     payDay: item.payDay ?? null,
     nextRenewalDate: item.nextRenewalDate,
+    reminderEnabled: item.reminderEnabled ?? false,
+    reminderDays: item.reminderDays ?? 0,
+    reminderTime: item.reminderTime ?? "09:00",
     iconName: item.iconName ?? null,
     iconLabel: item.iconLabel ?? null,
     iconColor: item.iconColor ?? null,
@@ -93,6 +97,14 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    scheduleRenewalNotifications(subscriptions).catch((error) => {
+      console.warn("Notification scheduling failed", error);
+    });
+  }, [ready, subscriptions]);
 
   useEffect(() => {
     const userId = session?.user.id;
@@ -332,6 +344,7 @@ export default function App() {
                 onRefresh={() => void refreshDashboard()}
                 onUpdate={updateSubscription}
                 onRemove={removeSubscription}
+                onRequestNotificationPermission={requestNotificationPermission}
               />
             )}
             {tab === "Insights" && (
@@ -361,6 +374,7 @@ export default function App() {
           defaultCurrency={settings.currency}
           onClose={() => setShowAdd(false)}
           onSave={addSubscription}
+          onRequestNotificationPermission={requestNotificationPermission}
         />
       </SafeAreaView>
     </SafeAreaProvider>

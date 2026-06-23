@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -26,6 +26,7 @@ type AddSubscriptionProps = {
   subscription?: Subscription | null;
   onClose: () => void;
   onSave: (item: Omit<Subscription, "id" | "createdAt" | "updatedAt">) => void;
+  onRequestNotificationPermission: () => Promise<boolean>;
   onDelete?: (item: Subscription) => void;
 };
 
@@ -54,6 +55,7 @@ const iconProviderOptions: { label: string; value: IconProvider }[] = [
   { label: "SVGL", value: "svgl" },
   { label: "Dashboard Icons", value: "dashboardicons" },
 ];
+const reminderDayOptions = [0, 1, 3];
 const dateWheelItemOffset = 48;
 
 function startOfToday() {
@@ -109,6 +111,21 @@ function dateFromValue(value: string) {
   return Number.isNaN(date.getTime()) ? startOfToday() : date;
 }
 
+function normalizeTimeInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function isValidReminderTime(value: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const hour = Number.parseInt(match[1], 10);
+  const minute = Number.parseInt(match[2], 10);
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+}
+
 export function AddSubscription({
   c,
   visible,
@@ -116,6 +133,7 @@ export function AddSubscription({
   subscription,
   onClose,
   onSave,
+  onRequestNotificationPermission,
   onDelete,
 }: AddSubscriptionProps) {
   const today = useMemo(startOfToday, [visible]);
@@ -128,6 +146,9 @@ export function AddSubscription({
   const [category, setCategory] = useState(noneCategory);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("Monthly");
   const [firstPaymentDate, setFirstPaymentDate] = useState(today);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderDays, setReminderDays] = useState(0);
+  const [reminderTime, setReminderTime] = useState("09:00");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showPresetPicker, setShowPresetPicker] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -227,6 +248,9 @@ export function AddSubscription({
     setCategory(subscription?.category ?? noneCategory);
     setBillingPeriod(subscription?.billingPeriod ?? "Monthly");
     setFirstPaymentDate(subscription ? dateFromValue(subscription.nextRenewalDate) : today);
+    setReminderEnabled(subscription?.reminderEnabled ?? false);
+    setReminderDays(subscription?.reminderDays ?? 0);
+    setReminderTime(subscription?.reminderTime ?? "09:00");
     setIconName((subscription?.iconName as (typeof visualIconOptions)[number] | undefined) ?? "card");
     setIconLabel(subscription?.iconLabel ?? "");
     setIconColor(subscription?.iconColor ?? "#2563EB");
@@ -335,10 +359,30 @@ export function AddSubscription({
     });
   }
 
+  async function updateReminderEnabled(enabled: boolean) {
+    if (!enabled) {
+      setReminderEnabled(false);
+      return;
+    }
+
+    const hasPermission = await onRequestNotificationPermission();
+    if (!hasPermission) {
+      setError("Allow notifications to enable renewal reminders.");
+      setReminderEnabled(false);
+      return;
+    }
+
+    setError("");
+    setReminderEnabled(true);
+  }
+
   function save() {
     const parsed = Number.parseFloat(price.replace(",", "."));
     if (!name.trim() || Number.isNaN(parsed) || parsed <= 0) {
       return setError("Enter a subscription name and a price greater than zero.");
+    }
+    if (reminderEnabled && !isValidReminderTime(reminderTime)) {
+      return setError("Enter a reminder time between 00:00 and 23:59.");
     }
 
     onSave({
@@ -349,6 +393,9 @@ export function AddSubscription({
       currency: formCurrency,
       payDay,
       nextRenewalDate: renewal,
+      reminderEnabled,
+      reminderDays,
+      reminderTime,
       iconName: iconLabel ? undefined : iconName,
       iconLabel: iconLabel || undefined,
       iconColor,
@@ -365,6 +412,9 @@ export function AddSubscription({
     setCategory(noneCategory);
     setBillingPeriod("Monthly");
     setFirstPaymentDate(today);
+    setReminderEnabled(false);
+    setReminderDays(0);
+    setReminderTime("09:00");
     setIconName("card");
     setIconLabel("");
     setIconColor("#2563EB");
@@ -829,6 +879,52 @@ export function AddSubscription({
             {categoryOptions.map((item) => (
               <Chip key={item} c={c} label={item} selected={category === item} onPress={() => setCategory(item)} />
             ))}
+          </View>
+
+          <Text style={[styles.formLabel, { color: c.textMuted }]}>RENEWAL REMINDER</Text>
+          <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={styles.settingRow}>
+              <Ionicons name="notifications-outline" size={21} color={c.primary} />
+              <View style={styles.rowText}>
+                <Text style={[styles.rowName, { color: c.text }]}>Reminder</Text>
+                <Text style={[styles.rowMeta, { color: c.textMuted }]}>Off by default for each subscription</Text>
+              </View>
+              <Switch
+                value={reminderEnabled}
+                onValueChange={(enabled) => void updateReminderEnabled(enabled)}
+                trackColor={{ false: c.surfaceMuted, true: c.primary }}
+              />
+            </View>
+
+            {reminderEnabled ? (
+              <View style={[styles.settingOption, { borderTopColor: c.border }]}>
+                <Text style={[styles.rowMeta, { color: c.textMuted }]}>When to remind</Text>
+                <View style={styles.chips}>
+                  {reminderDayOptions.map((days) => (
+                    <Chip
+                      key={days}
+                      c={c}
+                      label={days === 0 ? "Same day" : `${days} day${days > 1 ? "s" : ""} before`}
+                      selected={reminderDays === days}
+                      onPress={() => setReminderDays(days)}
+                    />
+                  ))}
+                </View>
+                <Text style={[styles.rowMeta, { color: c.textMuted }]}>Time</Text>
+                <View style={[styles.reminderTimeRow, { backgroundColor: c.surfaceMuted }]}>
+                  <Ionicons name="time-outline" size={18} color={c.textMuted} />
+                  <TextInput
+                    value={reminderTime}
+                    onChangeText={(value) => setReminderTime(normalizeTimeInput(value))}
+                    placeholder="09:00"
+                    placeholderTextColor={c.textSoft}
+                    keyboardType={Platform.select({ ios: "number-pad", default: "numeric" })}
+                    maxLength={5}
+                    style={[styles.reminderTimeInput, { color: c.text }]}
+                  />
+                </View>
+              </View>
+            ) : null}
           </View>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </ScrollView>

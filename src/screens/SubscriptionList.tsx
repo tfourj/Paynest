@@ -16,6 +16,7 @@ type SubscriptionListProps = {
   onRefresh: () => void;
   onUpdate: (item: Subscription, input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) => void;
   onRemove: (item: Subscription) => void;
+  onRequestNotificationPermission: () => Promise<boolean>;
 };
 
 export function SubscriptionList({
@@ -26,6 +27,7 @@ export function SubscriptionList({
   onRefresh,
   onUpdate,
   onRemove,
+  onRequestNotificationPermission,
 }: SubscriptionListProps) {
   const [filter, setFilter] = useState<"All" | BillingPeriod>("All");
   const [editing, setEditing] = useState<Subscription | null>(null);
@@ -82,6 +84,7 @@ export function SubscriptionList({
         defaultCurrency={editing?.currency ?? "EUR"}
         subscription={editing}
         onClose={() => setEditing(null)}
+        onRequestNotificationPermission={onRequestNotificationPermission}
         onSave={(input) => {
           if (!editing) return;
           onUpdate(editing, input);

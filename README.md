@@ -55,12 +55,11 @@ Avoid creating broad public policies like `using (true)` or `with check (true)` 
 
 - Dashboard with monthly and yearly spending
 - Persistent local subscription data
-- Add and remove subscriptions with billing period, category, and renewal date
+- Add and remove subscriptions with billing period, category, renewal date, and reminder settings
 - Spending insight breakdown
-- Persistent reminder, theme, and currency preferences
+- Persistent theme and currency preferences
+- Local iOS and Android renewal notifications with a settings test action
 - Adaptive light and dark appearance
 - Supabase client configuration with env overrides
 - Supabase email/password authentication
 - Supabase sync for subscriptions and settings
-
-Native notification delivery still requires Expo notification configuration as described in `nc_PLAN.md`.

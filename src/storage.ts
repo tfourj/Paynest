@@ -23,7 +23,7 @@ export async function loadAppData(): Promise<{ subscriptions: Subscription[]; se
   const settings = { ...defaultSettings, ...readJson(storedSettings, {}) };
 
   return {
-    subscriptions: readJson(storedSubscriptions, []),
+    subscriptions: readJson<Subscription[]>(storedSubscriptions, []).map(normalizeSubscription),
     settings: { ...settings, theme: settings.theme === "system" ? "light" : settings.theme },
   };
 }
@@ -38,4 +38,13 @@ export function saveSettings(settings: Settings) {
 
 export function clearAppData() {
   return AsyncStorage.multiRemove([subscriptionsKey, settingsKey]);
+}
+
+function normalizeSubscription(item: Subscription): Subscription {
+  return {
+    ...item,
+    reminderEnabled: item.reminderEnabled ?? false,
+    reminderDays: item.reminderDays ?? 0,
+    reminderTime: item.reminderTime ?? "09:00",
+  };
 }

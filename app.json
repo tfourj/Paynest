@@ -6,7 +6,9 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": { "supportsTablet": true },
-    "android": {},
+    "android": {
+      "permissions": ["POST_NOTIFICATIONS"]
+    },
     "web": { "bundler": "metro" }
   }
 }

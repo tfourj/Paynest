@@ -11,6 +11,9 @@ export type Subscription = {
   billingPeriod: BillingPeriod;
   payDay?: number;
   nextRenewalDate: string;
+  reminderEnabled: boolean;
+  reminderDays: number;
+  reminderTime: string;
   iconName?: string;
   iconLabel?: string;
   iconColor?: string;
@@ -35,8 +38,8 @@ export type Settings = {
 
 export const defaultSettings: Settings = {
   theme: "light",
-  remindersEnabled: true,
-  reminderDays: 3,
+  remindersEnabled: false,
+  reminderDays: 0,
   currency: "EUR",
   paydayEnabled: false,
   payday: 1,

@@ -12,6 +12,9 @@ type SubscriptionRow = {
   billing_period: BillingPeriod;
   pay_day?: number | null;
   next_renewal_date: string;
+  reminder_enabled?: boolean | null;
+  reminder_days?: number | null;
+  reminder_time?: string | null;
   icon_name?: string | null;
   icon_label?: string | null;
   icon_color?: string | null;
@@ -48,6 +51,9 @@ function toSubscription(row: SubscriptionRow): Subscription {
     billingPeriod: row.billing_period,
     payDay: row.pay_day ?? undefined,
     nextRenewalDate: row.next_renewal_date,
+    reminderEnabled: row.reminder_enabled ?? false,
+    reminderDays: row.reminder_days ?? 0,
+    reminderTime: row.reminder_time ?? "09:00",
     iconName: row.icon_name ?? undefined,
     iconLabel: row.icon_label ?? undefined,
     iconColor: row.icon_color ?? undefined,
@@ -73,6 +79,9 @@ function toSubscriptionRow(userId: string, item: Subscription) {
     billing_period: item.billingPeriod,
     pay_day: item.payDay,
     next_renewal_date: item.nextRenewalDate,
+    reminder_enabled: item.reminderEnabled,
+    reminder_days: item.reminderDays,
+    reminder_time: item.reminderTime,
     icon_name: item.iconName,
     icon_label: item.iconLabel,
     icon_color: item.iconColor,
