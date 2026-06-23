@@ -36,6 +36,8 @@ type SettingsRow = {
   updated_at: string;
 };
 
+export type SyncStrategy = "merge" | "cloud" | "local";
+
 function toSubscription(row: SubscriptionRow): Subscription {
   return {
     id: row.local_id || row.id,
@@ -113,9 +115,8 @@ function newerSubscription(a: Subscription, b: Subscription) {
   return new Date(a.updatedAt).getTime() >= new Date(b.updatedAt).getTime() ? a : b;
 }
 
-export async function syncAppData(userId: string, localSubscriptions: Subscription[], localSettings: Settings) {
-  if (!supabase) return { subscriptions: localSubscriptions, settings: localSettings };
-
+export async function loadCloudAppData(userId: string) {
+  if (!supabase) return { subscriptions: [], settings: null };
   const [
     { data: cloudSubscriptions, error: subscriptionsError },
     { data: cloudSettings, error: settingsError },
@@ -127,16 +128,51 @@ export async function syncAppData(userId: string, localSubscriptions: Subscripti
   if (subscriptionsError) throw subscriptionsError;
   if (settingsError) throw settingsError;
 
+  return {
+    subscriptions: ((cloudSubscriptions ?? []) as SubscriptionRow[])
+      .map(toSubscription)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    settings: cloudSettings ? toSettings(cloudSettings as SettingsRow) : null,
+  };
+}
+
+export async function syncAppData(
+  userId: string,
+  localSubscriptions: Subscription[],
+  localSettings: Settings,
+  strategy: SyncStrategy = "merge",
+) {
+  if (!supabase) return { subscriptions: localSubscriptions, settings: localSettings };
+
+  const cloud = await loadCloudAppData(userId);
+
+  if (strategy === "cloud") {
+    const settings = cloud.settings ?? localSettings;
+    if (!cloud.settings) await upsertSettings(userId, settings);
+    return { subscriptions: cloud.subscriptions, settings };
+  }
+
+  if (strategy === "local") {
+    const { error } = await supabase.from("subscriptions").delete().eq("user_id", userId);
+    if (error) throw error;
+
+    const subscriptions = [...localSubscriptions].sort((a, b) => a.name.localeCompare(b.name));
+    await Promise.all([
+      upsertSubscriptions(userId, subscriptions),
+      upsertSettings(userId, localSettings),
+    ]);
+    return { subscriptions, settings: localSettings };
+  }
+
   const merged = new Map<string, Subscription>();
   for (const item of localSubscriptions) merged.set(item.id, item);
-  for (const row of (cloudSubscriptions ?? []) as SubscriptionRow[]) {
-    const cloudItem = toSubscription(row);
+  for (const cloudItem of cloud.subscriptions) {
     const localItem = merged.get(cloudItem.id);
     merged.set(cloudItem.id, localItem ? newerSubscription(localItem, cloudItem) : cloudItem);
   }
 
   const subscriptions = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
-  const settings = cloudSettings ? toSettings(cloudSettings as SettingsRow) : localSettings;
+  const settings = cloud.settings ?? localSettings;
 
   await Promise.all([
     upsertSubscriptions(userId, subscriptions),

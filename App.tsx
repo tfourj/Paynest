@@ -11,7 +11,14 @@ import { Insights } from "./src/screens/Insights";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { SubscriptionList } from "./src/screens/SubscriptionList";
 import { clearAppData, loadAppData, saveSettings, saveSubscriptions } from "./src/storage";
-import { deleteSubscriptionFromCloud, syncAppData, upsertSettings, upsertSubscriptions } from "./src/sync";
+import {
+  deleteSubscriptionFromCloud,
+  loadCloudAppData,
+  syncAppData,
+  upsertSettings,
+  upsertSubscriptions,
+  type SyncStrategy,
+} from "./src/sync";
 import { styles } from "./src/styles";
 import { supabase } from "./src/supabase";
 import { darkColors, lightColors } from "./src/theme";
@@ -59,11 +66,39 @@ export default function App() {
     if (syncedUserId.current === userId) return;
 
     syncedUserId.current = userId;
-    syncAppData(userId, subscriptions, settings).then(({ subscriptions: syncedSubscriptions, settings: syncedSettings }) => {
-      setSubscriptions(syncedSubscriptions);
-      setSettings(syncedSettings);
-      void saveSubscriptions(syncedSubscriptions);
-      void saveSettings(syncedSettings);
+    loadCloudAppData(userId).then((cloud) => {
+      const needsChoice = subscriptions.length > 0 && cloud.subscriptions.length > 0;
+      if (!needsChoice) {
+        void syncUserData(userId, "merge");
+        return;
+      }
+
+      Alert.alert(
+        "Sync subscriptions?",
+        [
+          "This device already has subscriptions.",
+          "",
+          "Merge: keep subscriptions from both places.",
+          "Use cloud: replace this device with your cloud data.",
+          "Upload local: replace cloud data with this device.",
+        ].join("\n"),
+        [
+          {
+            text: "Merge",
+            onPress: () => void runInitialSync(userId, "merge"),
+          },
+          {
+            text: "Use cloud",
+            onPress: () => void runInitialSync(userId, "cloud"),
+          },
+          {
+            text: "Upload local",
+            style: "destructive",
+            onPress: () => void runInitialSync(userId, "local"),
+          },
+        ],
+        { cancelable: false },
+      );
     }).catch((error) => {
       syncedUserId.current = null;
       console.warn("Supabase sync failed", error);
@@ -153,11 +188,8 @@ export default function App() {
     }
   }
 
-  async function forceSync() {
-    const userId = session?.user.id;
-    if (!userId) throw new Error("Log in to sync your data.");
-
-    const synced = await syncAppData(userId, subscriptions, settings);
+  async function syncUserData(userId: string, strategy: SyncStrategy) {
+    const synced = await syncAppData(userId, subscriptions, settings, strategy);
     syncedUserId.current = userId;
     setSubscriptions(synced.subscriptions);
     setSettings(synced.settings);
@@ -165,6 +197,22 @@ export default function App() {
       saveSubscriptions(synced.subscriptions),
       saveSettings(synced.settings),
     ]);
+  }
+
+  async function runInitialSync(userId: string, strategy: SyncStrategy) {
+    try {
+      await syncUserData(userId, strategy);
+    } catch (error) {
+      syncedUserId.current = null;
+      console.warn("Supabase sync failed", error);
+    }
+  }
+
+  async function forceSync() {
+    const userId = session?.user.id;
+    if (!userId) throw new Error("Log in to sync your data.");
+
+    await syncUserData(userId, "merge");
   }
 
   function resetData() {
