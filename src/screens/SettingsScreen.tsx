@@ -7,6 +7,7 @@ import { clearIconCache } from "../iconCache";
 import { sendDebugNotification } from "../notifications";
 import {
   createPocketBaseClient,
+  defaultPocketBaseConnection,
   resolvePocketBaseConfig,
   type PocketBaseClient,
   type PocketBaseConnectionSettings,
@@ -33,6 +34,7 @@ type SettingsScreenProps = {
 };
 
 type AuthMode = "login" | "create" | "forgot";
+type ServerChoice = "paynest" | "custom";
 
 export function SettingsScreen({
   c,
@@ -433,6 +435,9 @@ function AuthModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [serverChoice, setServerChoice] = useState<ServerChoice>(
+    () => initialServerChoice(pocketBaseConnection),
+  );
   const [url, setUrl] = useState(pocketBaseConnection.url);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -449,6 +454,7 @@ function AuthModal({
   useEffect(() => {
     if (!mode) return;
 
+    setServerChoice(initialServerChoice(pocketBaseConnection));
     setUrl(pocketBaseConnection.url);
   }, [mode, pocketBaseConnection]);
 
@@ -457,18 +463,22 @@ function AuthModal({
     setEmail("");
     setPassword("");
     setConfirmPassword("");
+    setServerChoice(initialServerChoice(pocketBaseConnection));
     setUrl(pocketBaseConnection.url);
     setMessage("");
   }
 
   function currentConnection(): PocketBaseConnectionSettings {
     return {
-      url,
+      url: serverChoice === "paynest" ? defaultPocketBaseConnection.url : url,
     };
   }
 
   function validateConnection(connection: PocketBaseConnectionSettings) {
     const config = resolvePocketBaseConfig(connection);
+    if (serverChoice === "paynest" && !defaultPocketBaseConnection.url.trim()) {
+      return "Paynest sync is not configured in this build.";
+    }
     if (!connection.url.trim()) return "Enter your PocketBase URL.";
     if (!config.isConfigured) return "Add your PocketBase URL before signing in.";
     return "";
@@ -544,19 +554,36 @@ function AuthModal({
 
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
           <Text style={[styles.formLabel, { color: c.textMuted }]}>SERVER</Text>
-          <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <TextInput
-              value={url}
-              onChangeText={setUrl}
-              placeholder="PocketBase URL"
-              placeholderTextColor={c.textSoft}
-              style={[styles.input, { color: c.text }]}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              textContentType="URL"
+          <View style={styles.chips}>
+            <Chip
+              c={c}
+              label="Paynest"
+              selected={serverChoice === "paynest"}
+              onPress={() => setServerChoice("paynest")}
+            />
+            <Chip
+              c={c}
+              label="Custom"
+              selected={serverChoice === "custom"}
+              onPress={() => setServerChoice("custom")}
             />
           </View>
+
+          {serverChoice === "custom" && (
+            <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <TextInput
+                value={url}
+                onChangeText={setUrl}
+                placeholder="PocketBase URL"
+                placeholderTextColor={c.textSoft}
+                style={[styles.input, { color: c.text }]}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                textContentType="URL"
+              />
+            </View>
+          )}
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>ACCOUNT</Text>
           <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -633,4 +660,11 @@ function AuthModal({
       </View>
     </Modal>
   );
+}
+
+function initialServerChoice(connection: PocketBaseConnectionSettings): ServerChoice {
+  const defaultConfig = resolvePocketBaseConfig(defaultPocketBaseConnection);
+  const connectionConfig = resolvePocketBaseConfig(connection);
+  if (!connectionConfig.url || connectionConfig.url === defaultConfig.url) return "paynest";
+  return "custom";
 }
