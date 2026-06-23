@@ -267,7 +267,8 @@ export default function App() {
       || settings.reminderDays !== next.reminderDays
       || settings.currency !== next.currency
       || settings.paydayEnabled !== next.paydayEnabled
-      || settings.payday !== next.payday;
+      || settings.payday !== next.payday
+      || JSON.stringify(settings.colorPresets) !== JSON.stringify(next.colorPresets);
 
     setSettings(next);
     void saveSettings(next);

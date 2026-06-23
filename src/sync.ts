@@ -37,6 +37,7 @@ type SettingsRecord = {
   currency: string;
   payday_enabled?: boolean | null;
   payday?: number | null;
+  color_presets?: string | null;
   updated_at: string;
 };
 
@@ -107,6 +108,7 @@ function toSettings(row: SettingsRecord): Settings {
     currency: row.currency,
     paydayEnabled: row.payday_enabled ?? defaultSettings.paydayEnabled,
     payday: row.payday ?? defaultSettings.payday,
+    colorPresets: parseColorPresets(row.color_presets),
   };
 }
 
@@ -118,6 +120,7 @@ function toSettingsRecord(userId: string, settings: Settings) {
     currency: settings.currency,
     payday_enabled: settings.paydayEnabled,
     payday: settings.payday,
+    color_presets: JSON.stringify(settings.colorPresets),
     updated_at: new Date().toISOString(),
   };
 }
@@ -271,4 +274,17 @@ function escapeFilterValue(value: string) {
 
 function dateOnly(value: string) {
   return value.slice(0, 10);
+}
+
+function parseColorPresets(value?: string | null) {
+  if (!value) return defaultSettings.colorPresets;
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return defaultSettings.colorPresets;
+    const colors = parsed.filter((color) => typeof color === "string" && /^#[0-9A-F]{6}$/i.test(color));
+    return colors.length > 0 ? colors : defaultSettings.colorPresets;
+  } catch {
+    return defaultSettings.colorPresets;
+  }
 }

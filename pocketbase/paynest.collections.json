@@ -472,6 +472,20 @@
       {
         "autogeneratePattern": "",
         "hidden": false,
+        "id": "text_settings_color_presets",
+        "max": 0,
+        "min": 0,
+        "name": "color_presets",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
         "id": "text_settings_updated_at",
         "max": 0,
         "min": 0,

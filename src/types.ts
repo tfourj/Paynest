@@ -2,6 +2,19 @@ export const billingPeriods = ["Weekly", "Monthly", "3 months", "6 months", "Yea
 export type BillingPeriod = (typeof billingPeriods)[number];
 export type ThemePreference = "system" | "light" | "dark";
 
+export const defaultColorPresets = [
+  "#EF4444",
+  "#F97316",
+  "#F59E0B",
+  "#22C55E",
+  "#06B6D4",
+  "#3B82F6",
+  "#8B5CF6",
+  "#EC4899",
+  "#111827",
+  "#FFFFFF",
+];
+
 export type Subscription = {
   id: string;
   name: string;
@@ -34,6 +47,7 @@ export type Settings = {
   currency: string;
   paydayEnabled: boolean;
   payday: number;
+  colorPresets: string[];
 };
 
 export const defaultSettings: Settings = {
@@ -43,4 +57,5 @@ export const defaultSettings: Settings = {
   currency: "EUR",
   paydayEnabled: false,
   payday: 1,
+  colorPresets: defaultColorPresets,
 };

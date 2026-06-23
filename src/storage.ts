@@ -4,7 +4,12 @@ import {
   defaultPocketBaseConnection,
   type PocketBaseConnectionSettings,
 } from "./pocketbase";
-import { defaultSettings, type Settings, type Subscription } from "./types";
+import {
+  defaultColorPresets,
+  defaultSettings,
+  type Settings,
+  type Subscription,
+} from "./types";
 
 const subscriptionsKey = "paynest.subscriptions.v1";
 const settingsKey = "paynest.settings.v1";
@@ -25,11 +30,11 @@ export async function loadAppData(): Promise<{ subscriptions: Subscription[]; se
     AsyncStorage.getItem(settingsKey),
   ]);
 
-  const settings = { ...defaultSettings, ...readJson(storedSettings, {}) };
+  const settings = normalizeSettings(readJson<Partial<Settings>>(storedSettings, {}));
 
   return {
     subscriptions: readJson<Subscription[]>(storedSubscriptions, []).map(normalizeSubscription),
-    settings: { ...settings, theme: settings.theme === "system" ? "light" : settings.theme },
+    settings,
   };
 }
 
@@ -54,6 +59,22 @@ export function savePocketBaseConnection(settings: PocketBaseConnectionSettings)
 
 export function clearAppData() {
   return AsyncStorage.multiRemove([subscriptionsKey, settingsKey]);
+}
+
+function normalizeSettings(settings: Partial<Settings>): Settings {
+  const merged = { ...defaultSettings, ...settings };
+  return {
+    ...merged,
+    theme: merged.theme === "system" ? "light" : merged.theme,
+    colorPresets: normalizeColorPresets(merged.colorPresets),
+  };
+}
+
+function normalizeColorPresets(colors?: string[]) {
+  if (!Array.isArray(colors)) return defaultColorPresets;
+
+  const normalized = colors.filter((color) => /^#[0-9A-F]{6}$/i.test(color));
+  return normalized.length > 0 ? normalized : defaultColorPresets;
 }
 
 function normalizeSubscription(item: Subscription): Subscription {

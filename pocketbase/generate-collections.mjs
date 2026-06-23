@@ -192,6 +192,7 @@ const collections = [
       textField("text_settings_currency", "currency", { required: true }),
       boolField("bool_settings_payday_enabled", "payday_enabled"),
       numberField("number_settings_payday", "payday", { max: 31, min: 1 }),
+      textField("text_settings_color_presets", "color_presets"),
       textField("text_settings_updated_at", "updated_at", { required: true }),
     ],
     indexes: [
