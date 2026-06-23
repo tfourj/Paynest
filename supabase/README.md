@@ -14,6 +14,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
 Keep CLI-only migration values in `supabase/.env`:
 
 ```sh
+SUPABASE_PROJECT_REF=xfegnwhtyjqrzlrtvoui
 SUPABASE_ACCESS_TOKEN=your-personal-access-token
 SUPABASE_DB_PASSWORD=your-database-password
 ```
@@ -29,7 +30,7 @@ From the repo root:
 npm run db:migrate
 ```
 
-This loads `supabase/.env`, links the local Supabase folder to project `xfegnwhtyjqrzlrtvoui`, then runs `supabase db push`.
+This loads `supabase/.env`, links the local Supabase folder to `SUPABASE_PROJECT_REF`, then runs `supabase db push`.
 
 If the project is already linked, this is enough:
 
