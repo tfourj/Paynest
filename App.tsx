@@ -1,3 +1,5 @@
+import "react-native-gesture-handler";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, StatusBar, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -375,12 +377,14 @@ export default function App() {
 
   if (!ready) {
     return (
-      <SafeAreaProvider>
-        <SafeAreaView style={[styles.loading, { backgroundColor: c.background }]}>
-          <ActivityIndicator size="large" color={c.primary} />
-          <Text style={[styles.loadingText, { color: c.textMuted }]}>Loading Paynest</Text>
-        </SafeAreaView>
-      </SafeAreaProvider>
+      <GestureHandlerRootView style={styles.safe}>
+        <SafeAreaProvider>
+          <SafeAreaView style={[styles.loading, { backgroundColor: c.background }]}>
+            <ActivityIndicator size="large" color={c.primary} />
+            <Text style={[styles.loadingText, { color: c.textMuted }]}>Loading Paynest</Text>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     );
   }
 
