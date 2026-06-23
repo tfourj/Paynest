@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const iconCachePrefix = "paynest.icon-cache.v1:";
-const iconCacheIndexKey = "paynest.icon-cache-index.v1";
+const iconCachePrefix = "paynest.icon-cache.v2:";
+const iconCacheIndexKey = "paynest.icon-cache-index.v2";
+const legacyIconCacheIndexKeys = ["paynest.icon-cache-index.v1"];
 const memoryIconCache = new Map<string, string>();
 const pendingIconRequests = new Map<string, Promise<string | undefined>>();
 
@@ -40,7 +41,7 @@ function parseClassStyles(xml: string) {
   const styleBlocks = xml.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi);
 
   Array.from(styleBlocks).forEach((styleBlock) => {
-    const css = styleBlock[1] ?? "";
+    const css = stripMediaBlocks(styleBlock[1] ?? "");
     const classRules = css.matchAll(/\.([_a-zA-Z][\w-]*)\s*\{([^}]*)\}/g);
 
     Array.from(classRules).forEach((classRule) => {
@@ -54,6 +55,35 @@ function parseClassStyles(xml: string) {
   });
 
   return classStyles;
+}
+
+function stripMediaBlocks(css: string) {
+  let output = "";
+  let index = 0;
+
+  while (index < css.length) {
+    const mediaIndex = css.indexOf("@media", index);
+    if (mediaIndex === -1) {
+      output += css.slice(index);
+      break;
+    }
+
+    output += css.slice(index, mediaIndex);
+    const blockStart = css.indexOf("{", mediaIndex);
+    if (blockStart === -1) break;
+
+    let depth = 1;
+    let cursor = blockStart + 1;
+    while (cursor < css.length && depth > 0) {
+      if (css[cursor] === "{") depth += 1;
+      if (css[cursor] === "}") depth -= 1;
+      cursor += 1;
+    }
+
+    index = cursor;
+  }
+
+  return output;
 }
 
 function inlineStyleAttributes(xml: string) {
@@ -169,7 +199,17 @@ async function loadIconXml(key: string, url: string) {
 export async function clearIconCache() {
   const rawKeys = await AsyncStorage.getItem(iconCacheIndexKey);
   const keys = readCacheKeys(rawKeys);
+  const legacyRawKeys = await Promise.all(
+    legacyIconCacheIndexKeys.map((key) => AsyncStorage.getItem(key)),
+  );
+  const legacyKeys = legacyRawKeys.flatMap(readCacheKeys);
+
   memoryIconCache.clear();
   pendingIconRequests.clear();
-  await AsyncStorage.multiRemove([...keys, iconCacheIndexKey]);
+  await AsyncStorage.multiRemove([
+    ...keys,
+    ...legacyKeys,
+    iconCacheIndexKey,
+    ...legacyIconCacheIndexKeys,
+  ]);
 }

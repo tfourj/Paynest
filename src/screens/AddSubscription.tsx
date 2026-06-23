@@ -290,7 +290,6 @@ export function AddSubscription({
     setIconSourceTitle(icon.title);
     setIconLabel("");
     setIconName("card");
-    setSymbolSearch(icon.title);
     setIconColor(icon.color ?? iconColor);
   }
 
