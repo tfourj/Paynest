@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import ColorPicker, { HueCircular, Panel1, Preview, Swatches } from "reanimated-color-picker";
 
 import { Chip } from "../components/common";
 import { getSimpleIcon, SimpleIcon } from "../components/SimpleIcon";
@@ -19,7 +20,6 @@ import { subscriptionPresets, type SubscriptionPreset } from "../subscriptionPre
 import type { Colors } from "../theme";
 import { billingPeriods, type BillingPeriod, type Subscription } from "../types";
 import {
-  hslToHex,
   mutedTextColor,
   normalizeHexColor,
   readableTextColor,
@@ -52,10 +52,7 @@ const visualIconOptions = [
   "code-slash",
   "school",
 ] as const;
-const hueWheelColors = Array.from({ length: 24 }, (_, index) => hslToHex(index * 15, 86, 54));
 const neutralColors = ["#111827", "#374151", "#6B7280", "#9CA3AF", "#D1D5DB", "#E5E7EB", "#F3F4F6", "#FFFFFF"];
-const hueWheelSize = 220;
-const hueSwatchSize = 34;
 const iconProviderOptions: { label: string; value: IconProvider }[] = [
   { label: "Simple Icons", value: "simpleicons" },
   { label: "SVGL", value: "svgl" },
@@ -1083,57 +1080,34 @@ function ColorPickerSheet({
           </Pressable>
         </View>
 
-        <View style={styles.colorPickerPreviewRow}>
-          <View style={[styles.colorPickerPreview, { backgroundColor: value, borderColor: c.border }]} />
-          <Text style={[styles.colorPickerValue, { color: c.text }]}>{value}</Text>
-        </View>
-
-        <View style={styles.hueWheel}>
-          {hueWheelColors.map((color, index) => {
-            const angle = (index / hueWheelColors.length) * Math.PI * 2 - Math.PI / 2;
-            const radius = hueWheelSize / 2 - hueSwatchSize / 2;
-            const left = hueWheelSize / 2 + Math.cos(angle) * radius - hueSwatchSize / 2;
-            const top = hueWheelSize / 2 + Math.sin(angle) * radius - hueSwatchSize / 2;
-
-            return (
-              <Pressable
-                key={color}
-                accessibilityLabel={`Use hue ${color}`}
-                onPress={() => onSelectColor(color)}
-                style={[
-                  styles.hueWheelSwatch,
-                  {
-                    backgroundColor: color,
-                    borderColor: value === color ? c.text : "rgba(255,255,255,0.72)",
-                    left,
-                    top,
-                  },
-                ]}
-              />
-            );
-          })}
-          <View style={[styles.hueWheelCenter, { backgroundColor: value, borderColor: c.border }]} />
-        </View>
-
-        <View style={styles.colorPresetSection}>
-          <Text style={[styles.colorPickerLabel, { color: c.textMuted }]}>PRESETS</Text>
-          <View style={styles.colorPresetGrid}>
-            {[...presets, ...neutralColors].map((color, index) => (
-              <Pressable
-                key={`picker-${color}-${index}`}
-                accessibilityLabel={`Use color ${color}`}
-                onPress={() => onSelectColor(color)}
-                style={[
-                  styles.colorWheelCell,
-                  {
-                    backgroundColor: color,
-                    borderColor: value === color ? c.text : c.border,
-                  },
-                ]}
-              />
-            ))}
+        <ColorPicker
+          value={value}
+          onChangeJS={(color) => onSelectColor(color.hex)}
+          thumbShape="ring"
+          thumbSize={26}
+          sliderThickness={22}
+          style={styles.reanimatedColorPicker}
+        >
+          <View style={styles.colorPickerPreviewRow}>
+            <Preview
+              colorFormat="hex"
+              style={[styles.colorPickerPreview, { borderColor: c.border }]}
+              textStyle={[styles.colorPickerValue, { color: c.text }]}
+            />
           </View>
-        </View>
+          <View style={styles.reanimatedPickerBody}>
+            <Panel1 style={styles.colorPickerPanel} />
+            <HueCircular style={styles.colorPickerHueCircular} />
+          </View>
+          <View style={styles.colorPresetSection}>
+            <Text style={[styles.colorPickerLabel, { color: c.textMuted }]}>PRESETS</Text>
+            <Swatches
+              colors={[...presets, ...neutralColors]}
+              style={styles.reanimatedSwatches}
+              swatchStyle={styles.reanimatedSwatch}
+            />
+          </View>
+        </ColorPicker>
       </View>
     </Modal>
   );

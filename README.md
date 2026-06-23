@@ -39,7 +39,9 @@ Build and local development instructions live in [docs/BUILD.md](./docs/BUILD.md
 ```text
 App.tsx                 App shell, navigation, local state, and sync orchestration
 assets/                 App icon and logo source assets
+babel.config.js         Expo Babel config with Reanimated support
 docs/                   Development and build documentation
+scripts/                Build and native project patch scripts
 src/components/         Shared UI components and subscription rows
 src/screens/            Dashboard, subscriptions, insights, settings, and editor screens
 src/storage.ts          Local AsyncStorage persistence

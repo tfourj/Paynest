@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, StatusBar, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { TabBar } from "./src/components/common";
@@ -384,77 +385,79 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
-        <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
-        <View style={styles.shell}>
-          <View style={styles.content}>
-            {tab === "Dashboard" && (
-              <Dashboard
-                c={c}
-                subscriptions={subscriptions}
-                upcoming={upcoming}
-                monthly={monthly}
-                spendingUntilBoundary={spendingUntilBoundary}
-                spendingBoundary={spendingBoundary}
-                paydayEnabled={settings.paydayEnabled}
-                currency={settings.currency}
-                refreshing={refreshingDashboard}
-                onAdd={() => setShowAdd(true)}
-                onRefresh={() => void refreshDashboard()}
-                onSeeAll={() => setTab("Subscriptions")}
-              />
-            )}
-            {tab === "Subscriptions" && (
-              <SubscriptionList
-                c={c}
-                subscriptions={subscriptions}
-                refreshing={refreshingDashboard}
-                colorPresets={settings.colorPresets}
-                onAdd={() => setShowAdd(true)}
-                onRefresh={() => void refreshDashboard()}
-                onUpdate={updateSubscription}
-                onRemove={removeSubscription}
-                onRequestNotificationPermission={requestNotificationPermission}
-              />
-            )}
-            {tab === "Insights" && (
-              <Insights
-                c={c}
-                subscriptions={subscriptions}
-                monthly={monthly}
-                currency={settings.currency}
-              />
-            )}
-            {tab === "Settings" && (
-              <SettingsScreen
-                c={c}
-                settings={settings}
-                session={session}
-                pocketBase={pocketBase}
-                pocketBaseConfig={pocketBaseConfig}
-                pocketBaseConnection={pocketBaseConnection}
-                onUpdate={updateSettings}
-                onUpdatePocketBaseConnection={updatePocketBaseConnection}
-                onAuthSuccess={completePocketBaseAuth}
-                onSignOut={signOutPocketBase}
-                onForceSync={forceSync}
-                onReset={resetData}
-              />
-            )}
+    <GestureHandlerRootView style={styles.safe}>
+      <SafeAreaProvider>
+        <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
+          <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
+          <View style={styles.shell}>
+            <View style={styles.content}>
+              {tab === "Dashboard" && (
+                <Dashboard
+                  c={c}
+                  subscriptions={subscriptions}
+                  upcoming={upcoming}
+                  monthly={monthly}
+                  spendingUntilBoundary={spendingUntilBoundary}
+                  spendingBoundary={spendingBoundary}
+                  paydayEnabled={settings.paydayEnabled}
+                  currency={settings.currency}
+                  refreshing={refreshingDashboard}
+                  onAdd={() => setShowAdd(true)}
+                  onRefresh={() => void refreshDashboard()}
+                  onSeeAll={() => setTab("Subscriptions")}
+                />
+              )}
+              {tab === "Subscriptions" && (
+                <SubscriptionList
+                  c={c}
+                  subscriptions={subscriptions}
+                  refreshing={refreshingDashboard}
+                  colorPresets={settings.colorPresets}
+                  onAdd={() => setShowAdd(true)}
+                  onRefresh={() => void refreshDashboard()}
+                  onUpdate={updateSubscription}
+                  onRemove={removeSubscription}
+                  onRequestNotificationPermission={requestNotificationPermission}
+                />
+              )}
+              {tab === "Insights" && (
+                <Insights
+                  c={c}
+                  subscriptions={subscriptions}
+                  monthly={monthly}
+                  currency={settings.currency}
+                />
+              )}
+              {tab === "Settings" && (
+                <SettingsScreen
+                  c={c}
+                  settings={settings}
+                  session={session}
+                  pocketBase={pocketBase}
+                  pocketBaseConfig={pocketBaseConfig}
+                  pocketBaseConnection={pocketBaseConnection}
+                  onUpdate={updateSettings}
+                  onUpdatePocketBaseConnection={updatePocketBaseConnection}
+                  onAuthSuccess={completePocketBaseAuth}
+                  onSignOut={signOutPocketBase}
+                  onForceSync={forceSync}
+                  onReset={resetData}
+                />
+              )}
+            </View>
+            <TabBar c={c} active={tab} onChange={setTab} />
           </View>
-          <TabBar c={c} active={tab} onChange={setTab} />
-        </View>
-        <AddSubscription
-          c={c}
-          visible={showAdd}
-          defaultCurrency={settings.currency}
-          colorPresets={settings.colorPresets}
-          onClose={() => setShowAdd(false)}
-          onSave={addSubscription}
-          onRequestNotificationPermission={requestNotificationPermission}
-        />
-      </SafeAreaView>
-    </SafeAreaProvider>
+          <AddSubscription
+            c={c}
+            visible={showAdd}
+            defaultCurrency={settings.currency}
+            colorPresets={settings.colorPresets}
+            onClose={() => setShowAdd(false)}
+            onSave={addSubscription}
+            onRequestNotificationPermission={requestNotificationPermission}
+          />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

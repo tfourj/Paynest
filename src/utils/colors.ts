@@ -33,18 +33,6 @@ export function suggestedIconBackgroundColor(rowBackground: string) {
   });
 }
 
-export function hslToHex(hue: number, saturation: number, lightness: number) {
-  const normalizedHue = ((hue % 360) + 360) % 360;
-  const s = saturation / 100;
-  const l = lightness / 100;
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs((normalizedHue / 60) % 2 - 1));
-  const m = l - c / 2;
-  const [r, g, b] = hslRgbChannels(normalizedHue, c, x, m);
-
-  return rgbToHex({ r, g, b });
-}
-
 function hexToRgb(hex: string) {
   const normalized = hex.replace("#", "");
   if (normalized.length !== 6) return null;
@@ -67,20 +55,4 @@ function rgbToHex({ r, g, b }: { r: number; g: number; b: number }) {
       .join("")
       .toUpperCase()
   }`;
-}
-
-function hslRgbChannels(hue: number, c: number, x: number, m: number) {
-  const channels = hue < 60
-    ? [c, x, 0]
-    : hue < 120
-      ? [x, c, 0]
-      : hue < 180
-        ? [0, c, x]
-        : hue < 240
-          ? [0, x, c]
-          : hue < 300
-            ? [x, 0, c]
-            : [c, 0, x];
-
-  return channels.map((channel) => Math.round((channel + m) * 255));
 }
