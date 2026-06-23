@@ -130,6 +130,7 @@ export function AddSubscription({
   const [firstPaymentDate, setFirstPaymentDate] = useState(today);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showPresetPicker, setShowPresetPicker] = useState(false);
+  const [activeColorPicker, setActiveColorPicker] = useState<"row" | "icon" | null>(null);
   const [iconName, setIconName] = useState<(typeof visualIconOptions)[number]>("card");
   const [iconLabel, setIconLabel] = useState("");
   const [iconColor, setIconColor] = useState("#2563EB");
@@ -301,20 +302,10 @@ export function AddSubscription({
     setIconColor(icon.color ?? iconColor);
   }
 
-  function selectBackgroundColor(color: string) {
-    setBackgroundColor(color);
-    setCustomBackgroundInput(color);
-  }
-
   function updateCustomBackground(value: string) {
     setCustomBackgroundInput(value);
     const color = normalizeHexColor(value);
     if (color) setBackgroundColor(color);
-  }
-
-  function selectIconBackgroundColor(color: string) {
-    setIconBackgroundColor(color);
-    setCustomIconBackgroundInput(color);
   }
 
   function updateCustomIconBackground(value: string) {
@@ -821,7 +812,7 @@ export function AddSubscription({
               label="Row background"
               value={backgroundColor}
               inputValue={customBackgroundInput}
-              onSelectColor={selectBackgroundColor}
+              onOpenPicker={() => setActiveColorPicker("row")}
               onChangeInput={updateCustomBackground}
             />
             <ColorPickerControl
@@ -829,7 +820,7 @@ export function AddSubscription({
               label="Icon background"
               value={iconBackgroundColor}
               inputValue={customIconBackgroundInput}
-              onSelectColor={selectIconBackgroundColor}
+              onOpenPicker={() => setActiveColorPicker("icon")}
               onChangeInput={updateCustomIconBackground}
             />
           </View>
@@ -842,6 +833,21 @@ export function AddSubscription({
           </View>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </ScrollView>
+
+        <ColorPickerSheet
+          c={c}
+          visible={activeColorPicker !== null}
+          title={activeColorPicker === "icon" ? "Icon background" : "Row background"}
+          value={activeColorPicker === "icon" ? iconBackgroundColor : backgroundColor}
+          onClose={() => setActiveColorPicker(null)}
+          onSelectColor={(color) => {
+            if (activeColorPicker === "icon") {
+              updateCustomIconBackground(color);
+            } else {
+              updateCustomBackground(color);
+            }
+          }}
+        />
 
         <View style={[styles.saveArea, { borderTopColor: c.border, backgroundColor: c.background }]}>
           {subscription && onDelete ? (
@@ -867,7 +873,7 @@ type ColorPickerControlProps = {
   label: string;
   value: string;
   inputValue: string;
-  onSelectColor: (color: string) => void;
+  onOpenPicker: () => void;
   onChangeInput: (value: string) => void;
 };
 
@@ -876,45 +882,97 @@ function ColorPickerControl({
   label,
   value,
   inputValue,
-  onSelectColor,
+  onOpenPicker,
   onChangeInput,
 }: ColorPickerControlProps) {
   return (
     <View style={styles.colorPickerGroup}>
       <Text style={[styles.colorPickerLabel, { color: c.textMuted }]}>{label}</Text>
-      <View style={styles.colorWheel}>
-        {colorWheelRows.map((row, rowIndex) => (
-          <View key={`color-row-${rowIndex}`} style={styles.colorWheelRow}>
-            {row.map((color) => (
-              <Pressable
-                key={color}
-                accessibilityLabel={`Use ${label.toLowerCase()} ${color}`}
-                onPress={() => onSelectColor(color)}
-                style={[
-                  styles.colorWheelCell,
-                  {
-                    backgroundColor: color,
-                    borderColor: value === color ? c.text : "rgba(255,255,255,0.34)",
-                  },
-                ]}
-              />
-            ))}
-          </View>
-        ))}
-      </View>
-      <View style={[styles.customBackgroundGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <View style={[styles.customBackgroundPreview, { backgroundColor: value }]} />
+      <View style={styles.colorPickerRow}>
+        <Pressable
+          accessibilityLabel={`Choose ${label.toLowerCase()}`}
+          onPress={onOpenPicker}
+          style={[
+            styles.colorWheelButton,
+            { backgroundColor: value, borderColor: c.border },
+          ]}
+        >
+          <Ionicons name="color-palette-outline" size={19} color={readableTextColor(value)} />
+        </Pressable>
         <TextInput
           value={inputValue}
           onChangeText={onChangeInput}
           placeholder="#2563EB"
           placeholderTextColor={c.textSoft}
-          style={[styles.customBackgroundInput, { color: c.text }]}
+          style={[
+            styles.customBackgroundInput,
+            {
+              backgroundColor: c.surface,
+              borderColor: c.border,
+              color: c.text,
+            },
+          ]}
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={7}
         />
       </View>
     </View>
+  );
+}
+
+type ColorPickerSheetProps = {
+  c: Colors;
+  visible: boolean;
+  title: string;
+  value: string;
+  onClose: () => void;
+  onSelectColor: (color: string) => void;
+};
+
+function ColorPickerSheet({
+  c,
+  visible,
+  title,
+  value,
+  onClose,
+  onSelectColor,
+}: ColorPickerSheetProps) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <Pressable style={styles.sheetScrim} onPress={onClose} />
+      <View style={[styles.colorPickerSheet, { backgroundColor: c.background }]}>
+        <View style={styles.dateSheetHandle} />
+        <View style={styles.dateSheetHeader}>
+          <View>
+            <Text style={[styles.dateLabel, { color: c.textMuted }]}>COLOR</Text>
+            <Text style={[styles.payDateTitle, { color: c.text }]}>{title}</Text>
+          </View>
+          <Pressable onPress={onClose} style={styles.doneButton}>
+            <Text style={[styles.doneButtonText, { color: c.primary }]}>Done</Text>
+          </Pressable>
+        </View>
+        <View style={styles.colorWheel}>
+          {colorWheelRows.map((row, rowIndex) => (
+            <View key={`color-row-${rowIndex}`} style={styles.colorWheelRow}>
+              {row.map((color) => (
+                <Pressable
+                  key={color}
+                  accessibilityLabel={`Use color ${color}`}
+                  onPress={() => onSelectColor(color)}
+                  style={[
+                    styles.colorWheelCell,
+                    {
+                      backgroundColor: color,
+                      borderColor: value === color ? c.text : c.border,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      </View>
+    </Modal>
   );
 }
