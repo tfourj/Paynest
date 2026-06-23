@@ -14,6 +14,7 @@ import {
 const subscriptionsKey = "paynest.subscriptions.v1";
 const settingsKey = "paynest.settings.v1";
 const pocketBaseConnectionKey = "paynest.pocketBaseConnection.v1";
+const localModeKey = "paynest.localMode.v1";
 
 function readJson<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
@@ -45,6 +46,10 @@ export async function loadPocketBaseConnection(): Promise<PocketBaseConnectionSe
   );
 }
 
+export async function loadLocalModePreference() {
+  return AsyncStorage.getItem(localModeKey).then((value) => value === "true");
+}
+
 export function saveSubscriptions(subscriptions: Subscription[]) {
   return AsyncStorage.setItem(subscriptionsKey, JSON.stringify(subscriptions));
 }
@@ -55,6 +60,10 @@ export function saveSettings(settings: Settings) {
 
 export function savePocketBaseConnection(settings: PocketBaseConnectionSettings) {
   return AsyncStorage.setItem(pocketBaseConnectionKey, JSON.stringify(normalizePocketBaseConnection(settings)));
+}
+
+export function saveLocalModePreference(enabled: boolean) {
+  return AsyncStorage.setItem(localModeKey, enabled ? "true" : "false");
 }
 
 export function clearAppData() {

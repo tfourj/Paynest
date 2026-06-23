@@ -18,12 +18,15 @@ import {
 import { AddSubscription } from "./src/screens/AddSubscription";
 import { Dashboard } from "./src/screens/Dashboard";
 import { Insights } from "./src/screens/Insights";
+import { LoginScreen } from "./src/screens/LoginScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { SubscriptionList } from "./src/screens/SubscriptionList";
 import {
   clearAppData,
   loadAppData,
+  loadLocalModePreference,
   loadPocketBaseConnection,
+  saveLocalModePreference,
   saveSettings,
   saveSubscriptions,
   savePocketBaseConnection,
@@ -92,6 +95,8 @@ export default function App() {
   );
   const [session, setSession] = useState<PocketBaseSession | null>(null);
   const [ready, setReady] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [localMode, setLocalMode] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [refreshingDashboard, setRefreshingDashboard] = useState(false);
   const syncedUserId = useRef<string | null>(null);
@@ -106,25 +111,43 @@ export default function App() {
   );
 
   useEffect(() => {
-    Promise.all([loadAppData(), loadPocketBaseConnection()]).then(([appData, loadedPocketBaseConnection]) => {
+    Promise.all([
+      loadAppData(),
+      loadPocketBaseConnection(),
+      loadLocalModePreference(),
+    ]).then(([appData, loadedPocketBaseConnection, loadedLocalMode]) => {
       setSubscriptions(appData.subscriptions);
       setSettings(appData.settings);
+      if (loadedPocketBaseConnection.url !== pocketBaseConnection.url) {
+        setAuthReady(false);
+      }
       setPocketBaseConnection(loadedPocketBaseConnection);
+      setLocalMode(loadedLocalMode);
       setReady(true);
     }).catch(() => setReady(true));
   }, []);
 
   useEffect(() => {
+    if (!ready) setAuthReady(false);
     if (!pocketBase) {
       setSession(null);
       syncedUserId.current = null;
       loginPromptUserId.current = null;
+      setAuthReady(true);
       return;
     }
 
     let cancelled = false;
     void pocketBase.loadSession().then((loadedSession) => {
-      if (!cancelled) setSession(loadedSession);
+      if (!cancelled) {
+        setSession(loadedSession);
+        setAuthReady(true);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setSession(null);
+        setAuthReady(true);
+      }
     });
 
     return () => {
@@ -293,6 +316,7 @@ export default function App() {
   function completePocketBaseAuth(next: PocketBaseConnectionSettings, nextSession: PocketBaseSession) {
     setPocketBaseConnection(next);
     setSession(nextSession);
+    setAuthReady(true);
     syncedUserId.current = null;
     loginPromptUserId.current = nextSession.user.id;
     void savePocketBaseConnection(next);
@@ -302,6 +326,11 @@ export default function App() {
     setSession(null);
     syncedUserId.current = null;
     loginPromptUserId.current = null;
+  }
+
+  function useLocally() {
+    setLocalMode(true);
+    void saveLocalModePreference(true);
   }
 
   async function syncUserData(userId: string, strategy: SyncStrategy, initialCloud?: CloudAppData) {
@@ -375,13 +404,32 @@ export default function App() {
     ]);
   }
 
-  if (!ready) {
+  if (!ready || !authReady) {
     return (
       <GestureHandlerRootView style={styles.safe}>
         <SafeAreaProvider>
           <SafeAreaView style={[styles.loading, { backgroundColor: c.background }]}>
             <ActivityIndicator size="large" color={c.primary} />
             <Text style={[styles.loadingText, { color: c.textMuted }]}>Loading Paynest</Text>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
+
+  if (!session && !localMode) {
+    return (
+      <GestureHandlerRootView style={styles.safe}>
+        <SafeAreaProvider>
+          <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+            <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
+            <LoginScreen
+              c={c}
+              pocketBaseConnection={pocketBaseConnection}
+              onAuthSuccess={completePocketBaseAuth}
+              onUpdatePocketBaseConnection={updatePocketBaseConnection}
+              onUseLocally={useLocally}
+            />
           </SafeAreaView>
         </SafeAreaProvider>
       </GestureHandlerRootView>
