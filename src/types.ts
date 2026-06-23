@@ -30,7 +30,7 @@ export type Settings = {
 };
 
 export const defaultSettings: Settings = {
-  theme: "system",
+  theme: "light",
   remindersEnabled: true,
   reminderDays: 3,
   currency: "EUR",

@@ -20,9 +20,11 @@ export async function loadAppData(): Promise<{ subscriptions: Subscription[]; se
     AsyncStorage.getItem(settingsKey),
   ]);
 
+  const settings = { ...defaultSettings, ...readJson(storedSettings, {}) };
+
   return {
     subscriptions: readJson(storedSubscriptions, []),
-    settings: { ...defaultSettings, ...readJson(storedSettings, {}) },
+    settings: { ...settings, theme: settings.theme === "system" ? "light" : settings.theme },
   };
 }
 

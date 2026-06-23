@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, StatusBar, Text, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Alert, StatusBar, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import type { Session } from "@supabase/supabase-js";
 
@@ -25,7 +25,6 @@ import {
 } from "./src/utils/subscriptions";
 
 export default function App() {
-  const deviceTheme = useColorScheme();
   const [tab, setTab] = useState<Tab>("Dashboard");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
@@ -71,7 +70,7 @@ export default function App() {
     });
   }, [ready, session?.user.id]);
 
-  const dark = settings.theme === "dark" || (settings.theme === "system" && deviceTheme === "dark");
+  const dark = settings.theme === "dark";
   const c = dark ? darkColors : lightColors;
   const monthly = useMemo(
     () => subscriptions.reduce((total, item) => total + monthlyCost(item), 0),

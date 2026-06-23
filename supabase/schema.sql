@@ -25,7 +25,7 @@ create table if not exists public.subscriptions (
 
 create table if not exists public.settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  theme text not null default 'system' check (theme in ('system', 'light', 'dark')),
+  theme text not null default 'light' check (theme in ('system', 'light', 'dark')),
   reminders_enabled boolean not null default true,
   reminder_days integer not null default 3 check (reminder_days >= 0),
   currency text not null default 'EUR',

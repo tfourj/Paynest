@@ -76,7 +76,7 @@ function toSubscriptionRow(userId: string, item: Subscription) {
 function toSettings(row: SettingsRow): Settings {
   return {
     ...defaultSettings,
-    theme: row.theme,
+    theme: row.theme === "system" ? "light" : row.theme,
     remindersEnabled: row.reminders_enabled,
     reminderDays: row.reminder_days,
     currency: row.currency,

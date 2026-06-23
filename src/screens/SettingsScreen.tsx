@@ -241,19 +241,17 @@ function AppearanceSettings({
     <>
       <Text style={[styles.settingsLabel, { color: c.textMuted }]}>APPEARANCE</Text>
       <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <View style={styles.settingOption}>
-          <Text style={[styles.rowName, { color: c.text }]}>Theme</Text>
-          <View style={styles.chips}>
-            {(["system", "light", "dark"] as const).map((theme) => (
-              <Chip
-                key={theme}
-                c={c}
-                label={theme[0].toUpperCase() + theme.slice(1)}
-                selected={settings.theme === theme}
-                onPress={() => onUpdate({ ...settings, theme })}
-              />
-            ))}
+        <View style={styles.settingRow}>
+          <Ionicons name="moon-outline" size={21} color={c.primary} />
+          <View style={styles.rowText}>
+            <Text style={[styles.rowName, { color: c.text }]}>Dark mode</Text>
+            <Text style={[styles.rowMeta, { color: c.textMuted }]}>Use a dark appearance</Text>
           </View>
+          <Switch
+            value={settings.theme === "dark"}
+            onValueChange={(enabled) => onUpdate({ ...settings, theme: enabled ? "dark" : "light" })}
+            trackColor={{ false: c.surfaceMuted, true: c.primary }}
+          />
         </View>
 
         <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
