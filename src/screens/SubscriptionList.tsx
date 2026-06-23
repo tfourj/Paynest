@@ -38,7 +38,7 @@ export function SubscriptionList({ c, subscriptions, onAdd, onRemove }: Subscrip
       {visible.length === 0 ? (
         <EmptyState c={c} onAdd={onAdd} compact />
       ) : (
-        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <View style={styles.subscriptionStack}>
           {visible.map((item, index) => (
             <SubscriptionRow
               key={item.id}

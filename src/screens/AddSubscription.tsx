@@ -33,7 +33,16 @@ const visualIconOptions = [
   "school",
 ] as const;
 const visualColorOptions = ["#2563EB", "#E50914", "#1DB954", "#8B5CF6", "#F97316", "#0891B2", "#111827", "#64748B"];
-const backgroundColorOptions = ["#EFF6FF", "#FEE2E2", "#ECFDF5", "#F5F3FF", "#FFF7ED", "#ECFEFF", "#F3F4F6", "#F8FAFC"];
+const backgroundColorOptions = [
+  "#2563EB",
+  "#E50914",
+  "#1DB954",
+  "#8B5CF6",
+  "#F97316",
+  "#111827",
+  "#EFF6FF",
+  "#F3F4F6",
+];
 
 function startOfToday() {
   const date = new Date();
@@ -55,6 +64,18 @@ function ordinal(day: number) {
   if (day >= 11 && day <= 13) return `${day}th`;
   const suffix = { 1: "st", 2: "nd", 3: "rd" }[day % 10] ?? "th";
   return `${day}${suffix}`;
+}
+
+function readableTextColor(background: string) {
+  const normalized = background.replace("#", "");
+  if (normalized.length !== 6) return "#111827";
+
+  const r = Number.parseInt(normalized.slice(0, 2), 16);
+  const g = Number.parseInt(normalized.slice(2, 4), 16);
+  const b = Number.parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  return luminance > 0.68 ? "#111827" : "#FFFFFF";
 }
 
 function dateForPayDay(baseDate: Date, payDay: number) {
@@ -82,19 +103,23 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
   const [iconName, setIconName] = useState<(typeof visualIconOptions)[number]>("card");
   const [iconLabel, setIconLabel] = useState("");
   const [iconColor, setIconColor] = useState("#2563EB");
-  const [backgroundColor, setBackgroundColor] = useState("#EFF6FF");
+  const [backgroundColor, setBackgroundColor] = useState("#2563EB");
   const [simpleIconSlug, setSimpleIconSlug] = useState<string | undefined>();
   const [error, setError] = useState("");
   const renewalDate = useMemo(() => dateForPayDay(today, payDay), [payDay, today]);
   const renewal = formatDateValue(renewalDate);
-  const previewMutedColor = "#475569";
+  const previewTextColor = readableTextColor(backgroundColor);
+  const previewMutedColor = previewTextColor === "#FFFFFF" ? "rgba(255,255,255,0.78)" : "#475569";
+  const previewBadgeBackground = previewTextColor === "#FFFFFF"
+    ? "rgba(255,255,255,0.16)"
+    : "rgba(255,255,255,0.72)";
 
   function applyPreset(preset: SubscriptionPreset) {
     setName(preset.name);
     setCategory(preset.category);
     setIconLabel(preset.iconLabel);
     setIconColor(preset.iconColor);
-    setBackgroundColor(preset.backgroundColor);
+    setBackgroundColor(preset.iconColor);
     setSimpleIconSlug(preset.simpleIconSlug);
   }
 
@@ -130,7 +155,7 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
     setIconName("card");
     setIconLabel("");
     setIconColor("#2563EB");
-    setBackgroundColor("#EFF6FF");
+    setBackgroundColor("#2563EB");
     setSimpleIconSlug(undefined);
     setError("");
   }
@@ -303,18 +328,18 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
           <Text style={[styles.formLabel, { color: c.textMuted }]}>VISUAL STYLE</Text>
           <View style={[styles.visualPanel, { backgroundColor, borderColor: c.border }]}>
             <View style={styles.visualPreviewRow}>
-              <View style={[styles.iconBadge, { backgroundColor: iconColor }]}>
+              <View style={[styles.iconBadge, { backgroundColor: previewBadgeBackground }]}>
                 {iconLabel ? (
-                  <Text style={styles.iconBadgeText}>{iconLabel}</Text>
+                  <Text style={[styles.iconBadgeText, { color: previewTextColor }]}>{iconLabel}</Text>
                 ) : (
-                  <Ionicons name={iconName} size={22} color="#fff" />
+                  <Ionicons name={iconName} size={22} color={previewTextColor} />
                 )}
               </View>
               <View style={styles.rowText}>
-                <Text style={[styles.rowName, { color: "#111827" }]}>{name.trim() || "Subscription"}</Text>
+                <Text style={[styles.rowName, { color: previewTextColor }]}>{name.trim() || "Subscription"}</Text>
                 <Text style={[styles.rowMeta, { color: previewMutedColor }]}>{category} · {billingPeriod}</Text>
               </View>
-              <Text style={[styles.rowPrice, { color: "#111827" }]}>
+              <Text style={[styles.rowPrice, { color: previewTextColor }]}>
                 {symbols[defaultCurrency] ?? defaultCurrency} {price || "0.00"}
               </Text>
             </View>

@@ -36,7 +36,7 @@ export function Dashboard({ c, subscriptions, upcoming, monthly, currency, onAdd
       ) : (
         <>
           <SectionHeader c={c} title="Upcoming" action="See all" onPress={onSeeAll} />
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={styles.subscriptionStack}>
             {upcoming.slice(0, 3).map((item, index) => (
               <RenewalRow
                 key={item.id}
@@ -48,7 +48,7 @@ export function Dashboard({ c, subscriptions, upcoming, monthly, currency, onAdd
           </View>
 
           <SectionHeader c={c} title="Recent subscriptions" action="Manage" onPress={onSeeAll} />
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={styles.subscriptionStack}>
             {subscriptions.slice(-3).reverse().map((item, index) => (
               <SubscriptionRow
                 key={item.id}
