@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -43,6 +43,7 @@ const backgroundColorOptions = [
   "#EFF6FF",
   "#F3F4F6",
 ];
+const dateWheelItemOffset = 48;
 
 function startOfToday() {
   const date = new Date();
@@ -88,6 +89,9 @@ function clampDate(year: number, month: number, day: number) {
 
 export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }: AddSubscriptionProps) {
   const today = useMemo(startOfToday, [visible]);
+  const dayWheelRef = useRef<ScrollView>(null);
+  const monthWheelRef = useRef<ScrollView>(null);
+  const yearWheelRef = useRef<ScrollView>(null);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [presetSearch, setPresetSearch] = useState("");
@@ -117,6 +121,27 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
   const previewBadgeBackground = previewTextColor === "#FFFFFF"
     ? "rgba(255,255,255,0.16)"
     : "rgba(255,255,255,0.72)";
+
+  useEffect(() => {
+    if (!showDatePicker) return;
+
+    const scrollTimer = setTimeout(() => {
+      dayWheelRef.current?.scrollTo({
+        y: Math.max(payDay - 2, 0) * dateWheelItemOffset,
+        animated: false,
+      });
+      monthWheelRef.current?.scrollTo({
+        y: Math.max(firstPaymentDate.getMonth() - 1, 0) * dateWheelItemOffset,
+        animated: false,
+      });
+      yearWheelRef.current?.scrollTo({
+        y: Math.max(yearOptions.indexOf(firstPaymentDate.getFullYear()) - 1, 0) * dateWheelItemOffset,
+        animated: false,
+      });
+    }, 50);
+
+    return () => clearTimeout(scrollTimer);
+  }, [firstPaymentDate, payDay, showDatePicker]);
 
   function applyPreset(preset: SubscriptionPreset) {
     setName(preset.name);
@@ -329,7 +354,7 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
             <View style={[styles.dateSheet, { backgroundColor: c.background }]}>
               <View style={styles.dateSheetHandle} />
               <View style={styles.dateSheetHeader}>
-              <View>
+                <View>
                   <Text style={[styles.dateLabel, { color: c.textMuted }]}>FIRST PAYMENT</Text>
                   <Text style={[styles.payDateTitle, { color: c.text }]}>
                     {formatLongDate(firstPaymentDate)}
@@ -346,7 +371,7 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
               <View style={styles.dateWheelRow}>
                 <View style={styles.dateWheelColumn}>
                   <Text style={[styles.dateWheelLabel, { color: c.textMuted }]}>Day</Text>
-                  <ScrollView showsVerticalScrollIndicator={false} style={styles.dateWheel}>
+                  <ScrollView ref={dayWheelRef} showsVerticalScrollIndicator={false} style={styles.dateWheel}>
                     {datePickerDays.map((day) => (
                       <Pressable
                         key={day}
@@ -366,7 +391,7 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
 
                 <View style={styles.dateWheelColumn}>
                   <Text style={[styles.dateWheelLabel, { color: c.textMuted }]}>Month</Text>
-                  <ScrollView showsVerticalScrollIndicator={false} style={styles.dateWheel}>
+                  <ScrollView ref={monthWheelRef} showsVerticalScrollIndicator={false} style={styles.dateWheel}>
                     {monthOptions.map((month) => (
                       <Pressable
                         key={month}
@@ -391,7 +416,7 @@ export function AddSubscription({ c, visible, defaultCurrency, onClose, onSave }
 
                 <View style={styles.dateWheelColumn}>
                   <Text style={[styles.dateWheelLabel, { color: c.textMuted }]}>Year</Text>
-                  <ScrollView showsVerticalScrollIndicator={false} style={styles.dateWheel}>
+                  <ScrollView ref={yearWheelRef} showsVerticalScrollIndicator={false} style={styles.dateWheel}>
                     {yearOptions.map((year) => (
                       <Pressable
                         key={year}
