@@ -9,7 +9,8 @@
     "ios": "expo run:ios",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
-    "pb:collections": "node pocketbase/generate-collections.mjs"
+    "pb:collections": "node pocketbase/generate-collections.mjs",
+    "pb:validate": "node pocketbase/validate-collections.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.5",

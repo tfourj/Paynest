@@ -52,16 +52,29 @@ You can regenerate the import file from the repo root with:
 npm run pb:collections
 ```
 
+You can validate the import file with:
+
+```sh
+npm run pb:validate
+```
+
+To validate your live PocketBase setup, export collections from the PocketBase admin UI, save the
+exported JSON locally, then run:
+
+```sh
+node pocketbase/validate-collections.mjs /path/to/exported.collections.json
+```
+
 The import file creates:
 
 - `subscriptions`
 - `settings`
-- API rules for authenticated users
+- API rules for authenticated users. This is PocketBase's equivalent of RLS for Paynest.
 - unique indexes for per-user data
 
 ## Manual Collection Reference
 
-Use this only if you do not want to use `pocketbase/paynest.sql`.
+Use this only if you do not want to use `pocketbase/paynest.collections.json`.
 
 ### subscriptions
 
