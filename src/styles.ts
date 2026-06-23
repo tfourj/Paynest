@@ -311,8 +311,16 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
   },
   symbolResultText: { width: "100%", fontSize: 11, fontWeight: "800", textAlign: "center" },
-  swatchRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  backgroundSwatch: { width: 42, height: 32, borderRadius: 10, borderWidth: 2 },
+  colorPickerGroup: { gap: 8 },
+  colorPickerLabel: { fontSize: 12, fontWeight: "800", letterSpacing: 0.6 },
+  colorWheel: { gap: 5 },
+  colorWheelRow: { flexDirection: "row", gap: 5 },
+  colorWheelCell: {
+    flex: 1,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 2,
+  },
   customBackgroundGroup: {
     minHeight: 46,
     borderRadius: 14,

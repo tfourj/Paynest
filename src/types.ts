@@ -15,6 +15,7 @@ export type Subscription = {
   iconLabel?: string;
   iconColor?: string;
   backgroundColor?: string;
+  iconBackgroundColor?: string;
   simpleIconSlug?: string;
   iconProvider?: string;
   iconUrl?: string;

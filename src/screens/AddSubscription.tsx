@@ -43,15 +43,11 @@ const visualIconOptions = [
   "code-slash",
   "school",
 ] as const;
-const backgroundColorOptions = [
-  "#2563EB",
-  "#E50914",
-  "#1DB954",
-  "#8B5CF6",
-  "#F97316",
-  "#111827",
-  "#EFF6FF",
-  "#F3F4F6",
+const colorWheelRows = [
+  ["#EF4444", "#F97316", "#F59E0B", "#EAB308", "#84CC16", "#22C55E", "#14B8A6", "#06B6D4"],
+  ["#0EA5E9", "#3B82F6", "#6366F1", "#8B5CF6", "#A855F7", "#D946EF", "#EC4899", "#F43F5E"],
+  ["#991B1B", "#9A3412", "#854D0E", "#3F6212", "#166534", "#115E59", "#1E40AF", "#581C87"],
+  ["#111827", "#374151", "#6B7280", "#9CA3AF", "#D1D5DB", "#E5E7EB", "#F3F4F6", "#FFFFFF"],
 ];
 const iconProviderOptions: { label: string; value: IconProvider }[] = [
   { label: "Simple Icons", value: "simpleicons" },
@@ -139,6 +135,8 @@ export function AddSubscription({
   const [iconColor, setIconColor] = useState("#2563EB");
   const [backgroundColor, setBackgroundColor] = useState("#2563EB");
   const [customBackgroundInput, setCustomBackgroundInput] = useState("#2563EB");
+  const [iconBackgroundColor, setIconBackgroundColor] = useState("#FFFFFF");
+  const [customIconBackgroundInput, setCustomIconBackgroundInput] = useState("#FFFFFF");
   const [simpleIconSlug, setSimpleIconSlug] = useState<string | undefined>();
   const [iconProvider, setIconProvider] = useState<IconProvider | undefined>();
   const [iconUrl, setIconUrl] = useState<string | undefined>();
@@ -194,10 +192,8 @@ export function AddSubscription({
     };
   }, [iconColor, iconProvider, iconSourceTitle, iconUrl, name, simpleIconSlug]);
   const previewTextColor = readableTextColor(backgroundColor);
+  const previewIconColor = readableTextColor(iconBackgroundColor);
   const previewMutedColor = previewTextColor === "#FFFFFF" ? "rgba(255,255,255,0.78)" : "#475569";
-  const previewBadgeBackground = previewTextColor === "#FFFFFF"
-    ? "rgba(255,255,255,0.16)"
-    : "rgba(255,255,255,0.72)";
 
   useEffect(() => {
     if (!showDatePicker) return;
@@ -234,6 +230,8 @@ export function AddSubscription({
     setIconColor(subscription?.iconColor ?? "#2563EB");
     setBackgroundColor(subscription?.backgroundColor ?? subscription?.iconColor ?? "#2563EB");
     setCustomBackgroundInput(subscription?.backgroundColor ?? subscription?.iconColor ?? "#2563EB");
+    setIconBackgroundColor(subscription?.iconBackgroundColor ?? "#FFFFFF");
+    setCustomIconBackgroundInput(subscription?.iconBackgroundColor ?? "#FFFFFF");
     setSimpleIconSlug(subscription?.simpleIconSlug);
     setIconProvider(subscription?.iconProvider as IconProvider | undefined);
     setIconUrl(subscription?.iconUrl);
@@ -284,6 +282,8 @@ export function AddSubscription({
     setIconColor(preset.iconColor);
     setBackgroundColor(preset.iconColor);
     setCustomBackgroundInput(preset.iconColor);
+    setIconBackgroundColor("#FFFFFF");
+    setCustomIconBackgroundInput("#FFFFFF");
     setSimpleIconSlug(preset.simpleIconSlug);
     setIconProvider("simpleicons");
     setIconUrl(undefined);
@@ -310,6 +310,17 @@ export function AddSubscription({
     setCustomBackgroundInput(value);
     const color = normalizeHexColor(value);
     if (color) setBackgroundColor(color);
+  }
+
+  function selectIconBackgroundColor(color: string) {
+    setIconBackgroundColor(color);
+    setCustomIconBackgroundInput(color);
+  }
+
+  function updateCustomIconBackground(value: string) {
+    setCustomIconBackgroundInput(value);
+    const color = normalizeHexColor(value);
+    if (color) setIconBackgroundColor(color);
   }
 
   function toggleIconProvider(provider: IconProvider) {
@@ -349,6 +360,7 @@ export function AddSubscription({
       iconLabel: iconLabel || undefined,
       iconColor,
       backgroundColor,
+      iconBackgroundColor,
       simpleIconSlug,
       iconProvider,
       iconUrl,
@@ -365,6 +377,8 @@ export function AddSubscription({
     setIconColor("#2563EB");
     setBackgroundColor("#2563EB");
     setCustomBackgroundInput("#2563EB");
+    setIconBackgroundColor("#FFFFFF");
+    setCustomIconBackgroundInput("#FFFFFF");
     setSimpleIconSlug(undefined);
     setIconProvider(undefined);
     setIconUrl(undefined);
@@ -674,9 +688,9 @@ export function AddSubscription({
           <Text style={[styles.formLabel, { color: c.textMuted }]}>VISUAL STYLE</Text>
           <View style={[styles.visualPanel, { backgroundColor, borderColor: c.border }]}>
             <View style={styles.visualPreviewRow}>
-              <View style={[styles.iconBadge, { backgroundColor: previewBadgeBackground }]}>
+              <View style={[styles.iconBadge, { backgroundColor: iconBackgroundColor }]}>
                 <SubscriptionIcon
-                  color={previewTextColor}
+                  color={previewIconColor}
                   fallbackLabel={iconLabel}
                   iconName={iconName}
                   iconSource={selectedIconSource}
@@ -802,35 +816,22 @@ export function AddSubscription({
                 </View>
               ) : null}
             </ScrollView>
-            <View style={styles.swatchRow}>
-              {backgroundColorOptions.map((color) => (
-                <Pressable
-                  key={color}
-                  accessibilityLabel={`Use background ${color}`}
-                  onPress={() => selectBackgroundColor(color)}
-                  style={[
-                    styles.backgroundSwatch,
-                    {
-                      backgroundColor: color,
-                      borderColor: backgroundColor === color ? c.text : c.border,
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-            <View style={[styles.customBackgroundGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <View style={[styles.customBackgroundPreview, { backgroundColor }]} />
-              <TextInput
-                value={customBackgroundInput}
-                onChangeText={updateCustomBackground}
-                placeholder="#2563EB"
-                placeholderTextColor={c.textSoft}
-                style={[styles.customBackgroundInput, { color: c.text }]}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                maxLength={7}
-              />
-            </View>
+            <ColorPickerControl
+              c={c}
+              label="Row background"
+              value={backgroundColor}
+              inputValue={customBackgroundInput}
+              onSelectColor={selectBackgroundColor}
+              onChangeInput={updateCustomBackground}
+            />
+            <ColorPickerControl
+              c={c}
+              label="Icon background"
+              value={iconBackgroundColor}
+              inputValue={customIconBackgroundInput}
+              onSelectColor={selectIconBackgroundColor}
+              onChangeInput={updateCustomIconBackground}
+            />
           </View>
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>CATEGORY</Text>
@@ -858,5 +859,62 @@ export function AddSubscription({
         </View>
       </SafeAreaView>
     </Modal>
+  );
+}
+
+type ColorPickerControlProps = {
+  c: Colors;
+  label: string;
+  value: string;
+  inputValue: string;
+  onSelectColor: (color: string) => void;
+  onChangeInput: (value: string) => void;
+};
+
+function ColorPickerControl({
+  c,
+  label,
+  value,
+  inputValue,
+  onSelectColor,
+  onChangeInput,
+}: ColorPickerControlProps) {
+  return (
+    <View style={styles.colorPickerGroup}>
+      <Text style={[styles.colorPickerLabel, { color: c.textMuted }]}>{label}</Text>
+      <View style={styles.colorWheel}>
+        {colorWheelRows.map((row, rowIndex) => (
+          <View key={`color-row-${rowIndex}`} style={styles.colorWheelRow}>
+            {row.map((color) => (
+              <Pressable
+                key={color}
+                accessibilityLabel={`Use ${label.toLowerCase()} ${color}`}
+                onPress={() => onSelectColor(color)}
+                style={[
+                  styles.colorWheelCell,
+                  {
+                    backgroundColor: color,
+                    borderColor: value === color ? c.text : "rgba(255,255,255,0.34)",
+                  },
+                ]}
+              />
+            ))}
+          </View>
+        ))}
+      </View>
+      <View style={[styles.customBackgroundGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <View style={[styles.customBackgroundPreview, { backgroundColor: value }]} />
+        <TextInput
+          value={inputValue}
+          onChangeText={onChangeInput}
+          placeholder="#2563EB"
+          placeholderTextColor={c.textSoft}
+          style={[styles.customBackgroundInput, { color: c.text }]}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={7}
+        />
+      </View>
+    </View>
   );
 }

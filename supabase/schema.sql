@@ -18,6 +18,7 @@ create table if not exists public.subscriptions (
   icon_label text,
   icon_color text,
   background_color text,
+  icon_background_color text,
   simple_icon_slug text,
   icon_provider text,
   icon_url text,

@@ -99,13 +99,15 @@ export function SubscriptionRow({ c, item, last, onPress }: SubscriptionRowProps
 
 function IconBadge({ item, rowTextColor }: { item: Subscription; rowTextColor: string }) {
   const iconName = (item.iconName ?? iconFor(item.category)) as keyof typeof Ionicons.glyphMap;
-  const badgeBackground = rowTextColor === "#FFFFFF" ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.72)";
+  const badgeBackground = item.iconBackgroundColor
+    ?? (rowTextColor === "#FFFFFF" ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.72)");
+  const iconColor = item.iconBackgroundColor ? readableTextColor(item.iconBackgroundColor) : rowTextColor;
   const iconSource = sourceFromSubscription(item);
 
   return (
     <View style={[styles.iconBadge, { backgroundColor: badgeBackground }]}>
       <SubscriptionIcon
-        color={rowTextColor}
+        color={iconColor}
         fallbackLabel={item.iconLabel}
         iconName={iconName}
         iconSource={iconSource}
