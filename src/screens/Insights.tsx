@@ -1,4 +1,6 @@
-import { ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import { EmptyState, Metric } from "../components/common";
 import { styles } from "../styles";
@@ -15,13 +17,18 @@ type InsightsProps = {
 };
 
 export function Insights({ c, subscriptions, monthly, currency }: InsightsProps) {
+  const [viewedMonth, setViewedMonth] = useState(() => startOfMonth(new Date()));
   const max = Math.max(1, ...subscriptions.map(monthlyCost));
-  const calendarDays = buildRenewalCalendar(subscriptions);
+  const calendarDays = buildRenewalCalendar(subscriptions, viewedMonth);
   const calendarWeeks = chunkCalendarWeeks(calendarDays);
-  const monthLabel = new Date().toLocaleDateString(undefined, {
+  const monthLabel = viewedMonth.toLocaleDateString(undefined, {
     month: "long",
     year: "numeric",
   });
+
+  function changeViewedMonth(offset: number) {
+    setViewedMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
@@ -69,7 +76,23 @@ export function Insights({ c, subscriptions, monthly, currency }: InsightsProps)
               { backgroundColor: c.surface, borderColor: c.border },
             ]}
           >
-            <Text style={[styles.calendarMonth, { color: c.text }]}>{monthLabel}</Text>
+            <View style={styles.calendarHeader}>
+              <Pressable
+                accessibilityLabel="Previous month"
+                onPress={() => changeViewedMonth(-1)}
+                style={[styles.calendarArrowButton, { backgroundColor: c.surfaceMuted }]}
+              >
+                <Ionicons name="chevron-back" size={18} color={c.text} />
+              </Pressable>
+              <Text style={[styles.calendarMonth, { color: c.text }]}>{monthLabel}</Text>
+              <Pressable
+                accessibilityLabel="Next month"
+                onPress={() => changeViewedMonth(1)}
+                style={[styles.calendarArrowButton, { backgroundColor: c.surfaceMuted }]}
+              >
+                <Ionicons name="chevron-forward" size={18} color={c.text} />
+              </Pressable>
+            </View>
             <View style={styles.calendarWeekHeader}>
               {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
                 <Text key={day} style={[styles.calendarWeekday, { color: c.textMuted }]}>
@@ -137,10 +160,10 @@ type CalendarDay = {
   subscriptions: Subscription[];
 };
 
-function buildRenewalCalendar(subscriptions: Subscription[]): CalendarDay[] {
+function buildRenewalCalendar(subscriptions: Subscription[], viewedMonth: Date): CalendarDay[] {
   const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+  const year = viewedMonth.getFullYear();
+  const month = viewedMonth.getMonth();
   const firstDay = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const leadingEmptyDays = (firstDay.getDay() + 6) % 7;
@@ -191,4 +214,8 @@ function formatDateKey(date: Date) {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
 }
