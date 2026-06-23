@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Component, type ReactNode, useEffect, useState } from "react";
 import { Image, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SvgXml } from "react-native-svg";
@@ -16,6 +16,34 @@ type SubscriptionIconProps = {
   size: number;
 };
 
+type SvgIconBoundaryProps = {
+  children: ReactNode;
+  fallback: ReactNode;
+  resetKey?: string;
+};
+
+type SvgIconBoundaryState = {
+  hasError: boolean;
+};
+
+class SvgIconBoundary extends Component<SvgIconBoundaryProps, SvgIconBoundaryState> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(previousProps: SvgIconBoundaryProps) {
+    if (previousProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
+
 export function SubscriptionIcon({
   color,
   fallbackLabel,
@@ -28,6 +56,7 @@ export function SubscriptionIcon({
   const remoteUrl = iconSource?.provider !== "simpleicons" ? iconSource?.url : undefined;
   const remoteSvgUrl = remoteUrl?.endsWith(".svg") ? remoteUrl : undefined;
   const simpleIcon = getSimpleIcon(simpleIconSlug);
+  const fallbackIcon = <Ionicons name={iconName} size={size - 1} color={color} />;
 
   useEffect(() => {
     let active = true;
@@ -54,11 +83,15 @@ export function SubscriptionIcon({
 
   if (remoteUrl) {
     if (cachedSvgXml) {
-      return <SvgXml xml={cachedSvgXml} width={size} height={size} />;
+      return (
+        <SvgIconBoundary fallback={fallbackIcon} resetKey={remoteSvgUrl}>
+          <SvgXml xml={cachedSvgXml} width={size} height={size} />
+        </SvgIconBoundary>
+      );
     }
 
     if (remoteSvgUrl) {
-      return <Ionicons name={iconName} size={size - 1} color={color} />;
+      return fallbackIcon;
     }
 
     return (
@@ -74,5 +107,5 @@ export function SubscriptionIcon({
     return <Text style={[styles.iconBadgeText, { color }]}>{fallbackLabel}</Text>;
   }
 
-  return <Ionicons name={iconName} size={size - 1} color={color} />;
+  return fallbackIcon;
 }

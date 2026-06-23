@@ -13,6 +13,10 @@ function isSvgXml(value: string) {
   return value.trimStart().startsWith("<svg");
 }
 
+function isCompatibleSvgXml(value: string) {
+  return !/<style[\s>]/i.test(value) && !/\sclass=/i.test(value) && !/\sstyle=/i.test(value);
+}
+
 function rgbaFromLongHexColor(hex: string) {
   const color = hex.slice(0, 8);
   const red = Number.parseInt(color.slice(0, 2), 16);
@@ -70,6 +74,12 @@ async function loadIconXml(key: string, url: string) {
   const cached = await AsyncStorage.getItem(key);
   if (cached) {
     const sanitized = sanitizeSvgXml(cached);
+    if (!isSvgXml(sanitized) || !isCompatibleSvgXml(sanitized)) {
+      memoryIconCache.delete(key);
+      await AsyncStorage.removeItem(key);
+      return undefined;
+    }
+
     memoryIconCache.set(key, sanitized);
     if (sanitized !== cached) {
       await AsyncStorage.setItem(key, sanitized);
@@ -82,7 +92,7 @@ async function loadIconXml(key: string, url: string) {
   if (!response.ok) return undefined;
 
   const xml = sanitizeSvgXml(await response.text());
-  if (!isSvgXml(xml)) return undefined;
+  if (!isSvgXml(xml) || !isCompatibleSvgXml(xml)) return undefined;
 
   await AsyncStorage.setItem(key, xml);
   await addCacheKey(key);
