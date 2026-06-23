@@ -3,10 +3,9 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { EmptyState, Metric } from "../components/common";
-import { RenewalRow } from "../components/subscriptionRows";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
-import type { Subscription } from "../types";
+import type { BillingPeriod, Subscription } from "../types";
 import { colorFor } from "../utils/category";
 import { formatMoney, monthlyCost } from "../utils/subscriptions";
 
@@ -175,12 +174,36 @@ export function Insights({ c, subscriptions, monthly, currency }: InsightsProps)
                 {selectedDay && selectedDay.subscriptions.length > 0 ? (
                   <View style={styles.subscriptionStack}>
                     {selectedDay.subscriptions.map((item, index) => (
-                      <RenewalRow
-                        c={c}
-                        item={item}
+                      <View
                         key={item.id}
-                        last={index === selectedDay.subscriptions.length - 1}
-                      />
+                        style={[
+                          styles.calendarSubscriptionRow,
+                          { backgroundColor: c.surfaceMuted },
+                          index === selectedDay.subscriptions.length - 1
+                            && styles.lastSubscriptionPill,
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.calendarSubscriptionAccent,
+                            {
+                              backgroundColor:
+                                item.backgroundColor ?? item.iconColor ?? colorFor(item.category),
+                            },
+                          ]}
+                        />
+                        <View style={styles.rowText}>
+                          <Text style={[styles.calendarSubscriptionName, { color: c.text }]}>
+                            {item.name}
+                          </Text>
+                          <Text style={[styles.calendarSubscriptionMeta, { color: c.textMuted }]}>
+                            {item.category} · {item.billingPeriod}
+                          </Text>
+                        </View>
+                        <Text style={[styles.calendarSubscriptionPrice, { color: c.text }]}>
+                          {formatMoney(item.price, item.currency)}
+                        </Text>
+                      </View>
                     ))}
                   </View>
                 ) : (
@@ -210,16 +233,16 @@ function buildRenewalCalendar(subscriptions: Subscription[], viewedMonth: Date):
   const month = viewedMonth.getMonth();
   const firstDay = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const lastDay = new Date(year, month, daysInMonth);
   const leadingEmptyDays = (firstDay.getDay() + 6) % 7;
   const renewalsByDate = new Map<string, Subscription[]>();
 
   subscriptions.forEach((item) => {
-    const renewal = new Date(`${item.nextRenewalDate}T00:00:00`);
-    if (renewal.getFullYear() !== year || renewal.getMonth() !== month) return;
-
-    const dateKey = formatDateKey(renewal);
-    const existing = renewalsByDate.get(dateKey) ?? [];
-    renewalsByDate.set(dateKey, [...existing, item]);
+    renewalDatesInMonth(item.nextRenewalDate, item.billingPeriod, firstDay, lastDay).forEach((renewal) => {
+      const dateKey = formatDateKey(renewal);
+      const existing = renewalsByDate.get(dateKey) ?? [];
+      renewalsByDate.set(dateKey, [...existing, item]);
+    });
   });
 
   const days: CalendarDay[] = Array.from(
@@ -258,6 +281,73 @@ function formatDateKey(date: Date) {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function renewalDatesInMonth(
+  firstRenewalDate: string,
+  billingPeriod: BillingPeriod,
+  monthStart: Date,
+  monthEnd: Date,
+) {
+  const anchor = new Date(`${firstRenewalDate}T00:00:00`);
+  if (anchor.getTime() > monthEnd.getTime()) return [];
+
+  if (billingPeriod === "Weekly") {
+    return weeklyRenewalDatesInMonth(anchor, monthStart, monthEnd);
+  }
+
+  const monthInterval = billingPeriodMonthInterval(billingPeriod);
+  const monthOffset = monthDifference(anchor, monthStart);
+  if (monthOffset < 0 || monthOffset % monthInterval !== 0) return [];
+
+  const renewal = dateInMonth(monthStart.getFullYear(), monthStart.getMonth(), anchor.getDate());
+  return renewal.getTime() >= anchor.getTime() ? [renewal] : [];
+}
+
+function weeklyRenewalDatesInMonth(anchor: Date, monthStart: Date, monthEnd: Date) {
+  const dates: Date[] = [];
+  const firstDate = new Date(Math.max(anchor.getTime(), monthStart.getTime()));
+  const dayOffset = Math.ceil(dayDifference(anchor, firstDate) / 7) * 7;
+  const firstRenewal = addDays(anchor, dayOffset);
+
+  for (
+    let renewal = firstRenewal;
+    renewal.getTime() <= monthEnd.getTime();
+    renewal = addDays(renewal, 7)
+  ) {
+    dates.push(renewal);
+  }
+
+  return dates;
+}
+
+function billingPeriodMonthInterval(billingPeriod: Exclude<BillingPeriod, "Weekly">) {
+  if (billingPeriod === "3 months") return 3;
+  if (billingPeriod === "6 months") return 6;
+  if (billingPeriod === "Yearly") return 12;
+  return 1;
+}
+
+function monthDifference(start: Date, end: Date) {
+  return (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth();
+}
+
+function dateInMonth(year: number, month: number, day: number) {
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(day, lastDay));
+}
+
+function dayDifference(start: Date, end: Date) {
+  const millisecondsPerDay = 86_400_000;
+  return Math.round((startOfDay(end).getTime() - startOfDay(start).getTime()) / millisecondsPerDay);
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function startOfMonth(date: Date) {
