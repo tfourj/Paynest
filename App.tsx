@@ -31,6 +31,38 @@ import {
   spendUntil,
 } from "./src/utils/subscriptions";
 
+function comparableSubscription(item: Subscription) {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    price: item.price,
+    currency: item.currency,
+    billingPeriod: item.billingPeriod,
+    payDay: item.payDay ?? null,
+    nextRenewalDate: item.nextRenewalDate,
+    iconName: item.iconName ?? null,
+    iconLabel: item.iconLabel ?? null,
+    iconColor: item.iconColor ?? null,
+    backgroundColor: item.backgroundColor ?? null,
+    iconBackgroundColor: item.iconBackgroundColor ?? null,
+    simpleIconSlug: item.simpleIconSlug ?? null,
+    iconProvider: item.iconProvider ?? null,
+    iconUrl: item.iconUrl ?? null,
+    iconSourceTitle: item.iconSourceTitle ?? null,
+  };
+}
+
+function subscriptionListsMatch(left: Subscription[], right: Subscription[]) {
+  if (left.length !== right.length) return false;
+
+  const normalize = (items: Subscription[]) => items
+    .map(comparableSubscription)
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("Dashboard");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -39,6 +71,7 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const syncedUserId = useRef<string | null>(null);
+  const loginPromptUserId = useRef<string | null>(null);
 
   useEffect(() => {
     loadAppData().then(({ subscriptions: loadedSubscriptions, settings: loadedSettings }) => {
@@ -51,7 +84,10 @@ export default function App() {
   useEffect(() => {
     if (!supabase) return;
     void supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "SIGNED_IN" && nextSession?.user.id) {
+        loginPromptUserId.current = nextSession.user.id;
+      }
       setSession(nextSession);
     });
     return () => subscription.unsubscribe();
@@ -67,7 +103,11 @@ export default function App() {
 
     syncedUserId.current = userId;
     loadCloudAppData(userId).then((cloud) => {
-      const needsChoice = subscriptions.length > 0 && cloud.subscriptions.length > 0;
+      const canAskForChoice = loginPromptUserId.current === userId;
+      const needsChoice = canAskForChoice
+        && subscriptions.length > 0
+        && cloud.subscriptions.length > 0
+        && !subscriptionListsMatch(subscriptions, cloud.subscriptions);
       if (!needsChoice) {
         void syncUserData(userId, "merge");
         return;
@@ -191,6 +231,7 @@ export default function App() {
   async function syncUserData(userId: string, strategy: SyncStrategy) {
     const synced = await syncAppData(userId, subscriptions, settings, strategy);
     syncedUserId.current = userId;
+    if (loginPromptUserId.current === userId) loginPromptUserId.current = null;
     setSubscriptions(synced.subscriptions);
     setSettings(synced.settings);
     await Promise.all([
@@ -203,6 +244,7 @@ export default function App() {
     try {
       await syncUserData(userId, strategy);
     } catch (error) {
+      if (loginPromptUserId.current === userId) loginPromptUserId.current = null;
       syncedUserId.current = null;
       console.warn("Supabase sync failed", error);
     }
