@@ -884,7 +884,7 @@ export function AddSubscription({
               <Switch
                 value={reminderEnabled}
                 onValueChange={(enabled) => void updateReminderEnabled(enabled)}
-                trackColor={{ false: c.surfaceMuted, true: c.primary }}
+                trackColor={{ false: "#9CA3AF", true: c.primary }}
               />
             </View>
 

@@ -278,7 +278,7 @@ function PaydaySettings({
           <Switch
             value={settings.paydayEnabled}
             onValueChange={(paydayEnabled) => onUpdate({ ...settings, paydayEnabled })}
-            trackColor={{ false: c.surfaceMuted, true: c.primary }}
+            trackColor={{ false: "#9CA3AF", true: c.primary }}
           />
         </View>
 
@@ -364,7 +364,7 @@ function AppearanceSettings({
           <Switch
             value={settings.theme === "dark"}
             onValueChange={(enabled) => onUpdate({ ...settings, theme: enabled ? "dark" : "light" })}
-            trackColor={{ false: c.surfaceMuted, true: c.primary }}
+            trackColor={{ false: "#9CA3AF", true: c.primary }}
           />
         </View>
 
