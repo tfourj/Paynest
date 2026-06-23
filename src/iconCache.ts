@@ -13,6 +13,22 @@ function isSvgXml(value: string) {
   return value.trimStart().startsWith("<svg");
 }
 
+function rgbaFromLongHexColor(hex: string) {
+  const color = hex.slice(0, 8);
+  const red = Number.parseInt(color.slice(0, 2), 16);
+  const green = Number.parseInt(color.slice(2, 4), 16);
+  const blue = Number.parseInt(color.slice(4, 6), 16);
+  const alpha = Number.parseInt(color.slice(6, 8), 16) / 255;
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha.toFixed(3)})`;
+}
+
+function sanitizeSvgXml(xml: string) {
+  return xml.replace(/#([0-9a-fA-F]{8,})(?![0-9a-fA-F])/g, (_match, hex: string) => {
+    return rgbaFromLongHexColor(hex);
+  });
+}
+
 function readCacheKeys(rawKeys: string | null) {
   if (!rawKeys) return [];
 
@@ -53,14 +69,19 @@ export async function loadCachedIconXml(url: string) {
 async function loadIconXml(key: string, url: string) {
   const cached = await AsyncStorage.getItem(key);
   if (cached) {
-    memoryIconCache.set(key, cached);
-    return cached;
+    const sanitized = sanitizeSvgXml(cached);
+    memoryIconCache.set(key, sanitized);
+    if (sanitized !== cached) {
+      await AsyncStorage.setItem(key, sanitized);
+    }
+
+    return sanitized;
   }
 
   const response = await fetch(url);
   if (!response.ok) return undefined;
 
-  const xml = await response.text();
+  const xml = sanitizeSvgXml(await response.text());
   if (!isSvgXml(xml)) return undefined;
 
   await AsyncStorage.setItem(key, xml);
