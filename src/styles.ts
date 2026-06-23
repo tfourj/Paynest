@@ -19,7 +19,7 @@ export const styles = StyleSheet.create({
   loginLogo: { width: 96, height: 96, borderRadius: 22, marginBottom: 18 },
   loginTitle: { fontSize: 34, fontWeight: "800" },
   loginSubtitle: { maxWidth: 320, textAlign: "center", fontSize: 15, lineHeight: 22, marginTop: 10 },
-  loginActions: { gap: 12 },
+  loginActions: { width: "100%", maxWidth: 360, alignSelf: "center", gap: 12 },
   loginPrimaryButton: {
     minHeight: 52,
     borderRadius: 14,
