@@ -17,6 +17,7 @@ import {
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Settings } from "../types";
+import { normalizeHexColor, readableTextColor } from "../utils/colors";
 
 type SettingsScreenProps = {
   c: Colors;
@@ -314,6 +315,23 @@ function AppearanceSettings({
   settings: Settings;
   onUpdate: (settings: Settings) => void;
 }) {
+  const [presetInput, setPresetInput] = useState("");
+  const normalizedPresetInput = normalizeHexColor(presetInput);
+  const canAddPreset = Boolean(
+    normalizedPresetInput && !settings.colorPresets.includes(normalizedPresetInput),
+  );
+
+  function addColorPreset() {
+    if (!normalizedPresetInput || !canAddPreset) return;
+    onUpdate({ ...settings, colorPresets: [...settings.colorPresets, normalizedPresetInput] });
+    setPresetInput("");
+  }
+
+  function removeColorPreset(color: string) {
+    const nextPresets = settings.colorPresets.filter((preset) => preset !== color);
+    onUpdate({ ...settings, colorPresets: nextPresets.length > 0 ? nextPresets : settings.colorPresets });
+  }
+
   return (
     <>
       <Text style={[styles.settingsLabel, { color: c.textMuted }]}>APPEARANCE</Text>
@@ -343,6 +361,54 @@ function AppearanceSettings({
                 onPress={() => onUpdate({ ...settings, currency })}
               />
             ))}
+          </View>
+        </View>
+
+        <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
+          <Text style={[styles.rowName, { color: c.text }]}>Color presets</Text>
+          <View style={styles.colorPresetGrid}>
+            {settings.colorPresets.map((color) => (
+              <Pressable
+                key={color}
+                accessibilityLabel={`Remove color preset ${color}`}
+                onPress={() => removeColorPreset(color)}
+                style={[
+                  styles.settingsColorPreset,
+                  { backgroundColor: color, borderColor: c.border },
+                ]}
+              >
+                <Ionicons name="close" size={15} color={readableTextColor(color)} />
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.colorPresetInputRow}>
+            <TextInput
+              value={presetInput}
+              onChangeText={setPresetInput}
+              placeholder="#2563EB"
+              placeholderTextColor={c.textSoft}
+              style={[
+                styles.colorPresetInput,
+                {
+                  backgroundColor: c.surfaceMuted,
+                  borderColor: c.border,
+                  color: c.text,
+                },
+              ]}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={7}
+            />
+            <Pressable
+              disabled={!canAddPreset}
+              onPress={addColorPreset}
+              style={[
+                styles.colorPresetAddButton,
+                { backgroundColor: canAddPreset ? c.primary : c.surfaceMuted },
+              ]}
+            >
+              <Ionicons name="add" size={20} color={canAddPreset ? "#FFFFFF" : c.textSoft} />
+            </Pressable>
           </View>
         </View>
       </View>
