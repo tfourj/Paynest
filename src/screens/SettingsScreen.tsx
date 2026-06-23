@@ -49,6 +49,7 @@ function AuthModal({ c, mode, onModeChange }: { c: Colors; mode: "login" | "crea
 
   function close() {
     onModeChange(null);
+    setEmail("");
     setPassword("");
     setConfirmPassword("");
     setMessage("");
@@ -70,7 +71,8 @@ function AuthModal({ c, mode, onModeChange }: { c: Colors; mode: "login" | "crea
     if (error) return setMessage(error.message);
     setPassword("");
     setConfirmPassword("");
-    setMessage(data.session ? "Signed in." : "Check your email to confirm your account.");
+    if (data.session) return close();
+    setMessage("Check your email to confirm your account.");
   }
 
   async function resetPassword() {
