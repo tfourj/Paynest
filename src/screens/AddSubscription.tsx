@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -130,6 +130,7 @@ export function AddSubscription({
   const [firstPaymentDate, setFirstPaymentDate] = useState(today);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showPresetPicker, setShowPresetPicker] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [activeColorPicker, setActiveColorPicker] = useState<"row" | "icon" | null>(null);
   const [iconName, setIconName] = useState<(typeof visualIconOptions)[number]>("card");
   const [iconLabel, setIconLabel] = useState("");
@@ -241,6 +242,7 @@ export function AddSubscription({
     setRemoteIconResults([]);
     setSymbolSearchLoading(false);
     setShowPresetPicker(false);
+    setConfirmingDelete(false);
     setError("");
   }, [subscription?.id, today, visible]);
 
@@ -378,16 +380,13 @@ export function AddSubscription({
     setRemoteIconResults([]);
     setSymbolSearchLoading(false);
     setShowPresetPicker(false);
+    setConfirmingDelete(false);
     setError("");
   }
 
-  function confirmDelete() {
+  function deleteSubscription() {
     if (!subscription || !onDelete) return;
-
-    Alert.alert(`Delete ${subscription.name}?`, "This removes the subscription from your list.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => onDelete(subscription) },
-    ]);
+    onDelete(subscription);
   }
 
   return (
@@ -851,13 +850,30 @@ export function AddSubscription({
 
         <View style={[styles.saveArea, { borderTopColor: c.border, backgroundColor: c.background }]}>
           {subscription && onDelete ? (
-            <Pressable
-              onPress={confirmDelete}
-              style={[styles.deleteSubscriptionButton, { backgroundColor: c.surfaceMuted }]}
-            >
-              <Ionicons name="trash-outline" size={18} color="#DC2626" />
-              <Text style={styles.deleteSubscriptionText}>Delete subscription</Text>
-            </Pressable>
+            confirmingDelete ? (
+              <View style={styles.deleteConfirmRow}>
+                <Pressable
+                  onPress={() => setConfirmingDelete(false)}
+                  style={[styles.deleteConfirmButton, { backgroundColor: c.surfaceMuted }]}
+                >
+                  <Text style={[styles.deleteConfirmText, { color: c.text }]}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={deleteSubscription}
+                  style={[styles.deleteConfirmButton, { backgroundColor: "#DC2626" }]}
+                >
+                  <Text style={[styles.deleteConfirmText, { color: "#FFFFFF" }]}>Delete</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => setConfirmingDelete(true)}
+                style={[styles.deleteSubscriptionButton, { backgroundColor: c.surfaceMuted }]}
+              >
+                <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                <Text style={styles.deleteSubscriptionText}>Delete subscription</Text>
+              </Pressable>
+            )
           ) : null}
           <Pressable onPress={save} style={[styles.saveButton, { backgroundColor: c.primary }]}>
             <Text style={styles.saveText}>{editing ? "Save changes" : "Add subscription"}</Text>

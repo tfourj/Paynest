@@ -367,4 +367,13 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   deleteSubscriptionText: { color: "#DC2626", fontSize: 15, fontWeight: "700" },
+  deleteConfirmRow: { flexDirection: "row", gap: 10 },
+  deleteConfirmButton: {
+    flex: 1,
+    height: 46,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteConfirmText: { fontSize: 15, fontWeight: "800" },
 });
