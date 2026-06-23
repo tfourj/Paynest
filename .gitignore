@@ -13,3 +13,4 @@ supabase/.temp/
 nc_*
 /ios
 /android
+.DS_Store
