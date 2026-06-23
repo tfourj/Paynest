@@ -17,6 +17,7 @@ export type SupabaseResolvedConfig = {
   provider: SupabaseProvider;
   url: string;
   anonKey: string;
+  storageKey?: string;
   hasAnonKey: boolean;
   isConfigured: boolean;
 };
@@ -39,6 +40,7 @@ export function resolveSupabaseConfig(settings: SupabaseConnectionSettings): Sup
     provider,
     url,
     anonKey,
+    storageKey: provider === "custom" ? `paynest.auth.custom.${storageKeySegment(url)}` : undefined,
     hasAnonKey: anonKey.length > 0,
     isConfigured: url.length > 0 && anonKey.length > 0,
   };
@@ -49,10 +51,20 @@ export function createSupabaseClient(config: SupabaseResolvedConfig): SupabaseCl
 
   return createClient(config.url, config.anonKey, {
     auth: {
+      ...(config.storageKey ? { storageKey: config.storageKey } : {}),
       storage: AsyncStorage,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
     },
   });
+}
+
+function storageKeySegment(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80) || "default";
 }

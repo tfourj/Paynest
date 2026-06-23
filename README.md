@@ -13,7 +13,7 @@
 - Track subscriptions with price, category, billing period, renewal date, and reminder settings.
 - View monthly and yearly spending from a focused dashboard.
 - Review upcoming renewals and spending insights.
-- Save data locally on device with optional Supabase account sync.
+- Save data locally on device with optional hosted or self-hosted Supabase account sync.
 - Merge local and cloud subscriptions when signing in.
 - Use local iOS and Android renewal notifications.
 - Customize currency, payday settings, subscription icons, colors, and app appearance.

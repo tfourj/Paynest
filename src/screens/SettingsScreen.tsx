@@ -470,8 +470,8 @@ function AuthModal({
     if (connection.provider === "custom") {
       if (!connection.customUrl.trim()) return "Enter your Supabase URL.";
       if (!connection.customAnonKey.trim()) return "Enter your Supabase anon key.";
-      if (!connection.customAnonKey.trim().startsWith("sb_")) {
-        return "Custom anon key must start with sb_.";
+      if (!isValidSupabaseAnonKey(connection.customAnonKey.trim())) {
+        return "Enter a valid Supabase anon key.";
       }
     }
     if (!config.isConfigured) return "Add Supabase credentials before signing in.";
@@ -656,4 +656,8 @@ function AuthModal({
       </View>
     </Modal>
   );
+}
+
+function isValidSupabaseAnonKey(value: string) {
+  return value.startsWith("sb_") || value.startsWith("eyJ");
 }
