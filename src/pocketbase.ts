@@ -38,6 +38,8 @@ type RequestOptions = {
   body?: unknown;
 };
 
+const sessionRefreshes = new Map<string, Promise<PocketBaseSession | null>>();
+
 export const defaultPocketBaseConnection: PocketBaseConnectionSettings = {
   url: process.env.EXPO_PUBLIC_POCKETBASE_URL?.trim() ?? "",
 };
@@ -67,7 +69,7 @@ export class PocketBaseClient {
     try {
       const session = JSON.parse(storedSession) as PocketBaseSession;
       if (!session.token || !session.user?.id) return null;
-      return await this.refreshSession(session.token);
+      return await this.refreshSessionOnce(session.token);
     } catch {
       await this.clearSession();
       return null;
@@ -143,6 +145,18 @@ export class PocketBaseClient {
       method: "DELETE",
       token,
     });
+  }
+
+  private async refreshSessionOnce(token: string) {
+    const refreshKey = `${this.config.sessionStorageKey}:${token}`;
+    const currentRefresh = sessionRefreshes.get(refreshKey);
+    if (currentRefresh) return currentRefresh;
+
+    const refresh = this.refreshSession(token).finally(() => {
+      sessionRefreshes.delete(refreshKey);
+    });
+    sessionRefreshes.set(refreshKey, refresh);
+    return refresh;
   }
 
   private async refreshSession(token: string) {
