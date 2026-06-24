@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { EmptyState, Metric } from "../components/common";
@@ -26,8 +26,10 @@ export function Insights({
   savedMonthly,
   currency,
 }: InsightsProps) {
+  const { width } = useWindowDimensions();
   const [viewedMonth, setViewedMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+  const useCompactMetricGrid = width < 560;
   const max = Math.max(1, ...activeSubscriptions.map(monthlyCost));
   const calendarDays = buildRenewalCalendar(activeSubscriptions, viewedMonth);
   const calendarWeeks = chunkCalendarWeeks(calendarDays);
@@ -53,11 +55,31 @@ export function Insights({
     <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
       <Text style={[styles.greeting, { color: c.textMuted }]}>Your spending patterns</Text>
       <Text style={[styles.title, { color: c.text }]}>Insights</Text>
-      <View style={styles.metricGrid}>
-        <Metric c={c} label="Monthly" value={formatMoney(monthly, currency)} />
-        <Metric c={c} label="Yearly" value={formatMoney(monthly * 12, currency)} />
-        <Metric c={c} label="Saved monthly" value={formatMoney(savedMonthly, currency)} />
-        <Metric c={c} label="Saved yearly" value={formatMoney(savedMonthly * 12, currency)} />
+      <View style={[styles.metricGrid, useCompactMetricGrid && styles.metricGridCompact]}>
+        <Metric
+          c={c}
+          label="Monthly"
+          style={useCompactMetricGrid && styles.metricCompact}
+          value={formatMoney(monthly, currency)}
+        />
+        <Metric
+          c={c}
+          label="Yearly"
+          style={useCompactMetricGrid && styles.metricCompact}
+          value={formatMoney(monthly * 12, currency)}
+        />
+        <Metric
+          c={c}
+          label="Saved monthly"
+          style={useCompactMetricGrid && styles.metricCompact}
+          value={formatMoney(savedMonthly, currency)}
+        />
+        <Metric
+          c={c}
+          label="Saved yearly"
+          style={useCompactMetricGrid && styles.metricCompact}
+          value={formatMoney(savedMonthly * 12, currency)}
+        />
       </View>
 
       {subscriptions.length === 0 ? (

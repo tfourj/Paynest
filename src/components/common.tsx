@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -82,9 +82,19 @@ export function Chip({
   );
 }
 
-export function Metric({ c, label, value }: { c: Colors; label: string; value: string }) {
+export function Metric({
+  c,
+  label,
+  value,
+  style,
+}: {
+  c: Colors;
+  label: string;
+  value: string;
+  style?: StyleProp<ViewStyle>;
+}) {
   return (
-    <View style={[styles.metric, { backgroundColor: c.surface, borderColor: c.border }]}>
+    <View style={[styles.metric, style, { backgroundColor: c.surface, borderColor: c.border }]}>
       <Text style={[styles.metricLabel, { color: c.textMuted }]}>{label}</Text>
       <Text style={[styles.metricValue, { color: c.text }]}>{value}</Text>
     </View>
