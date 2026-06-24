@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   createPocketBaseClient,
@@ -34,6 +35,7 @@ export function AuthModal({
   onUpdatePocketBaseConnection,
   onAuthSuccess,
 }: AuthModalProps) {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -55,6 +57,8 @@ export function AuthModal({
         ? "Send reset email"
         : "Log in";
   const success = message.includes("Check") || message.includes("Signed") || message.includes("sent");
+  const modalTopPadding = Platform.OS === "web" ? 0 : Math.max(insets.top, Platform.OS === "ios" ? 44 : 0);
+  const saveBottomPadding = Platform.OS === "web" ? 16 : Math.max(insets.bottom + 18, 30);
 
   useEffect(() => {
     if (!mode) return;
@@ -151,7 +155,12 @@ export function AuthModal({
   }
 
   return (
-    <Modal visible={mode !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
+    <Modal
+      visible={mode !== null}
+      animationType="slide"
+      presentationStyle={Platform.OS === "web" ? "pageSheet" : "fullScreen"}
+      onRequestClose={close}
+    >
       <View style={[styles.authModalOverlay, { backgroundColor: c.background }]}>
         <View
           style={[
@@ -159,6 +168,7 @@ export function AuthModal({
             {
               backgroundColor: c.background,
               borderColor: c.border,
+              paddingTop: modalTopPadding,
             },
           ]}
         >
@@ -349,7 +359,16 @@ export function AuthModal({
             ) : null}
           </ScrollView>
 
-          <View style={[styles.saveArea, { borderTopColor: c.border, backgroundColor: c.background }]}>
+          <View
+            style={[
+              styles.saveArea,
+              {
+                borderTopColor: c.border,
+                backgroundColor: c.background,
+                paddingBottom: saveBottomPadding,
+              },
+            ]}
+          >
             <Pressable
               disabled={busy}
               onPress={() => void submit()}

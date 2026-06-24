@@ -293,16 +293,22 @@ export const styles = StyleSheet.create({
   authModalOverlay: {
     flex: 1,
     justifyContent: "center",
-    padding: 20,
+    padding: Platform.select({ web: 20, default: 0 }),
   },
   authModalPanel: {
+    flex: 1,
     width: "100%",
-    maxWidth: 460,
-    maxHeight: "92%",
-    alignSelf: "center",
-    borderRadius: 22,
-    borderWidth: 1,
     overflow: "hidden",
+    ...Platform.select({
+      web: {
+        maxWidth: 460,
+        maxHeight: "92%",
+        alignSelf: "center",
+        borderRadius: 22,
+        borderWidth: 1,
+      },
+      default: {},
+    }),
   },
   authBrand: { alignItems: "center", gap: 8, marginBottom: 8 },
   authLogo: { width: 64, height: 64, borderRadius: 16 },
