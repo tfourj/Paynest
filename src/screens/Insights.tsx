@@ -47,7 +47,7 @@ export function Insights({
 
     return {
       amount,
-      color: colorFor(item.category),
+      color: item.iconColor ?? item.backgroundColor ?? colorFor(item.category),
       convertedMonthlyAmount: convertedMonthlyAmounts[item.id],
       item,
     };
@@ -308,10 +308,11 @@ function SubscriptionBreakdownPie({
     .sort((a, b) => b.amount - a.amount);
   const selectedItem = chartItems.find((item) => item.item.id === selectedItemId) ?? null;
   const effectiveSelectedItemId = selectedItem?.item.id ?? null;
+  const pieSlices = buildPieSlices(chartItems, total, effectiveSelectedItemId);
 
   return (
-    <View style={styles.pieBreakdown}>
-      <View style={styles.pieChartWrap}>
+    <Pressable onPress={() => setSelectedItemId(null)} style={styles.pieBreakdown}>
+      <Pressable onPress={() => setSelectedItemId(null)} style={styles.pieChartWrap}>
         <Svg width={224} height={224} viewBox="0 0 224 224">
           <Circle cx={112} cy={112} fill="none" r={78} stroke={c.surfaceMuted} strokeWidth={34} />
           {chartItems.length === 0 ? null : chartItems.length === 1 ? (
@@ -325,15 +326,11 @@ function SubscriptionBreakdownPie({
               strokeWidth={effectiveSelectedItemId === chartItems[0].item.id ? 42 : 34}
             />
           ) : (
-            buildPieSlices(chartItems, total, effectiveSelectedItemId).map((slice) => (
+            pieSlices.map((slice) => (
               <Path
                 d={slice.path}
-                fill={slice.color}
+                fill={effectiveSelectedItemId && effectiveSelectedItemId !== slice.key ? c.surfaceMuted : slice.color}
                 key={slice.key}
-                opacity={effectiveSelectedItemId && effectiveSelectedItemId !== slice.key ? 0.3 : 1}
-                stroke={c.surface}
-                strokeLinejoin="round"
-                strokeWidth={4}
               />
             ))
           )}
@@ -355,7 +352,7 @@ function SubscriptionBreakdownPie({
             {selectedItem ? selectedItem.item.name : "Breakdown"}
           </Text>
         </View>
-      </View>
+      </Pressable>
       <ScrollView
         contentContainerStyle={styles.pieSubscriptionListContent}
         nestedScrollEnabled
@@ -368,7 +365,7 @@ function SubscriptionBreakdownPie({
           return (
             <Pressable
               key={chartItem.item.id}
-              onPress={() => setSelectedItemId(chartItem.item.id)}
+              onPress={() => setSelectedItemId(isSelected ? null : chartItem.item.id)}
               style={[
                 styles.pieSubscriptionRow,
                 {
@@ -399,7 +396,7 @@ function SubscriptionBreakdownPie({
           );
         })}
       </ScrollView>
-    </View>
+    </Pressable>
   );
 }
 
