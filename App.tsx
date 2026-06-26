@@ -1,7 +1,7 @@
 import "react-native-gesture-handler";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, StatusBar, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, StatusBar, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
@@ -43,6 +43,7 @@ import {
 } from "./src/sync";
 import { styles } from "./src/styles";
 import { darkColors, lightColors } from "./src/theme";
+import type { Colors } from "./src/theme";
 import { defaultSettings, type Settings, type Subscription } from "./src/types";
 import {
   billableSubscriptions,
@@ -120,6 +121,7 @@ export default function App() {
   const [localMode, setLocalMode] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(isPrivacyPolicyPath);
+  const [pendingSyncPrompt, setPendingSyncPrompt] = useState<{ userId: string } | null>(null);
   const [refreshingDashboard, setRefreshingDashboard] = useState(false);
   const syncedUserId = useRef<string | null>(null);
   const loginPromptUserId = useRef<string | null>(null);
@@ -214,32 +216,7 @@ export default function App() {
         return;
       }
 
-      Alert.alert(
-        "Sync subscriptions?",
-        [
-          "This device already has subscriptions.",
-          "",
-          "Merge: keep subscriptions from both places.",
-          "Use cloud: replace this device with your cloud data.",
-          "Upload local: replace cloud data with this device.",
-        ].join("\n"),
-        [
-          {
-            text: "Merge",
-            onPress: () => void runInitialSync(userId, "merge"),
-          },
-          {
-            text: "Use cloud",
-            onPress: () => void runInitialSync(userId, "cloud"),
-          },
-          {
-            text: "Upload local",
-            style: "destructive",
-            onPress: () => void runInitialSync(userId, "local"),
-          },
-        ],
-        { cancelable: false },
-      );
+      setPendingSyncPrompt({ userId });
     }).catch((error) => {
       syncedUserId.current = null;
       console.warn("PocketBase sync failed", error);
@@ -352,6 +329,7 @@ export default function App() {
     setSession(null);
     syncedUserId.current = null;
     loginPromptUserId.current = null;
+    setPendingSyncPrompt(null);
     void savePocketBaseConnection(next);
   }
 
@@ -361,6 +339,7 @@ export default function App() {
     setAuthReady(true);
     syncedUserId.current = null;
     loginPromptUserId.current = nextSession.user.id;
+    setPendingSyncPrompt(null);
     void savePocketBaseConnection(next);
   }
 
@@ -368,6 +347,7 @@ export default function App() {
     setSession(null);
     syncedUserId.current = null;
     loginPromptUserId.current = null;
+    setPendingSyncPrompt(null);
   }
 
   function useLocally() {
@@ -398,6 +378,7 @@ export default function App() {
   }
 
   async function runInitialSync(userId: string, strategy: SyncStrategy) {
+    setPendingSyncPrompt(null);
     try {
       await syncUserData(userId, strategy);
     } catch (error) {
@@ -581,8 +562,69 @@ export default function App() {
             onSave={addSubscription}
             onRequestNotificationPermission={requestNotificationPermission}
           />
+          <SyncChoicePrompt
+            c={c}
+            visible={Boolean(pendingSyncPrompt)}
+            onChoose={(strategy) => {
+              if (!pendingSyncPrompt) return;
+              void runInitialSync(pendingSyncPrompt.userId, strategy);
+            }}
+          />
         </SafeAreaView>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function SyncChoicePrompt({
+  c,
+  visible,
+  onChoose,
+}: {
+  c: Colors;
+  visible: boolean;
+  onChoose: (strategy: SyncStrategy) => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.syncPromptOverlay}>
+        <View style={[styles.syncPromptPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <Text style={[styles.syncPromptTitle, { color: c.text }]}>Sync subscriptions?</Text>
+          <Text style={[styles.syncPromptBody, { color: c.textMuted }]}>
+            This device already has subscriptions. Choose how Paynest should combine local and cloud data.
+          </Text>
+
+          <View style={styles.syncPromptActions}>
+            <Pressable
+              onPress={() => onChoose("merge")}
+              style={[styles.syncPromptPrimaryButton, { backgroundColor: c.primary }]}
+            >
+              <Text style={styles.syncPromptPrimaryText}>Merge</Text>
+              <Text style={styles.syncPromptPrimaryMeta}>Keep subscriptions from both places</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => onChoose("cloud")}
+              style={[styles.syncPromptButton, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}
+            >
+              <Text style={[styles.syncPromptButtonText, { color: c.text }]}>Use cloud</Text>
+              <Text style={[styles.syncPromptButtonMeta, { color: c.textMuted }]}>
+                Replace this device with cloud data
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => onChoose("local")}
+              style={[styles.syncPromptButton, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}
+            >
+              <Text style={[styles.syncPromptDangerText, { color: "#DC2626" }]}>Upload local</Text>
+              <Text style={[styles.syncPromptButtonMeta, { color: c.textMuted }]}>
+                Replace cloud data with this device
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
