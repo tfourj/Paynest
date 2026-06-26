@@ -26,9 +26,12 @@ export function Header({ c, title, onAdd }: { c: Colors; title: string; onAdd: (
 
 export function ScreenTitle({ c, title }: { c: Colors; title: string }) {
   return (
-    <View style={styles.titleLockup}>
-      <Image source={require("../../assets/paynest.png")} style={styles.headerLogo} />
-      <Text style={[styles.title, { color: c.text }]}>{title}</Text>
+    <View style={styles.topRow}>
+      <View style={styles.titleLockup}>
+        <Image source={require("../../assets/paynest.png")} style={styles.headerLogo} />
+        <Text style={[styles.title, { color: c.text }]}>{title}</Text>
+      </View>
+      <View style={styles.headerActionSpacer} />
     </View>
   );
 }

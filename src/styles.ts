@@ -54,6 +54,7 @@ export const styles = StyleSheet.create({
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   titleLockup: { flexDirection: "row", alignItems: "center", gap: 10 },
   headerLogo: { width: 34, height: 34, borderRadius: 8 },
+  headerActionSpacer: { width: 44, height: 44 },
   greeting: { fontSize: 14, fontWeight: "500", marginBottom: 3 },
   title: { fontSize: 28, fontWeight: "700", letterSpacing: 0 },
   addCircle: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
