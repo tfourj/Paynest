@@ -36,6 +36,9 @@ type SettingsRecord = {
   reminders_enabled: boolean;
   reminder_days: number;
   currency: string;
+  enabled_currencies?: string | null;
+  convert_to_primary_currency?: boolean | null;
+  show_original_currency?: boolean | null;
   payday_enabled?: boolean | null;
   payday?: number | null;
   color_presets?: string | null;
@@ -109,6 +112,9 @@ function toSettings(row: SettingsRecord): Settings {
     remindersEnabled: row.reminders_enabled,
     reminderDays: row.reminder_days,
     currency: row.currency,
+    enabledCurrencies: parseEnabledCurrencies(row.enabled_currencies, row.currency),
+    convertToPrimaryCurrency: row.convert_to_primary_currency ?? defaultSettings.convertToPrimaryCurrency,
+    showOriginalCurrency: row.show_original_currency ?? defaultSettings.showOriginalCurrency,
     paydayEnabled: row.payday_enabled ?? defaultSettings.paydayEnabled,
     payday: row.payday ?? defaultSettings.payday,
     colorPresets: parseColorPresets(row.color_presets),
@@ -121,6 +127,9 @@ function toSettingsRecord(userId: string, settings: Settings) {
     reminders_enabled: settings.remindersEnabled,
     reminder_days: settings.reminderDays,
     currency: settings.currency,
+    enabled_currencies: JSON.stringify(settings.enabledCurrencies),
+    convert_to_primary_currency: settings.convertToPrimaryCurrency,
+    show_original_currency: settings.showOriginalCurrency,
     payday_enabled: settings.paydayEnabled,
     payday: settings.payday,
     color_presets: JSON.stringify(settings.colorPresets),
@@ -289,5 +298,18 @@ function parseColorPresets(value?: string | null) {
     return colors.length > 0 ? colors : defaultSettings.colorPresets;
   } catch {
     return defaultSettings.colorPresets;
+  }
+}
+
+function parseEnabledCurrencies(value: string | null | undefined, displayCurrency: string) {
+  if (!value) return [displayCurrency];
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [displayCurrency];
+    const currencies = parsed.filter((currency) => typeof currency === "string");
+    return Array.from(new Set([displayCurrency, ...currencies]));
+  } catch {
+    return [displayCurrency];
   }
 }
