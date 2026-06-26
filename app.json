@@ -33,9 +33,9 @@
     "android": {
       "edgeToEdgeEnabled": true,
       "backgroundColor": "#F7F8FA",
-      "icon": "./assets/paynest.png",
+      "icon": "./assets/paynest-android-foreground.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/paynest.png",
+        "foregroundImage": "./assets/paynest-android-foreground.png",
         "backgroundColor": "#FFFFFF"
       },
       "permissions": [
