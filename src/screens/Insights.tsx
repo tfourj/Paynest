@@ -7,15 +7,23 @@ import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { BillingPeriod, Subscription } from "../types";
 import { colorFor } from "../utils/category";
-import { formatMoney, isSubscriptionPaused, monthlyCost } from "../utils/subscriptions";
+import {
+  formatMoney,
+  isSubscriptionPaused,
+  monthlyCost,
+  type CurrencyTotal,
+} from "../utils/subscriptions";
 
 type InsightsProps = {
   c: Colors;
   subscriptions: Subscription[];
   activeSubscriptions: Subscription[];
-  monthly: number;
-  savedMonthly: number;
-  currency: string;
+  monthly: CurrencyTotal[];
+  savedMonthly: CurrencyTotal[];
+  convertedMonthlyAmounts: Record<string, number | null>;
+  displayCurrency: string;
+  convertToPrimaryCurrency: boolean;
+  showOriginalCurrency: boolean;
 };
 
 export function Insights({
@@ -24,13 +32,19 @@ export function Insights({
   activeSubscriptions,
   monthly,
   savedMonthly,
-  currency,
+  convertedMonthlyAmounts,
+  displayCurrency,
+  convertToPrimaryCurrency,
+  showOriginalCurrency,
 }: InsightsProps) {
   const { width } = useWindowDimensions();
   const [viewedMonth, setViewedMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const useCompactMetricGrid = width < 560;
-  const max = Math.max(1, ...activeSubscriptions.map(monthlyCost));
+  const max = Math.max(
+    1,
+    ...activeSubscriptions.map((item) => displayMonthlyCost(item, convertedMonthlyAmounts, convertToPrimaryCurrency)),
+  );
   const calendarDays = buildRenewalCalendar(activeSubscriptions, viewedMonth);
   const calendarWeeks = chunkCalendarWeeks(calendarDays);
   const selectedDay = calendarDays.find((day) => day.dateKey === selectedDateKey);
@@ -61,13 +75,13 @@ export function Insights({
           c={c}
           label="Monthly"
           style={useCompactMetricGrid && styles.metricCompact}
-          value={formatMoney(monthly, currency)}
+          value={formatCurrencyTotals(monthly)}
         />
         <Metric
           c={c}
           label="Yearly"
           style={useCompactMetricGrid && styles.metricCompact}
-          value={formatMoney(monthly * 12, currency)}
+          value={formatCurrencyTotals(multiplyCurrencyTotals(monthly, 12))}
         />
         {hasPausedSubscriptions ? (
           <>
@@ -75,13 +89,13 @@ export function Insights({
               c={c}
               label="Saved monthly"
               style={useCompactMetricGrid && styles.metricCompact}
-              value={formatMoney(savedMonthly, currency)}
+              value={formatCurrencyTotals(savedMonthly)}
             />
             <Metric
               c={c}
               label="Saved yearly"
               style={useCompactMetricGrid && styles.metricCompact}
-              value={formatMoney(savedMonthly * 12, currency)}
+              value={formatCurrencyTotals(multiplyCurrencyTotals(savedMonthly, 12))}
             />
           </>
         ) : null}
@@ -102,25 +116,16 @@ export function Insights({
           <Text style={[styles.sectionTitle, { color: c.text }]}>Monthly breakdown</Text>
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
             {activeSubscriptions.map((item) => (
-              <View key={item.id} style={styles.barRow}>
-                <View style={styles.barTitle}>
-                  <Text style={[styles.barName, { color: c.text }]}>{item.name}</Text>
-                  <Text style={[styles.barPrice, { color: c.textMuted }]}>
-                    {formatMoney(monthlyCost(item), item.currency)}
-                  </Text>
-                </View>
-                <View style={[styles.barTrack, { backgroundColor: c.surfaceMuted }]}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      {
-                        backgroundColor: colorFor(item.category),
-                        width: `${Math.max((monthlyCost(item) / max) * 100, 8)}%`,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
+              <SubscriptionBreakdownBar
+                key={item.id}
+                c={c}
+                item={item}
+                convertedMonthlyAmount={convertedMonthlyAmounts[item.id]}
+                convertToPrimaryCurrency={convertToPrimaryCurrency}
+                displayCurrency={displayCurrency}
+                max={max}
+                showOriginalCurrency={showOriginalCurrency}
+              />
             ))}
           </View>
 
@@ -247,7 +252,13 @@ export function Insights({
                           </Text>
                         </View>
                         <Text style={[styles.calendarSubscriptionPrice, { color: c.text }]}>
-                          {formatMoney(item.price, item.currency)}
+                          {formatSubscriptionPrice(
+                            item,
+                            convertedMonthlyAmounts[item.id],
+                            displayCurrency,
+                            convertToPrimaryCurrency,
+                            showOriginalCurrency,
+                          )}
                         </Text>
                       </View>
                     ))}
@@ -264,6 +275,106 @@ export function Insights({
       )}
     </ScrollView>
   );
+}
+
+function SubscriptionBreakdownBar({
+  c,
+  item,
+  convertedMonthlyAmount,
+  convertToPrimaryCurrency,
+  displayCurrency,
+  max,
+  showOriginalCurrency,
+}: {
+  c: Colors;
+  item: Subscription;
+  convertedMonthlyAmount: number | null | undefined;
+  convertToPrimaryCurrency: boolean;
+  displayCurrency: string;
+  max: number;
+  showOriginalCurrency: boolean;
+}) {
+  const amount = displayMonthlyCost(item, { [item.id]: convertedMonthlyAmount ?? null }, convertToPrimaryCurrency);
+
+  return (
+    <View style={styles.barRow}>
+      <View style={styles.barTitle}>
+        <Text style={[styles.barName, { color: c.text }]}>{item.name}</Text>
+        <Text style={[styles.barPrice, { color: c.textMuted }]}>
+          {formatSubscriptionMonthlyCost(
+            item,
+            convertedMonthlyAmount,
+            displayCurrency,
+            convertToPrimaryCurrency,
+            showOriginalCurrency,
+          )}
+        </Text>
+      </View>
+      <View style={[styles.barTrack, { backgroundColor: c.surfaceMuted }]}>
+        <View
+          style={[
+            styles.barFill,
+            {
+              backgroundColor: colorFor(item.category),
+              width: `${Math.max((amount / max) * 100, 8)}%`,
+            },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
+function displayMonthlyCost(
+  item: Subscription,
+  convertedMonthlyAmounts: Record<string, number | null | undefined>,
+  convertToPrimaryCurrency: boolean,
+) {
+  if (!convertToPrimaryCurrency) return monthlyCost(item);
+  return convertedMonthlyAmounts[item.id] ?? monthlyCost(item);
+}
+
+function formatSubscriptionMonthlyCost(
+  item: Subscription,
+  convertedMonthlyAmount: number | null | undefined,
+  displayCurrency: string,
+  convertToPrimaryCurrency: boolean,
+  showOriginalCurrency: boolean,
+) {
+  const original = formatMoney(monthlyCost(item), item.currency);
+  if (!convertToPrimaryCurrency || convertedMonthlyAmount == null) return original;
+
+  const converted = formatMoney(convertedMonthlyAmount, displayCurrency);
+  if (!showOriginalCurrency || item.currency === displayCurrency) return converted;
+  return `${converted} (${original})`;
+}
+
+function formatSubscriptionPrice(
+  item: Subscription,
+  convertedMonthlyAmount: number | null | undefined,
+  displayCurrency: string,
+  convertToPrimaryCurrency: boolean,
+  showOriginalCurrency: boolean,
+) {
+  const original = formatMoney(item.price, item.currency);
+  if (!convertToPrimaryCurrency || convertedMonthlyAmount == null) return original;
+
+  const originalMonthly = monthlyCost(item);
+  const convertedPrice = originalMonthly > 0
+    ? (convertedMonthlyAmount / originalMonthly) * item.price
+    : convertedMonthlyAmount;
+  const convertedMonthly = formatMoney(convertedPrice, displayCurrency);
+  if (!showOriginalCurrency || item.currency === displayCurrency) return convertedMonthly;
+  return `${convertedMonthly} (${original})`;
+}
+
+function formatCurrencyTotals(totals: CurrencyTotal[]) {
+  if (totals.length === 0) return formatMoney(0, "EUR");
+  return totals.map((total) => formatMoney(total.amount, total.currency)).join(" / ");
+}
+
+function multiplyCurrencyTotals(totals: CurrencyTotal[], multiplier: number) {
+  return totals.map((total) => ({ ...total, amount: total.amount * multiplier }));
 }
 
 type CalendarDay = {

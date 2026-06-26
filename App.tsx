@@ -7,6 +7,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { TabBar } from "./src/components/common";
 import type { Tab } from "./src/constants";
+import { convertToBaseCurrency, loadCurrencyRates } from "./src/currencyConversion";
 import { requestNotificationPermission, scheduleRenewalNotifications } from "./src/notifications";
 import {
   createPocketBaseClient,
@@ -48,12 +49,12 @@ import { defaultSettings, type Settings, type Subscription } from "./src/types";
 import {
   billableSubscriptions,
   dayDifference,
-  monthlyTotal,
+  monthlyCost,
   nextRenewalDate,
   nextMonthlyPayday,
   nextMonthStart,
-  pausedMonthlySavings,
-  spendUntil,
+  totalsByCurrency,
+  type CurrencyTotal,
 } from "./src/utils/subscriptions";
 
 function comparableSubscription(item: Subscription) {
@@ -108,6 +109,40 @@ function isPrivacyPolicyPath() {
   return pathname === "/privacypolicy";
 }
 
+function convertSubscriptionAmount(
+  amount: number,
+  fromCurrency: string,
+  displayCurrency: string,
+  rates: Record<string, number>,
+) {
+  return convertToBaseCurrency(amount, fromCurrency, displayCurrency, rates);
+}
+
+function currencyDisplayTotals(
+  subscriptions: Subscription[],
+  displayCurrency: string,
+  convertToPrimaryCurrency: boolean,
+  rates: Record<string, number>,
+  amountForItem: (item: Subscription) => number,
+): CurrencyTotal[] {
+  if (!convertToPrimaryCurrency) return totalsByCurrency(subscriptions, amountForItem);
+
+  const totals = subscriptions.reduce<Map<string, number>>((map, item) => {
+    const amount = amountForItem(item);
+    const converted = convertSubscriptionAmount(amount, item.currency, displayCurrency, rates);
+    const currency = converted == null ? item.currency : displayCurrency;
+    map.set(currency, (map.get(currency) ?? 0) + (converted ?? amount));
+    return map;
+  }, new Map());
+
+  return Array.from(totals, ([currency, amount]) => ({ currency, amount }))
+    .sort((a, b) => {
+      if (a.currency === displayCurrency) return -1;
+      if (b.currency === displayCurrency) return 1;
+      return a.currency.localeCompare(b.currency);
+    });
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("Dashboard");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -123,6 +158,7 @@ export default function App() {
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(isPrivacyPolicyPath);
   const [pendingSyncPrompt, setPendingSyncPrompt] = useState<{ userId: string } | null>(null);
   const [refreshingDashboard, setRefreshingDashboard] = useState(false);
+  const [currencyRates, setCurrencyRates] = useState<Record<string, number>>({});
   const syncedUserId = useRef<string | null>(null);
   const loginPromptUserId = useRef<string | null>(null);
   const pocketBaseConfig = useMemo(
@@ -229,14 +265,6 @@ export default function App() {
     () => billableSubscriptions(subscriptions),
     [subscriptions],
   );
-  const monthly = useMemo(
-    () => monthlyTotal(activeSubscriptions),
-    [activeSubscriptions],
-  );
-  const savedMonthly = useMemo(
-    () => pausedMonthlySavings(subscriptions),
-    [subscriptions],
-  );
   const upcoming = useMemo(
     () => activeSubscriptions
       .map((item) => ({
@@ -250,10 +278,97 @@ export default function App() {
     () => settings.paydayEnabled ? nextMonthlyPayday(settings.payday) : nextMonthStart(),
     [settings.payday, settings.paydayEnabled],
   );
-  const spendingUntilBoundary = useMemo(
-    () => spendUntil(activeSubscriptions, spendingBoundary, settings.paydayEnabled),
-    [activeSubscriptions, spendingBoundary, settings.paydayEnabled],
+  const sourceCurrencies = useMemo(
+    () => Array.from(new Set(
+      subscriptions
+        .map((item) => item.currency)
+        .filter((currency) => currency !== settings.currency),
+    )),
+    [settings.currency, subscriptions],
   );
+  const convertedMonthlyAmounts = useMemo(
+    () => activeSubscriptions.reduce<Record<string, number | null>>((amounts, item) => {
+      amounts[item.id] = convertSubscriptionAmount(monthlyCost(item), item.currency, settings.currency, currencyRates);
+      return amounts;
+    }, {}),
+    [activeSubscriptions, currencyRates, settings.currency],
+  );
+  const convertedRenewalPrices = useMemo(
+    () => activeSubscriptions.reduce<Record<string, number | null>>((amounts, item) => {
+      amounts[item.id] = convertSubscriptionAmount(item.price, item.currency, settings.currency, currencyRates);
+      return amounts;
+    }, {}),
+    [activeSubscriptions, currencyRates, settings.currency],
+  );
+  const monthlyTotals = useMemo(
+    () => currencyDisplayTotals(
+      activeSubscriptions,
+      settings.currency,
+      settings.convertToPrimaryCurrency,
+      currencyRates,
+      monthlyCost,
+    ),
+    [activeSubscriptions, currencyRates, settings.convertToPrimaryCurrency, settings.currency],
+  );
+  const savedMonthlyTotals = useMemo(
+    () => currencyDisplayTotals(
+      subscriptions.filter((item) => item.paused),
+      settings.currency,
+      settings.convertToPrimaryCurrency,
+      currencyRates,
+      monthlyCost,
+    ),
+    [currencyRates, settings.convertToPrimaryCurrency, settings.currency, subscriptions],
+  );
+  const spendingUntilBoundaryTotals = useMemo(
+    () => currencyDisplayTotals(
+      activeSubscriptions,
+      settings.currency,
+      settings.convertToPrimaryCurrency,
+      currencyRates,
+      (item) => {
+        const today = new Date();
+        const renewal = new Date(`${item.nextRenewalDate}T00:00:00`).getTime();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+        const boundaryStart = new Date(
+          spendingBoundary.getFullYear(),
+          spendingBoundary.getMonth(),
+          spendingBoundary.getDate(),
+        ).getTime();
+        const beforeBoundary = settings.paydayEnabled ? renewal <= boundaryStart : renewal < boundaryStart;
+        return renewal >= todayStart && beforeBoundary ? item.price : 0;
+      },
+    ),
+    [
+      activeSubscriptions,
+      currencyRates,
+      settings.convertToPrimaryCurrency,
+      settings.currency,
+      settings.paydayEnabled,
+      spendingBoundary,
+    ],
+  );
+
+  useEffect(() => {
+    if (!ready || !settings.convertToPrimaryCurrency || sourceCurrencies.length === 0) {
+      setCurrencyRates({});
+      return;
+    }
+
+    let cancelled = false;
+    loadCurrencyRates(settings.currency, sourceCurrencies)
+      .then((rates) => {
+        if (!cancelled) setCurrencyRates(rates);
+      })
+      .catch((error) => {
+        if (!cancelled) setCurrencyRates({});
+        console.warn("Currency conversion failed", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, settings.convertToPrimaryCurrency, settings.currency, sourceCurrencies]);
 
   async function addSubscription(input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) {
     const now = new Date().toISOString();
@@ -311,6 +426,9 @@ export default function App() {
     const shouldSyncSettings = settings.remindersEnabled !== next.remindersEnabled
       || settings.reminderDays !== next.reminderDays
       || settings.currency !== next.currency
+      || JSON.stringify(settings.enabledCurrencies) !== JSON.stringify(next.enabledCurrencies)
+      || settings.convertToPrimaryCurrency !== next.convertToPrimaryCurrency
+      || settings.showOriginalCurrency !== next.showOriginalCurrency
       || settings.paydayEnabled !== next.paydayEnabled
       || settings.payday !== next.payday
       || JSON.stringify(settings.colorPresets) !== JSON.stringify(next.colorPresets);
@@ -499,11 +617,13 @@ export default function App() {
                   subscriptions={subscriptions}
                   activeSubscriptionCount={activeSubscriptions.length}
                   upcoming={upcoming}
-                  monthly={monthly}
-                  spendingUntilBoundary={spendingUntilBoundary}
+                  monthly={monthlyTotals}
+                  spendingUntilBoundary={spendingUntilBoundaryTotals}
                   spendingBoundary={spendingBoundary}
                   paydayEnabled={settings.paydayEnabled}
-                  currency={settings.currency}
+                  convertedRenewalPrices={convertedRenewalPrices}
+                  displayCurrency={settings.currency}
+                  showOriginalCurrency={settings.showOriginalCurrency && settings.convertToPrimaryCurrency}
                   refreshing={refreshingDashboard}
                   onAdd={() => setShowAdd(true)}
                   onRefresh={() => void refreshDashboard()}
@@ -516,6 +636,7 @@ export default function App() {
                   subscriptions={subscriptions}
                   refreshing={refreshingDashboard}
                   colorPresets={settings.colorPresets}
+                  enabledCurrencies={settings.enabledCurrencies}
                   onAdd={() => setShowAdd(true)}
                   onRefresh={() => void refreshDashboard()}
                   onUpdate={updateSubscription}
@@ -528,9 +649,12 @@ export default function App() {
                   c={c}
                   subscriptions={subscriptions}
                   activeSubscriptions={activeSubscriptions}
-                  monthly={monthly}
-                  savedMonthly={savedMonthly}
-                  currency={settings.currency}
+                  monthly={monthlyTotals}
+                  savedMonthly={savedMonthlyTotals}
+                  convertedMonthlyAmounts={convertedMonthlyAmounts}
+                  displayCurrency={settings.currency}
+                  convertToPrimaryCurrency={settings.convertToPrimaryCurrency}
+                  showOriginalCurrency={settings.showOriginalCurrency}
                 />
               )}
               {tab === "Settings" && (
@@ -557,6 +681,7 @@ export default function App() {
             c={c}
             visible={showAdd}
             defaultCurrency={settings.currency}
+            enabledCurrencies={settings.enabledCurrencies}
             colorPresets={settings.colorPresets}
             onClose={() => setShowAdd(false)}
             onSave={addSubscription}

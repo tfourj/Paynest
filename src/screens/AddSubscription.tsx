@@ -7,7 +7,7 @@ import { ColorPickerSheet } from "../components/ColorPickerSheet";
 import { Chip } from "../components/common";
 import { getSimpleIcon, SimpleIcon } from "../components/SimpleIcon";
 import { SubscriptionIcon } from "../components/SubscriptionIcon";
-import { categories, symbols } from "../constants";
+import { categories, currencies, symbols } from "../constants";
 import {
   searchRemoteIcons,
   searchSimpleIcons,
@@ -30,6 +30,7 @@ type AddSubscriptionProps = {
   c: Colors;
   visible: boolean;
   defaultCurrency: string;
+  enabledCurrencies: string[];
   colorPresets: string[];
   subscription?: Subscription | null;
   onClose: () => void;
@@ -120,6 +121,7 @@ export function AddSubscription({
   c,
   visible,
   defaultCurrency,
+  enabledCurrencies,
   colorPresets,
   subscription,
   onClose,
@@ -137,6 +139,7 @@ export function AddSubscription({
   const [basicInfoFocused, setBasicInfoFocused] = useState(false);
   const [category, setCategory] = useState(noneCategory);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("Monthly");
+  const [currency, setCurrency] = useState(defaultCurrency);
   const [firstPaymentDate, setFirstPaymentDate] = useState(today);
   const [paused, setPaused] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
@@ -167,7 +170,9 @@ export function AddSubscription({
   const [symbolSearchLoading, setSymbolSearchLoading] = useState(false);
   const [error, setError] = useState("");
   const editing = Boolean(subscription);
-  const formCurrency = subscription?.currency ?? defaultCurrency;
+  const enabledCurrencyCodes = Array.from(new Set([currency, ...enabledCurrencies]));
+  const enabledCurrencyOptions = currencies.filter((item) => enabledCurrencyCodes.includes(item.code));
+  const formCurrency = currency;
   const payDay = firstPaymentDate.getDate();
   const renewal = formatDateValue(firstPaymentDate);
   const datePickerDays = Array.from(
@@ -240,6 +245,7 @@ export function AddSubscription({
     setPresetSearch(subscription?.name ?? "");
     setCategory(subscription?.category ?? noneCategory);
     setBillingPeriod(subscription?.billingPeriod ?? "Monthly");
+    setCurrency(subscription?.currency ?? defaultCurrency);
     setFirstPaymentDate(subscription ? dateFromValue(subscription.nextRenewalDate) : today);
     setPaused(subscription?.paused ?? false);
     setReminderEnabled(subscription?.reminderEnabled ?? false);
@@ -262,7 +268,7 @@ export function AddSubscription({
     setShowPresetPicker(false);
     setConfirmingDelete(false);
     setError("");
-  }, [subscription?.id, today, visible]);
+  }, [defaultCurrency, subscription?.id, today, visible]);
 
   useEffect(() => {
     const query = symbolSearch.trim();
@@ -412,6 +418,7 @@ export function AddSubscription({
     setPresetSearch("");
     setCategory(noneCategory);
     setBillingPeriod("Monthly");
+    setCurrency(defaultCurrency);
     setFirstPaymentDate(today);
     setPaused(false);
     setReminderEnabled(false);
@@ -520,6 +527,22 @@ export function AddSubscription({
           </Pressable>
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>BILLING</Text>
+          <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={styles.settingOption}>
+              <Text style={[styles.rowName, { color: c.text }]}>Currency</Text>
+              <View style={styles.chips}>
+                {enabledCurrencyOptions.map((item) => (
+                  <Chip
+                    key={item.code}
+                    c={c}
+                    label={`${item.symbol} ${item.code}`}
+                    selected={formCurrency === item.code}
+                    onPress={() => setCurrency(item.code)}
+                  />
+                ))}
+              </View>
+            </View>
+          </View>
           <View style={styles.periods}>
             {billingPeriods.map((period) => (
               <Pressable

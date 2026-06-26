@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AuthModal, type AuthMode } from "../components/AuthModal";
 import { ColorPickerSheet } from "../components/ColorPickerSheet";
 import { Chip, StatusPill } from "../components/common";
+import { clearCurrencyConversionCache } from "../currencyConversion";
 import { clearIconCache } from "../iconCache";
 import { sendDebugNotification } from "../notifications";
 import {
@@ -16,6 +17,7 @@ import {
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Settings } from "../types";
+import { currencies } from "../constants";
 import { normalizeHexColor, readableTextColor } from "../utils/colors";
 
 type SettingsScreenProps = {
@@ -69,6 +71,7 @@ export function SettingsScreen({
         onSignOut={onSignOut}
       />
       {Platform.OS === "web" ? null : <NotificationSettings c={c} />}
+      <CurrencySettings c={c} settings={settings} onUpdate={onUpdate} />
       <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
       <AppearanceSettings c={c} settings={settings} onUpdate={onUpdate} />
       <SyncSettings
@@ -93,9 +96,7 @@ function LegalSettings({
   onOpenPrivacyPolicy: () => void;
 }) {
   return (
-    <>
-      <Text style={[styles.settingsLabel, { color: c.textMuted }]}>LEGAL</Text>
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+    <CollapsibleSettingsSection c={c} title="Legal" icon="shield-checkmark-outline">
         <Pressable onPress={onOpenPrivacyPolicy} style={styles.settingRow}>
           <Ionicons name="shield-checkmark-outline" size={21} color={c.primary} />
           <View style={styles.rowText}>
@@ -106,8 +107,7 @@ function LegalSettings({
           </View>
           <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
         </Pressable>
-      </View>
-    </>
+    </CollapsibleSettingsSection>
   );
 }
 
@@ -120,10 +120,15 @@ function DataSettings({ c, onReset }: { c: Colors; onReset: () => void }) {
     setCacheStatus("Icon cache cleared");
   }
 
+  async function clearCurrencyCache() {
+    setCacheStatus("Clearing currency cache");
+    await clearCurrencyConversionCache();
+    setCacheStatus("Currency cache cleared");
+  }
+
   return (
     <>
-      <Text style={[styles.settingsLabel, { color: c.textMuted }]}>DATA</Text>
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <CollapsibleSettingsSection c={c} title="Data" icon="folder-open-outline">
         <Pressable onPress={() => void clearCache()} style={styles.settingRow}>
           <Ionicons name="image-outline" size={21} color={c.primary} />
           <View style={styles.rowText}>
@@ -136,7 +141,16 @@ function DataSettings({ c, onReset }: { c: Colors; onReset: () => void }) {
             ) : null}
           </View>
         </Pressable>
-      </View>
+        <Pressable onPress={() => void clearCurrencyCache()} style={[styles.settingRow, { borderTopColor: c.border }]}>
+          <Ionicons name="cash-outline" size={21} color={c.primary} />
+          <View style={styles.rowText}>
+            <Text style={[styles.rowName, { color: c.text }]}>Clear currency cache</Text>
+            <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+              Refresh cached exchange rates on next conversion
+            </Text>
+          </View>
+        </Pressable>
+      </CollapsibleSettingsSection>
       <Pressable onPress={onReset} style={[styles.dangerRow, { backgroundColor: c.surface, borderColor: c.border }]}>
         <Ionicons name="trash-outline" size={20} color="#DC2626" />
         <Text style={styles.dangerText}>Delete local data</Text>
@@ -253,9 +267,7 @@ function NotificationSettings({ c }: { c: Colors }) {
   }
 
   return (
-    <>
-      <Text style={[styles.settingsLabel, { color: c.textMuted }]}>NOTIFICATIONS</Text>
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+    <CollapsibleSettingsSection c={c} title="Notifications" icon="notifications-outline">
         <Pressable onPress={() => void testNotifications()} style={styles.settingRow}>
           <Ionicons name="notifications-outline" size={21} color={c.primary} />
           <View style={styles.rowText}>
@@ -267,8 +279,134 @@ function NotificationSettings({ c }: { c: Colors }) {
           </View>
           <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
         </Pressable>
+    </CollapsibleSettingsSection>
+  );
+}
+
+function CurrencySettings({
+  c,
+  settings,
+  onUpdate,
+}: {
+  c: Colors;
+  settings: Settings;
+  onUpdate: (settings: Settings) => void;
+}) {
+  function toggleCurrency(code: string) {
+    const enabled = settings.enabledCurrencies.includes(code);
+    if (enabled && code === settings.currency) return;
+    const nextEnabledCurrencies = enabled
+      ? settings.enabledCurrencies.filter((currency) => currency !== code)
+      : [...settings.enabledCurrencies, code];
+
+    onUpdate({ ...settings, enabledCurrencies: nextEnabledCurrencies });
+  }
+
+  function setDisplayCurrency(code: string) {
+    const enabledCurrencies = settings.enabledCurrencies.includes(code)
+      ? settings.enabledCurrencies
+      : [...settings.enabledCurrencies, code];
+    onUpdate({ ...settings, currency: code, enabledCurrencies });
+  }
+
+  return (
+    <CollapsibleSettingsSection c={c} title="Currencies" icon="cash-outline" defaultOpen>
+      <View style={styles.settingRow}>
+        <Ionicons name="swap-horizontal-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Convert totals to display currency</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Dashboard and insights use one primary currency
+          </Text>
+        </View>
+        <Switch
+          value={settings.convertToPrimaryCurrency}
+          onValueChange={(convertToPrimaryCurrency) => onUpdate({ ...settings, convertToPrimaryCurrency })}
+          trackColor={{ false: "#9CA3AF", true: c.primary }}
+        />
       </View>
-    </>
+      <View style={[styles.settingRow, { borderTopColor: c.border }]}>
+        <Ionicons name="albums-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Show original currency too</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Keep the source amount beside converted amounts
+          </Text>
+        </View>
+        <Switch
+          value={settings.showOriginalCurrency}
+          onValueChange={(showOriginalCurrency) => onUpdate({ ...settings, showOriginalCurrency })}
+          trackColor={{ false: "#9CA3AF", true: c.primary }}
+        />
+      </View>
+      <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
+        <Text style={[styles.rowName, { color: c.text }]}>Display currency</Text>
+        <View style={styles.currencyGrid}>
+          {currencies.map((currency) => (
+            <Pressable
+              key={currency.code}
+              onPress={() => setDisplayCurrency(currency.code)}
+              style={[
+                styles.currencyOption,
+                {
+                  backgroundColor: settings.currency === currency.code ? c.primarySoft : c.surfaceMuted,
+                  borderColor: settings.currency === currency.code ? c.primary : c.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.currencyOptionCode,
+                  { color: settings.currency === currency.code ? c.primary : c.text },
+                ]}
+              >
+                {currency.symbol} {currency.code}
+              </Text>
+              <Text style={[styles.currencyOptionName, { color: c.textMuted }]} numberOfLines={1}>
+                {currency.name}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+      <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
+        <Text style={[styles.rowName, { color: c.text }]}>Enabled for subscriptions</Text>
+        <View style={styles.currencyGrid}>
+          {currencies.map((currency) => {
+            const enabled = settings.enabledCurrencies.includes(currency.code);
+            const locked = currency.code === settings.currency;
+
+            return (
+              <Pressable
+                key={currency.code}
+                onPress={() => toggleCurrency(currency.code)}
+                style={[
+                  styles.currencyOption,
+                  {
+                    backgroundColor: enabled ? c.primarySoft : c.surfaceMuted,
+                    borderColor: enabled ? c.primary : c.border,
+                  },
+                ]}
+              >
+                <View style={styles.currencyOptionHeader}>
+                  <Text style={[styles.currencyOptionCode, { color: enabled ? c.primary : c.text }]}>
+                    {currency.symbol} {currency.code}
+                  </Text>
+                  <Ionicons
+                    name={enabled ? "checkmark-circle" : "ellipse-outline"}
+                    size={17}
+                    color={enabled ? c.primary : c.textSoft}
+                  />
+                </View>
+                <Text style={[styles.currencyOptionName, { color: c.textMuted }]} numberOfLines={1}>
+                  {locked ? "Display currency" : currency.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </CollapsibleSettingsSection>
   );
 }
 
@@ -288,9 +426,7 @@ function PaydaySettings({
   }
 
   return (
-    <>
-      <Text style={[styles.settingsLabel, { color: c.textMuted }]}>PAYDAY</Text>
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+    <CollapsibleSettingsSection c={c} title="Payday" icon="wallet-outline">
         <View style={styles.settingRow}>
           <Ionicons name="wallet-outline" size={21} color={c.primary} />
           <View style={styles.rowText}>
@@ -326,8 +462,7 @@ function PaydaySettings({
             />
           </View>
         )}
-      </View>
-    </>
+    </CollapsibleSettingsSection>
   );
 }
 
@@ -377,8 +512,7 @@ function AppearanceSettings({
 
   return (
     <>
-      <Text style={[styles.settingsLabel, { color: c.textMuted }]}>APPEARANCE</Text>
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <CollapsibleSettingsSection c={c} title="Appearance" icon="moon-outline">
         <View style={styles.settingRow}>
           <Ionicons name="moon-outline" size={21} color={c.primary} />
           <View style={styles.rowText}>
@@ -390,21 +524,6 @@ function AppearanceSettings({
             onValueChange={(enabled) => onUpdate({ ...settings, theme: enabled ? "dark" : "light" })}
             trackColor={{ false: "#9CA3AF", true: c.primary }}
           />
-        </View>
-
-        <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
-          <Text style={[styles.rowName, { color: c.text }]}>Default currency</Text>
-          <View style={styles.chips}>
-            {["EUR", "USD", "GBP"].map((currency) => (
-              <Chip
-                key={currency}
-                c={c}
-                label={currency}
-                selected={settings.currency === currency}
-                onPress={() => onUpdate({ ...settings, currency })}
-              />
-            ))}
-          </View>
         </View>
 
         <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
@@ -464,7 +583,7 @@ function AppearanceSettings({
             </Pressable>
           </View>
         </View>
-      </View>
+      </CollapsibleSettingsSection>
       <ColorPickerSheet
         c={c}
         visible={showPresetColorPicker}
@@ -512,9 +631,7 @@ function SyncSettings({
   }
 
   return (
-    <>
-      <Text style={[styles.settingsLabel, { color: c.textMuted }]}>SYNC</Text>
-      <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+    <CollapsibleSettingsSection c={c} title="Sync" icon="cloud-outline">
         <View style={styles.settingRow}>
           <Ionicons name="cloud-outline" size={21} color={c.primary} />
           <View style={styles.rowText}>
@@ -541,7 +658,33 @@ function SyncSettings({
           </Pressable>
           {message ? <Text style={[styles.statusText, { color: c.textMuted }]}>{message}</Text> : null}
         </View>
-      </View>
-    </>
+    </CollapsibleSettingsSection>
+  );
+}
+
+function CollapsibleSettingsSection({
+  c,
+  title,
+  icon,
+  defaultOpen = false,
+  children,
+}: {
+  c: Colors;
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <Pressable onPress={() => setOpen((current) => !current)} style={styles.settingsSectionHeader}>
+        <Ionicons name={icon} size={20} color={c.primary} />
+        <Text style={[styles.settingsSectionTitle, { color: c.text }]}>{title}</Text>
+        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={c.textSoft} />
+      </Pressable>
+      {open ? <View style={[styles.settingsSectionBody, { borderTopColor: c.border }]}>{children}</View> : null}
+    </View>
   );
 }

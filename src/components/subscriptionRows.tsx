@@ -10,7 +10,21 @@ import { mutedTextColor, readableTextColor } from "../utils/colors";
 import { formatMoney, renewalLabel } from "../utils/subscriptions";
 import type { IconSource } from "../iconSearch";
 
-export function RenewalRow({ c, item, last }: { c: Colors; item: Subscription; last: boolean }) {
+export function RenewalRow({
+  c,
+  item,
+  last,
+  convertedPrice,
+  displayCurrency,
+  showOriginalCurrency,
+}: {
+  c: Colors;
+  item: Subscription;
+  last: boolean;
+  convertedPrice?: number | null;
+  displayCurrency?: string;
+  showOriginalCurrency?: boolean;
+}) {
   const rowBackground = item.backgroundColor ?? item.iconColor ?? colorFor(item.category);
   const rowTextColor = readableTextColor(rowBackground);
   const rowMutedColor = mutedTextColor(rowTextColor);
@@ -28,7 +42,9 @@ export function RenewalRow({ c, item, last }: { c: Colors; item: Subscription; l
         <Text style={[styles.rowName, { color: rowTextColor }]}>{item.name}</Text>
         <Text style={[styles.rowMeta, { color: rowMutedColor }]}>Renews {renewalLabel(item.nextRenewalDate)}</Text>
       </View>
-      <Text style={[styles.rowPrice, { color: rowTextColor }]}>{formatMoney(item.price, item.currency)}</Text>
+      <Text style={[styles.rowPrice, { color: rowTextColor }]}>
+        {formatDisplayPrice(item, convertedPrice, displayCurrency, showOriginalCurrency)}
+      </Text>
     </View>
   );
 }
@@ -79,6 +95,20 @@ export function SubscriptionRow({ c, item, last, onPress }: SubscriptionRowProps
       <Ionicons name="chevron-forward" size={19} color={rowMutedColor} />
     </Pressable>
   );
+}
+
+function formatDisplayPrice(
+  item: Subscription,
+  convertedPrice?: number | null,
+  displayCurrency?: string,
+  showOriginalCurrency?: boolean,
+) {
+  const original = formatMoney(item.price, item.currency);
+  if (convertedPrice == null || !displayCurrency) return original;
+
+  const converted = formatMoney(convertedPrice, displayCurrency);
+  if (!showOriginalCurrency || item.currency === displayCurrency) return converted;
+  return `${converted} (${original})`;
 }
 
 function IconBadge({ item, rowTextColor }: { item: Subscription; rowTextColor: string }) {

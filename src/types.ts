@@ -46,6 +46,9 @@ export type Settings = {
   remindersEnabled: boolean;
   reminderDays: number;
   currency: string;
+  enabledCurrencies: string[];
+  convertToPrimaryCurrency: boolean;
+  showOriginalCurrency: boolean;
   paydayEnabled: boolean;
   payday: number;
   colorPresets: string[];
@@ -56,6 +59,9 @@ export const defaultSettings: Settings = {
   remindersEnabled: false,
   reminderDays: 0,
   currency: "EUR",
+  enabledCurrencies: ["EUR"],
+  convertToPrimaryCurrency: true,
+  showOriginalCurrency: false,
   paydayEnabled: false,
   payday: 1,
   colorPresets: defaultColorPresets,

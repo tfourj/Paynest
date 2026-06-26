@@ -15,6 +15,7 @@ type SubscriptionListProps = {
   subscriptions: Subscription[];
   refreshing: boolean;
   colorPresets: string[];
+  enabledCurrencies: string[];
   onAdd: () => void;
   onRefresh: () => void;
   onUpdate: (item: Subscription, input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) => void;
@@ -38,6 +39,7 @@ export function SubscriptionList({
   subscriptions,
   refreshing,
   colorPresets,
+  enabledCurrencies,
   onAdd,
   onRefresh,
   onUpdate,
@@ -116,6 +118,7 @@ export function SubscriptionList({
         c={c}
         visible={editing !== null}
         defaultCurrency={editing?.currency ?? "EUR"}
+        enabledCurrencies={enabledCurrencies}
         colorPresets={colorPresets}
         subscription={editing}
         onClose={() => setEditing(null)}

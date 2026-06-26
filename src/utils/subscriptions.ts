@@ -3,6 +3,11 @@ import type { BillingPeriod, Subscription } from "../types";
 
 export const formatMoney = (value: number, currency: string) => `${symbols[currency] ?? currency} ${value.toFixed(2)}`;
 
+export type CurrencyTotal = {
+  currency: string;
+  amount: number;
+};
+
 const monthlyCostMultipliers: Record<BillingPeriod, number> = {
   Weekly: 52 / 12,
   Monthly: 1,
@@ -30,6 +35,19 @@ export const monthlyTotal = (subscriptions: Subscription[]) => (
 export const pausedMonthlySavings = (subscriptions: Subscription[]) => (
   monthlyTotal(pausedSubscriptions(subscriptions))
 );
+
+export function totalsByCurrency(
+  subscriptions: Subscription[],
+  amountForItem: (item: Subscription) => number = monthlyCost,
+) {
+  const totals = subscriptions.reduce<Map<string, number>>((map, item) => {
+    map.set(item.currency, (map.get(item.currency) ?? 0) + amountForItem(item));
+    return map;
+  }, new Map());
+
+  return Array.from(totals, ([currency, amount]) => ({ currency, amount }))
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+}
 
 function startOfDate(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());

@@ -4,6 +4,7 @@ import {
   defaultPocketBaseConnection,
   type PocketBaseConnectionSettings,
 } from "./pocketbase";
+import { currencyCodes } from "./constants";
 import {
   defaultColorPresets,
   defaultSettings,
@@ -72,11 +73,26 @@ export function clearAppData() {
 
 function normalizeSettings(settings: Partial<Settings>): Settings {
   const merged = { ...defaultSettings, ...settings };
+  const currency = currencyCodes.includes(merged.currency) ? merged.currency : defaultSettings.currency;
+  const enabledCurrencies = normalizeEnabledCurrencies(merged.enabledCurrencies, currency);
+
   return {
     ...merged,
+    currency,
+    enabledCurrencies,
     theme: merged.theme === "system" ? "light" : merged.theme,
+    convertToPrimaryCurrency: merged.convertToPrimaryCurrency ?? defaultSettings.convertToPrimaryCurrency,
+    showOriginalCurrency: merged.showOriginalCurrency ?? defaultSettings.showOriginalCurrency,
     colorPresets: normalizeColorPresets(merged.colorPresets),
   };
+}
+
+function normalizeEnabledCurrencies(currencies: string[] | undefined, displayCurrency: string) {
+  const normalized = Array.isArray(currencies)
+    ? currencies.filter((currency) => currencyCodes.includes(currency))
+    : [];
+  const unique = Array.from(new Set([displayCurrency, ...normalized]));
+  return unique.length > 0 ? unique : defaultSettings.enabledCurrencies;
 }
 
 function normalizeColorPresets(colors?: string[]) {

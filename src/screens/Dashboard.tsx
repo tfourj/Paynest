@@ -6,18 +6,20 @@ import { RenewalRow } from "../components/subscriptionRows";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Subscription } from "../types";
-import { formatMoney } from "../utils/subscriptions";
+import { formatMoney, type CurrencyTotal } from "../utils/subscriptions";
 
 type DashboardProps = {
   c: Colors;
   subscriptions: Subscription[];
   activeSubscriptionCount: number;
   upcoming: Subscription[];
-  monthly: number;
-  spendingUntilBoundary: number;
+  monthly: CurrencyTotal[];
+  spendingUntilBoundary: CurrencyTotal[];
   spendingBoundary: Date;
   paydayEnabled: boolean;
-  currency: string;
+  convertedRenewalPrices: Record<string, number | null>;
+  displayCurrency: string;
+  showOriginalCurrency: boolean;
   refreshing: boolean;
   onAdd: () => void;
   onRefresh: () => void;
@@ -33,7 +35,9 @@ export function Dashboard({
   spendingUntilBoundary,
   spendingBoundary,
   paydayEnabled,
-  currency,
+  convertedRenewalPrices,
+  displayCurrency,
+  showOriginalCurrency,
   refreshing,
   onAdd,
   onRefresh,
@@ -61,13 +65,11 @@ export function Dashboard({
 
       <View style={[styles.totalCard, { backgroundColor: c.primary }]}>
         <Text style={styles.totalEyebrow}>MONTHLY SPENDING</Text>
-        <Text style={styles.total}>{formatMoney(monthly, currency)}</Text>
+        <CurrencyTotalText totals={monthly} style={styles.total} />
         <View style={styles.totalFooter}>
           <Text style={styles.totalSub}>Across {activeSubscriptionCount} active {subscriptionLabel}</Text>
           <View style={styles.totalRemainingStack}>
-            <Text style={styles.totalRemainingValue}>
-              {formatMoney(spendingUntilBoundary, currency)}
-            </Text>
+            <CurrencyTotalText totals={spendingUntilBoundary} style={styles.totalRemainingValue} />
             <Text style={styles.totalRemainingLabel}>{spendingLabel}</Text>
           </View>
         </View>
@@ -94,6 +96,9 @@ export function Dashboard({
                   c={c}
                   item={item}
                   last={index === visibleUpcoming.length - 1}
+                  convertedPrice={convertedRenewalPrices[item.id]}
+                  displayCurrency={displayCurrency}
+                  showOriginalCurrency={showOriginalCurrency}
                 />
               ))}
             </View>
@@ -102,4 +107,18 @@ export function Dashboard({
       )}
     </ScrollView>
   );
+}
+
+function CurrencyTotalText({
+  totals,
+  style,
+}: {
+  totals: CurrencyTotal[];
+  style: object;
+}) {
+  const value = totals.length > 0
+    ? totals.map((total) => formatMoney(total.amount, total.currency)).join(" / ")
+    : formatMoney(0, "EUR");
+
+  return <Text style={style}>{value}</Text>;
 }
