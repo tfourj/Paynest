@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { styles } from "../styles";
@@ -70,8 +70,8 @@ export function PrivacyPolicy({ c, onBack }: PrivacyPolicyProps) {
         >
           <Ionicons name="chevron-back" size={22} color={c.text} />
         </Pressable>
-        <View style={styles.rowText}>
-          <Text style={[styles.greeting, { color: c.textMuted }]}>Paynest</Text>
+        <View style={[styles.rowText, styles.titleLockup]}>
+          <Image source={require("../../assets/paynest.png")} style={styles.headerLogo} />
           <Text style={[styles.title, { color: c.text }]}>Privacy Policy</Text>
         </View>
       </View>

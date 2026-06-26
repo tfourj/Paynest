@@ -81,7 +81,7 @@ export function SubscriptionList({
         )}
         showsVerticalScrollIndicator={false}
       >
-        <Header c={c} eyebrow="All recurring payments" title="Subscriptions" onAdd={onAdd} />
+        <Header c={c} title="Subscriptions" onAdd={onAdd} />
         <View style={styles.subscriptionToolbar}>
           <View style={styles.subscriptionFilterChips}>
             {(["All", ...billingPeriods, "Paused"] as const).map((item) => (

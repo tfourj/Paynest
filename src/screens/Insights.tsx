@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { EmptyState, Metric } from "../components/common";
+import { EmptyState, Metric, ScreenTitle } from "../components/common";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { BillingPeriod, Subscription } from "../types";
@@ -68,8 +68,7 @@ export function Insights({
 
   return (
     <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
-      <Text style={[styles.greeting, { color: c.textMuted }]}>Your spending patterns</Text>
-      <Text style={[styles.title, { color: c.text }]}>Insights</Text>
+      <ScreenTitle c={c} title="Insights" />
       <View style={[styles.metricGrid, useCompactMetricGrid && styles.metricGridCompact]}>
         <Metric
           c={c}

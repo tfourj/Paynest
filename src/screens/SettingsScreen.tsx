@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { AuthModal, type AuthMode } from "../components/AuthModal";
 import { appBuildLabel } from "../buildInfo";
 import { ColorPickerSheet } from "../components/ColorPickerSheet";
-import { Chip, StatusPill } from "../components/common";
+import { Chip, ScreenTitle, StatusPill } from "../components/common";
 import { clearCurrencyConversionCache } from "../currencyConversion";
 import { clearIconCache } from "../iconCache";
 import {
@@ -88,8 +88,7 @@ export function SettingsScreen({
   return (
     <View style={styles.screenHost}>
       <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.greeting, { color: c.textMuted }]}>Saved on this device</Text>
-        <Text style={[styles.title, { color: c.text }]}>Settings</Text>
+        <ScreenTitle c={c} title="Settings" />
 
         <AccountSettings
           c={c}

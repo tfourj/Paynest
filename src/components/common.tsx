@@ -1,4 +1,4 @@
-import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { Image, Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -6,11 +6,11 @@ import type { Tab } from "../constants";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 
-export function Header({ c, eyebrow, title, onAdd }: { c: Colors; eyebrow: string; title: string; onAdd: () => void }) {
+export function Header({ c, title, onAdd }: { c: Colors; title: string; onAdd: () => void }) {
   return (
     <View style={styles.topRow}>
-      <View>
-        <Text style={[styles.greeting, { color: c.textMuted }]}>{eyebrow}</Text>
+      <View style={styles.titleLockup}>
+        <Image source={require("../../assets/paynest.png")} style={styles.headerLogo} />
         <Text style={[styles.title, { color: c.text }]}>{title}</Text>
       </View>
       <Pressable
@@ -20,6 +20,15 @@ export function Header({ c, eyebrow, title, onAdd }: { c: Colors; eyebrow: strin
       >
         <Ionicons name="add" size={25} color="#fff" />
       </Pressable>
+    </View>
+  );
+}
+
+export function ScreenTitle({ c, title }: { c: Colors; title: string }) {
+  return (
+    <View style={styles.titleLockup}>
+      <Image source={require("../../assets/paynest.png")} style={styles.headerLogo} />
+      <Text style={[styles.title, { color: c.text }]}>{title}</Text>
     </View>
   );
 }

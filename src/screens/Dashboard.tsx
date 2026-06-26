@@ -61,7 +61,7 @@ export function Dashboard({
       )}
       showsVerticalScrollIndicator={false}
     >
-      <Header c={c} eyebrow="Your recurring payments" title="Dashboard" onAdd={onAdd} />
+      <Header c={c} title="Dashboard" onAdd={onAdd} />
 
       <View style={[styles.totalCard, { backgroundColor: c.primary }]}>
         <Text style={styles.totalEyebrow}>MONTHLY SPENDING</Text>
