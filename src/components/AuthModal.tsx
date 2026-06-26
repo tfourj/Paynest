@@ -18,6 +18,8 @@ export type AuthMode = "login" | "create" | "forgot";
 
 type ServerChoice = "paynest" | "custom";
 
+const minimumPasswordLength = 8;
+
 type AuthModalProps = {
   c: Colors;
   mode: AuthMode | null;
@@ -106,8 +108,12 @@ export function AuthModal({
     if (validationError) return setMessage(validationError);
     if (!email.trim()) return setMessage("Enter your email address.");
     if (mode === "forgot") return resetPassword();
-    if (password.length < 8) return setMessage("Enter a password with at least 8 characters.");
-    if (mode === "create" && password !== confirmPassword) return setMessage("Passwords do not match.");
+    if (mode === "create") {
+      if (password.length < minimumPasswordLength) {
+        return setMessage(`Enter a password with at least ${minimumPasswordLength} characters.`);
+      }
+      if (password !== confirmPassword) return setMessage("Passwords do not match.");
+    }
 
     const config = resolvePocketBaseConfig(connection);
     const authClient = createPocketBaseClient(config);

@@ -39,6 +39,7 @@ type RequestOptions = {
 };
 
 const sessionRefreshes = new Map<string, Promise<PocketBaseSession | null>>();
+const minimumPasswordLength = 8;
 
 export const defaultPocketBaseConnection: PocketBaseConnectionSettings = {
   url: process.env.EXPO_PUBLIC_POCKETBASE_URL?.trim() ?? "",
@@ -85,6 +86,10 @@ export class PocketBaseClient {
   }
 
   async signUp(email: string, password: string) {
+    if (password.length < minimumPasswordLength) {
+      throw new Error(`Enter a password with at least ${minimumPasswordLength} characters.`);
+    }
+
     await this.request("/api/collections/users/records", {
       method: "POST",
       body: {
