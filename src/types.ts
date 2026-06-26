@@ -52,6 +52,7 @@ export type Settings = {
   showOriginalCurrency: boolean;
   paydayEnabled: boolean;
   payday: number;
+  usesMobile: boolean;
   colorPresets: string[];
 };
 
@@ -66,5 +67,6 @@ export const defaultSettings: Settings = {
   showOriginalCurrency: false,
   paydayEnabled: false,
   payday: 1,
+  usesMobile: false,
   colorPresets: defaultColorPresets,
 };

@@ -234,6 +234,11 @@ export default function App() {
   }, [ready, subscriptions]);
 
   useEffect(() => {
+    if (!ready || Platform.OS === "web" || !session || settings.usesMobile) return;
+    updateSettings({ ...settings, usesMobile: true });
+  }, [ready, session?.user.id, settings.usesMobile]);
+
+  useEffect(() => {
     const userId = session?.user.id;
     if (!ready || !userId) {
       if (!userId) syncedUserId.current = null;
@@ -433,6 +438,7 @@ export default function App() {
       || settings.showOriginalCurrency !== next.showOriginalCurrency
       || settings.paydayEnabled !== next.paydayEnabled
       || settings.payday !== next.payday
+      || settings.usesMobile !== next.usesMobile
       || JSON.stringify(settings.colorPresets) !== JSON.stringify(next.colorPresets);
 
     setSettings(next);

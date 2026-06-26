@@ -79,7 +79,7 @@ export function SettingsScreen({
   const toggleSection = useCallback((section: SettingsSectionId) => {
     setOpenSection((current) => current === section ? null : section);
   }, []);
-  const shouldShowNotificationSettings = Platform.OS !== "web" || Boolean(session);
+  const shouldShowNotificationSettings = Platform.OS !== "web" || (Boolean(session) && settings.usesMobile);
   const syncStatus = pocketBaseConfig.isConfigured
     ? session ? "Syncing with PocketBase" : "Log in to enable sync"
     : "Add your PocketBase URL";

@@ -42,6 +42,7 @@ type SettingsRecord = {
   show_original_currency?: boolean | null;
   payday_enabled?: boolean | null;
   payday?: number | null;
+  uses_mobile?: boolean | null;
   color_presets?: string | null;
   updated_at: string;
 };
@@ -119,6 +120,7 @@ function toSettings(row: SettingsRecord): Settings {
     showOriginalCurrency: row.show_original_currency ?? defaultSettings.showOriginalCurrency,
     paydayEnabled: row.payday_enabled ?? defaultSettings.paydayEnabled,
     payday: row.payday ?? defaultSettings.payday,
+    usesMobile: row.uses_mobile ?? defaultSettings.usesMobile,
     colorPresets: parseColorPresets(row.color_presets),
   };
 }
@@ -135,6 +137,7 @@ function toSettingsRecord(userId: string, settings: Settings) {
     show_original_currency: settings.showOriginalCurrency,
     payday_enabled: settings.paydayEnabled,
     payday: settings.payday,
+    uses_mobile: settings.usesMobile,
     color_presets: JSON.stringify(settings.colorPresets),
     updated_at: new Date().toISOString(),
   };
