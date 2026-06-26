@@ -198,14 +198,18 @@ export async function loadCloudAppData(
     };
   }
 
-  if (!encryptionPassword && await hasEncryptedRecordDataIfAvailable(client, token, userId)) {
-    return {
-      subscriptions: [],
-      settings: null,
-      settingsHasCurrencySettings: false,
-      encrypted: true,
-      locked: true,
-    };
+  if (!encryptionPassword) {
+    if (await hasEncryptedRecordDataIfAvailable(client, token, userId)) {
+      return {
+        subscriptions: [],
+        settings: null,
+        settingsHasCurrencySettings: false,
+        encrypted: true,
+        locked: true,
+      };
+    }
+
+    return loadPlaintextCloudAppData(client, token, userId);
   }
 
   const encryptedRows = await listEncryptedRecordDataIfAvailable(client, token, userId);
@@ -241,21 +245,7 @@ export async function loadCloudAppData(
     };
   }
 
-  const [cloudSubscriptions, cloudSettings] = await Promise.all([
-    listUserSubscriptions(client, token, userId),
-    listUserSettings(client, token, userId),
-  ]);
-  const settingsRecord = cloudSettings[0];
-
-  return {
-    subscriptions: cloudSubscriptions
-      .map(toSubscription)
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    settings: settingsRecord ? toSettings(settingsRecord) : null,
-    settingsHasCurrencySettings: hasCurrencySettings(settingsRecord),
-    encrypted: false,
-    locked: false,
-  };
+  return loadPlaintextCloudAppData(client, token, userId);
 }
 
 export async function syncAppData(
@@ -473,6 +463,24 @@ function listUserSettings(client: PocketBaseClient, token: string, userId: strin
     filter: `user="${escapeFilterValue(userId)}"`,
     perPage: 1,
   });
+}
+
+async function loadPlaintextCloudAppData(client: PocketBaseClient, token: string, userId: string) {
+  const [cloudSubscriptions, cloudSettings] = await Promise.all([
+    listUserSubscriptions(client, token, userId),
+    listUserSettings(client, token, userId),
+  ]);
+  const settingsRecord = cloudSettings[0];
+
+  return {
+    subscriptions: cloudSubscriptions
+      .map(toSubscription)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    settings: settingsRecord ? toSettings(settingsRecord) : null,
+    settingsHasCurrencySettings: hasCurrencySettings(settingsRecord),
+    encrypted: false,
+    locked: false,
+  };
 }
 
 function listEncryptedSubscriptions(
