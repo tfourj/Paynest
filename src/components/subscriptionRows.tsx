@@ -28,12 +28,13 @@ export function RenewalRow({
   const rowBackground = item.backgroundColor ?? item.iconColor ?? colorFor(item.category);
   const rowTextColor = readableTextColor(rowBackground);
   const rowMutedColor = mutedTextColor(rowTextColor);
+  const rowBorderColor = subscriptionPillBorderColor(c);
 
   return (
     <View
       style={[
         styles.renewalRow,
-        { backgroundColor: rowBackground },
+        { backgroundColor: rowBackground, borderColor: rowBorderColor },
         last && styles.lastSubscriptionPill,
       ]}
     >
@@ -71,6 +72,7 @@ export function SubscriptionRow({
   const rowBackground = item.backgroundColor ?? item.iconColor ?? colorFor(item.category);
   const rowTextColor = readableTextColor(rowBackground);
   const rowMutedColor = mutedTextColor(rowTextColor);
+  const rowBorderColor = subscriptionPillBorderColor(c);
   const rowMeta = item.paused
     ? `${item.category} · ${item.billingPeriod} · Paused`
     : `${item.category} · ${item.billingPeriod}`;
@@ -82,6 +84,7 @@ export function SubscriptionRow({
         styles.subscriptionRow,
         {
           backgroundColor: rowBackground,
+          borderColor: rowBorderColor,
           opacity: item.paused ? 0.58 : 1,
         },
         last && styles.lastSubscriptionPill,
@@ -108,6 +111,10 @@ export function SubscriptionRow({
       <Ionicons name="chevron-forward" size={19} color={rowMutedColor} />
     </Pressable>
   );
+}
+
+function subscriptionPillBorderColor(c: Colors) {
+  return c.background === "#101113" ? "rgba(0,0,0,0.24)" : "rgba(255,255,255,0.24)";
 }
 
 function formatDisplayPrice(
