@@ -58,6 +58,8 @@ GitHub Actions builds unsigned release artifacts with:
 ```
 
 The APK is written to `build/android/`. The IPA is written to `build/ios/`.
+The workflow runs on tag pushes or manual dispatch only. Uploaded artifact names
+include the latest commit subject from the checked-out revision.
 The Android script builds an unsigned release APK for `arm64-v8a` by default.
 Set `REACT_NATIVE_ARCHITECTURES` to override the Android native architectures.
 If `android/` or `ios/` is missing, the scripts generate the native project

@@ -1,19 +1,10 @@
 name: Build Mobile Artifacts
+run-name: ${{ github.event.head_commit.message || github.ref_name }}
 
 on:
   push:
-    branches: [main]
-    paths:
-      - ".github/workflows/build-mobile.yml"
-      - "scripts/**"
-      - "src/**"
-      - "assets/**"
-      - "App.tsx"
-      - "app.json"
-      - "babel.config.js"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.json"
+    tags:
+      - "*"
   workflow_dispatch:
 
 jobs:
@@ -41,13 +32,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set artifact name
+        run: |
+          set -euo pipefail
+          SUBJECT="$(git log -1 --pretty=%s)"
+          SAFE_SUBJECT="$(printf "%s" "$SUBJECT" | tr '/\\":<>|*?' '-' | tr -s '[:space:]' ' ' | cut -c 1-80)"
+          echo "ARTIFACT_NAME=Paynest-${SAFE_SUBJECT}-unsigned-APK" >> "$GITHUB_ENV"
+
       - name: Build unsigned APK
         run: ./scripts/build-unsigned-apk.sh
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Paynest-unsigned-APK
+          name: ${{ env.ARTIFACT_NAME }}
           path: build/android/*.apk
           if-no-files-found: error
 
@@ -78,12 +76,19 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
+      - name: Set artifact name
+        run: |
+          set -euo pipefail
+          SUBJECT="$(git log -1 --pretty=%s)"
+          SAFE_SUBJECT="$(printf "%s" "$SUBJECT" | tr '/\\":<>|*?' '-' | tr -s '[:space:]' ' ' | cut -c 1-80)"
+          echo "ARTIFACT_NAME=Paynest-${SAFE_SUBJECT}-unsigned-IPA" >> "$GITHUB_ENV"
+
       - name: Build unsigned IPA
         run: ./scripts/build-unsigned-ipa.sh
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Paynest-unsigned-IPA
+          name: ${{ env.ARTIFACT_NAME }}
           path: build/ios/*.ipa
           if-no-files-found: error
