@@ -5,6 +5,7 @@ App.tsx             App shell, navigation, state, and sync flow
 assets/             App icon and logo assets
 docs/               Development and build documentation
 pocketbase/         PocketBase setup notes and collection schema
+scripts/            Local development helper scripts
 src/components/     Shared UI components and subscription rows
 src/screens/        Login, dashboard, subscriptions, insights, settings, and privacy policy
 src/buildInfo.ts    App version and build label shown in settings

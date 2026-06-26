@@ -4,10 +4,10 @@
   "private": true,
   "main": "expo/AppEntry",
   "scripts": {
-    "start": "EXPO_PUBLIC_COMMIT_ID=$(git rev-parse --short HEAD) expo start",
-    "web": "EXPO_PUBLIC_COMMIT_ID=$(git rev-parse --short HEAD) expo start --web",
-    "ios": "EXPO_PUBLIC_COMMIT_ID=$(git rev-parse --short HEAD) expo run:ios",
-    "android": "EXPO_PUBLIC_COMMIT_ID=$(git rev-parse --short HEAD) expo run:android",
+    "start": "node scripts/expo-with-build-info.mjs start",
+    "web": "node scripts/expo-with-build-info.mjs start --web",
+    "ios": "node scripts/expo-with-build-info.mjs run:ios",
+    "android": "node scripts/expo-with-build-info.mjs run:android",
     "typecheck": "tsc --noEmit",
     "pb:collections": "node pocketbase/generate-collections.mjs",
     "pb:validate": "node pocketbase/validate-collections.mjs"
