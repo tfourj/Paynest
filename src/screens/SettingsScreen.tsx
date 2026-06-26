@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AuthModal, type AuthMode } from "../components/AuthModal";
@@ -68,7 +68,7 @@ export function SettingsScreen({
         onAuthSuccess={onAuthSuccess}
         onSignOut={onSignOut}
       />
-      <NotificationSettings c={c} />
+      {Platform.OS === "web" ? null : <NotificationSettings c={c} />}
       <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
       <AppearanceSettings c={c} settings={settings} onUpdate={onUpdate} />
       <SyncSettings
