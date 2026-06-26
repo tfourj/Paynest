@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import { AuthModal, type AuthMode } from "../components/AuthModal";
+import { appBuildLabel } from "../buildInfo";
 import { ColorPickerSheet } from "../components/ColorPickerSheet";
 import { Chip, StatusPill } from "../components/common";
 import { clearCurrencyConversionCache } from "../currencyConversion";
@@ -148,7 +149,7 @@ export function SettingsScreen({
           onOpenPrivacyPolicy={onOpenPrivacyPolicy}
           onToggleSection={toggleSection}
         />
-        <Text style={[styles.version, { color: c.textSoft }]}>Paynest · Version 1.0.0</Text>
+        <Text style={[styles.version, { color: c.textSoft }]}>{appBuildLabel}</Text>
       </ScrollView>
       <Toast c={c} message={toastMessage} onDone={clearToast} />
     </View>

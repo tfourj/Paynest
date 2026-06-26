@@ -4,10 +4,10 @@
   "private": true,
   "main": "expo/AppEntry",
   "scripts": {
-    "start": "expo start",
-    "web": "expo start --web",
-    "ios": "expo run:ios",
-    "android": "expo run:android",
+    "start": "EXPO_PUBLIC_COMMIT_ID=$(git rev-parse --short HEAD) expo start",
+    "web": "EXPO_PUBLIC_COMMIT_ID=$(git rev-parse --short HEAD) expo start --web",
+    "ios": "EXPO_PUBLIC_COMMIT_ID=$(git rev-parse --short HEAD) expo run:ios",
+    "android": "EXPO_PUBLIC_COMMIT_ID=$(git rev-parse --short HEAD) expo run:android",
     "typecheck": "tsc --noEmit",
     "pb:collections": "node pocketbase/generate-collections.mjs",
     "pb:validate": "node pocketbase/validate-collections.mjs"
