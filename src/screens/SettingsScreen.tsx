@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  Alert,
   Animated,
   Linking,
   Modal,
@@ -975,6 +974,7 @@ function SyncSettings({
 }) {
   const [busy, setBusy] = useState(false);
   const [encryptionMode, setEncryptionMode] = useState<EncryptionModalMode | null>(null);
+  const [confirmingDisable, setConfirmingDisable] = useState(false);
   const canSync = pocketBaseConfig.isConfigured
     && Boolean(session)
     && cloudEncryptionState !== "locked"
@@ -1000,25 +1000,17 @@ function SyncSettings({
     }
   }
 
-  function disableEncryption() {
-    Alert.alert(
-      "Disable cloud encryption?",
-      "Future synced subscription data and settings will be readable by the PocketBase server you use.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Disable encryption",
-          style: "destructive",
-          onPress: () => {
-            setBusy(true);
-            onDisableCloudEncryption()
-              .then(() => onToast("Cloud encryption disabled"))
-              .catch((error) => onToast(error instanceof Error ? error.message : "Could not disable encryption"))
-              .finally(() => setBusy(false));
-          },
-        },
-      ],
-    );
+  async function confirmDisableEncryption() {
+    setBusy(true);
+    try {
+      await onDisableCloudEncryption();
+      onToast("Cloud encryption disabled");
+      setConfirmingDisable(false);
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : "Could not disable encryption");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -1109,7 +1101,7 @@ function SyncSettings({
               </View>
               <Pressable
                 disabled={busy}
-                onPress={disableEncryption}
+                onPress={() => setConfirmingDisable(true)}
                 style={[styles.encryptionButton, { backgroundColor: c.surface, borderColor: "#DC2626" }]}
               >
                 <Text style={[styles.encryptionButtonText, { color: "#DC2626" }]}>Disable encryption</Text>
@@ -1164,7 +1156,74 @@ function SyncSettings({
           }
         }}
       />
+      <DisableEncryptionModal
+        c={c}
+        visible={confirmingDisable}
+        busy={busy}
+        onCancel={() => setConfirmingDisable(false)}
+        onConfirm={() => void confirmDisableEncryption()}
+      />
     </CollapsibleSettingsSection>
+  );
+}
+
+function DisableEncryptionModal({
+  c,
+  visible,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  c: Colors;
+  visible: boolean;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.encryptionModalOverlay}>
+        <View style={[styles.encryptionModalPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={styles.encryptionModalTitleRow}>
+            <View style={[styles.encryptionIcon, { backgroundColor: "#FEF2F2" }]}>
+              <Ionicons name="lock-open-outline" size={20} color="#DC2626" />
+            </View>
+            <Text style={[styles.encryptionModalTitle, { color: c.text }]}>Disable cloud encryption?</Text>
+            <Pressable
+              accessibilityLabel="Close disable encryption dialog"
+              onPress={onCancel}
+              style={[styles.encryptionModalClose, { backgroundColor: c.surfaceMuted }]}
+            >
+              <Ionicons name="close" size={20} color={c.text} />
+            </Pressable>
+          </View>
+          <View style={[styles.encryptionWarning, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+            <Ionicons name="warning-outline" size={20} color="#DC2626" />
+            <Text style={[styles.encryptionWarningText, { color: "#991B1B" }]}>
+              Future synced subscription data and settings will be readable by the PocketBase server you use.
+            </Text>
+          </View>
+          <View style={styles.encryptionModalActions}>
+            <Pressable
+              disabled={busy}
+              onPress={onCancel}
+              style={[styles.encryptionButton, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}
+            >
+              <Text style={[styles.encryptionButtonText, { color: c.text }]}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              disabled={busy}
+              onPress={onConfirm}
+              style={[styles.encryptionButton, { backgroundColor: c.surface, borderColor: "#DC2626" }]}
+            >
+              <Text style={[styles.encryptionButtonText, { color: "#DC2626" }]}>
+                {busy ? "Disabling" : "Disable encryption"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
