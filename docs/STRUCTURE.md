@@ -2,7 +2,7 @@
 
 ```text
 App.tsx             App shell, navigation, state, and sync flow
-assets/             App icon, Android adaptive icon foreground, and logo assets
+assets/             App icon, Android adaptive icon layers, and logo assets
 docs/               Development and build documentation
 pocketbase/         PocketBase setup notes and collection schema
 scripts/            Local development, Expo, and CI build helper scripts

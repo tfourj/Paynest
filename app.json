@@ -36,7 +36,7 @@
       "icon": "./assets/paynest-android-foreground.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/paynest-android-foreground.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundImage": "./assets/paynest-android-background.png"
       },
       "permissions": [
         "POST_NOTIFICATIONS",
