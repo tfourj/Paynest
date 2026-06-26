@@ -4,7 +4,10 @@ import type { DocumentPickerAsset } from "expo-document-picker";
 import {
   Animated,
   Linking,
+  type LayoutChangeEvent,
   Modal,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -85,6 +88,7 @@ type SettingsSectionId =
   | "about";
 
 type DocumentPickerModule = typeof import("expo-document-picker");
+type SettingsSectionLayoutHandler = (section: SettingsSectionId, y: number, height: number) => void;
 
 export function SettingsScreen({
   c,
@@ -112,9 +116,42 @@ export function SettingsScreen({
 }: SettingsScreenProps) {
   const [toastMessage, setToastMessage] = useState("");
   const [openSection, setOpenSection] = useState<SettingsSectionId | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const pendingScrollSectionRef = useRef<SettingsSectionId | null>(null);
+  const scrollYRef = useRef(0);
+  const scrollViewportHeightRef = useRef(0);
   const clearToast = useCallback(() => setToastMessage(""), []);
   const toggleSection = useCallback((section: SettingsSectionId) => {
-    setOpenSection((current) => current === section ? null : section);
+    setOpenSection((current) => {
+      const nextSection = current === section ? null : section;
+      pendingScrollSectionRef.current = nextSection;
+      return nextSection;
+    });
+  }, []);
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollYRef.current = event.nativeEvent.contentOffset.y;
+  }, []);
+  const handleScrollLayout = useCallback((event: LayoutChangeEvent) => {
+    scrollViewportHeightRef.current = event.nativeEvent.layout.height;
+  }, []);
+  const handleSectionLayout = useCallback((section: SettingsSectionId, y: number, height: number) => {
+    if (pendingScrollSectionRef.current !== section) return;
+
+    const viewportHeight = scrollViewportHeightRef.current;
+    if (viewportHeight <= 0) return;
+
+    const viewportBottom = scrollYRef.current + viewportHeight;
+    const sectionBottom = y + height;
+    const scrollPadding = 20;
+
+    if (sectionBottom > viewportBottom - scrollPadding) {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, sectionBottom - viewportHeight + scrollPadding),
+        animated: true,
+      });
+    }
+
+    pendingScrollSectionRef.current = null;
   }, []);
   const shouldShowNotificationSettings = Platform.OS !== "web" || (Boolean(session) && settings.usesMobile);
   const syncStatus = pocketBaseConfig.isConfigured
@@ -123,7 +160,14 @@ export function SettingsScreen({
 
   return (
     <View style={styles.screenHost}>
-      <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={styles.screen}
+        onLayout={handleScrollLayout}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
         <ScreenTitle c={c} title="Settings" />
 
         <AccountSettings
@@ -144,6 +188,7 @@ export function SettingsScreen({
             settings={settings}
             onApplyGlobalReminderSettings={onApplyGlobalReminderSettings}
             onRequestNotificationPermission={onRequestNotificationPermission}
+            onSectionLayout={handleSectionLayout}
             onToggleSection={toggleSection}
             onUpdate={onUpdate}
             onToast={setToastMessage}
@@ -153,6 +198,7 @@ export function SettingsScreen({
           c={c}
           settings={settings}
           openSection={openSection}
+          onSectionLayout={handleSectionLayout}
           onToggleSection={toggleSection}
           onUpdate={onUpdate}
         />
@@ -160,6 +206,7 @@ export function SettingsScreen({
           c={c}
           settings={settings}
           openSection={openSection}
+          onSectionLayout={handleSectionLayout}
           onToggleSection={toggleSection}
           onUpdate={onUpdate}
         />
@@ -167,6 +214,7 @@ export function SettingsScreen({
           c={c}
           settings={settings}
           openSection={openSection}
+          onSectionLayout={handleSectionLayout}
           onToggleSection={toggleSection}
           onUpdate={onUpdate}
         />
@@ -182,6 +230,7 @@ export function SettingsScreen({
           onEnableCloudEncryption={onEnableCloudEncryption}
           onForgetCloudEncryptionPassword={onForgetCloudEncryptionPassword}
           onForceSync={onForceSync}
+          onSectionLayout={handleSectionLayout}
           onToggleSection={toggleSection}
           onToast={setToastMessage}
           onUnlockCloudEncryption={onUnlockCloudEncryption}
@@ -192,12 +241,14 @@ export function SettingsScreen({
           subscriptions={subscriptions}
           onImportSubscriptions={onImportSubscriptions}
           onReset={onReset}
+          onSectionLayout={handleSectionLayout}
           onToast={setToastMessage}
           onToggleSection={toggleSection}
         />
         <AboutSettings
           c={c}
           openSection={openSection}
+          onSectionLayout={handleSectionLayout}
           onToast={setToastMessage}
           onToggleSection={toggleSection}
         />
@@ -226,11 +277,13 @@ function isValidReminderTime(value: string) {
 function AboutSettings({
   c,
   openSection,
+  onSectionLayout,
   onToast,
   onToggleSection,
 }: {
   c: Colors;
   openSection: SettingsSectionId | null;
+  onSectionLayout: SettingsSectionLayoutHandler;
   onToast: (message: string) => void;
   onToggleSection: (section: SettingsSectionId) => void;
 }) {
@@ -249,6 +302,7 @@ function AboutSettings({
       id="about"
       openSection={openSection}
       title="About"
+      onSectionLayout={onSectionLayout}
       onToggleSection={onToggleSection}
     >
       <Pressable onPress={() => void openLink(websiteUrl)} style={styles.settingRow}>
@@ -293,6 +347,7 @@ function DataSettings({
   subscriptions,
   onImportSubscriptions,
   onReset,
+  onSectionLayout,
   onToast,
   onToggleSection,
 }: {
@@ -301,6 +356,7 @@ function DataSettings({
   subscriptions: Subscription[];
   onImportSubscriptions: (subscriptions: Subscription[]) => Promise<number>;
   onReset: () => void;
+  onSectionLayout: SettingsSectionLayoutHandler;
   onToast: (message: string) => void;
   onToggleSection: (section: SettingsSectionId) => void;
 }) {
@@ -389,6 +445,7 @@ function DataSettings({
       id="data"
       openSection={openSection}
       title="Data"
+      onSectionLayout={onSectionLayout}
       onToggleSection={onToggleSection}
     >
       <Pressable
@@ -726,6 +783,7 @@ function NotificationSettings({
   settings,
   onApplyGlobalReminderSettings,
   onRequestNotificationPermission,
+  onSectionLayout,
   onToggleSection,
   onUpdate,
   onToast,
@@ -736,6 +794,7 @@ function NotificationSettings({
   settings: Settings;
   onApplyGlobalReminderSettings: () => void;
   onRequestNotificationPermission: () => Promise<boolean>;
+  onSectionLayout: SettingsSectionLayoutHandler;
   onToggleSection: (section: SettingsSectionId) => void;
   onUpdate: (settings: Settings) => void;
   onToast: (message: string) => void;
@@ -799,6 +858,7 @@ function NotificationSettings({
       id="notifications"
       openSection={openSection}
       title="Mobile notifications"
+      onSectionLayout={onSectionLayout}
       onToggleSection={onToggleSection}
     >
       <View style={styles.settingRow}>
@@ -887,12 +947,14 @@ function CurrencySettings({
   c,
   settings,
   openSection,
+  onSectionLayout,
   onToggleSection,
   onUpdate,
 }: {
   c: Colors;
   settings: Settings;
   openSection: SettingsSectionId | null;
+  onSectionLayout: SettingsSectionLayoutHandler;
   onToggleSection: (section: SettingsSectionId) => void;
   onUpdate: (settings: Settings) => void;
 }) {
@@ -922,6 +984,7 @@ function CurrencySettings({
       id="currencies"
       openSection={openSection}
       title="Currencies"
+      onSectionLayout={onSectionLayout}
       onToggleSection={onToggleSection}
     >
       <View style={styles.settingRow}>
@@ -1027,12 +1090,14 @@ function PaydaySettings({
   c,
   settings,
   openSection,
+  onSectionLayout,
   onToggleSection,
   onUpdate,
 }: {
   c: Colors;
   settings: Settings;
   openSection: SettingsSectionId | null;
+  onSectionLayout: SettingsSectionLayoutHandler;
   onToggleSection: (section: SettingsSectionId) => void;
   onUpdate: (settings: Settings) => void;
 }) {
@@ -1049,6 +1114,7 @@ function PaydaySettings({
       id="payday"
       openSection={openSection}
       title="Payday"
+      onSectionLayout={onSectionLayout}
       onToggleSection={onToggleSection}
     >
       <View style={styles.settingRow}>
@@ -1094,12 +1160,14 @@ function AppearanceSettings({
   c,
   settings,
   openSection,
+  onSectionLayout,
   onToggleSection,
   onUpdate,
 }: {
   c: Colors;
   settings: Settings;
   openSection: SettingsSectionId | null;
+  onSectionLayout: SettingsSectionLayoutHandler;
   onToggleSection: (section: SettingsSectionId) => void;
   onUpdate: (settings: Settings) => void;
 }) {
@@ -1146,6 +1214,7 @@ function AppearanceSettings({
         id="appearance"
         openSection={openSection}
         title="Appearance"
+        onSectionLayout={onSectionLayout}
         onToggleSection={onToggleSection}
       >
         <View style={styles.settingRow}>
@@ -1245,6 +1314,7 @@ function SyncSettings({
   onEnableCloudEncryption,
   onForgetCloudEncryptionPassword,
   onForceSync,
+  onSectionLayout,
   onToggleSection,
   onToast,
   onUnlockCloudEncryption,
@@ -1264,6 +1334,7 @@ function SyncSettings({
   onEnableCloudEncryption: (password: string, rememberPassword: boolean) => Promise<void>;
   onForgetCloudEncryptionPassword: () => Promise<void>;
   onForceSync: () => Promise<void>;
+  onSectionLayout: SettingsSectionLayoutHandler;
   onToggleSection: (section: SettingsSectionId) => void;
   onToast: (message: string) => void;
   onUnlockCloudEncryption: (password: string, rememberPassword: boolean) => Promise<void>;
@@ -1316,6 +1387,7 @@ function SyncSettings({
       id="sync"
       openSection={openSection}
       title="Sync"
+      onSectionLayout={onSectionLayout}
       onToggleSection={onToggleSection}
     >
       <View style={styles.settingRow}>
@@ -1684,6 +1756,7 @@ function CollapsibleSettingsSection({
   id,
   openSection,
   title,
+  onSectionLayout,
   onToggleSection,
   children,
 }: {
@@ -1692,13 +1765,22 @@ function CollapsibleSettingsSection({
   id: SettingsSectionId;
   openSection: SettingsSectionId | null;
   title: string;
+  onSectionLayout: SettingsSectionLayoutHandler;
   onToggleSection: (section: SettingsSectionId) => void;
   children: ReactNode;
 }) {
   const open = openSection === id;
 
   return (
-    <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+    <View
+      onLayout={(event) => {
+        if (!open) return;
+
+        const { y, height } = event.nativeEvent.layout;
+        onSectionLayout(id, y, height);
+      }}
+      style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}
+    >
       <Pressable onPress={() => onToggleSection(id)} style={styles.settingsSectionHeader}>
         <Ionicons name={icon} size={20} color={c.primary} />
         <Text style={[styles.settingsSectionTitle, { color: c.text }]}>{title}</Text>
