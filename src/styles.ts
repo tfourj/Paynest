@@ -252,9 +252,8 @@ export const styles = StyleSheet.create({
   },
   currencyGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   currencyOption: {
-    flexBasis: "31%",
-    minWidth: 132,
-    flexGrow: 1,
+    width: "31%",
+    minWidth: 0,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 10,
