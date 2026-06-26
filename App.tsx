@@ -717,6 +717,24 @@ export default function App() {
     }
   }
 
+  async function importSubscriptions(importedSubscriptions: Subscription[]) {
+    const importedById = new Map(importedSubscriptions.map((subscription) => [subscription.id, subscription]));
+    const next = [
+      ...subscriptions.filter((subscription) => !importedById.has(subscription.id)),
+      ...importedSubscriptions,
+    ];
+
+    setSubscriptions(next);
+    await saveSubscriptions(next);
+    if (session?.user.id) {
+      void syncSubscriptionsAfterChange(next, settings, importedSubscriptions).catch((error) => {
+        console.warn("PocketBase subscription import sync failed", error);
+      });
+    }
+
+    return importedSubscriptions.length;
+  }
+
   async function syncSubscriptionsAfterChange(
     nextSubscriptions: Subscription[],
     nextSettings: Settings,
@@ -1354,6 +1372,7 @@ export default function App() {
               {tab === "Settings" && (
                 <SettingsScreen
                   c={c}
+                  subscriptions={subscriptions}
                   settings={settings}
                   session={session}
                   pocketBase={pocketBase}
@@ -1371,6 +1390,7 @@ export default function App() {
                   onChangeCloudEncryptionPassword={changeCloudEncryptionPassword}
                   onDisableCloudEncryption={disableCloudEncryption}
                   onReset={resetData}
+                  onImportSubscriptions={importSubscriptions}
                   onApplyGlobalReminderSettings={applyGlobalReminderSettings}
                   onRequestNotificationPermission={requestNotificationPermission}
                 />

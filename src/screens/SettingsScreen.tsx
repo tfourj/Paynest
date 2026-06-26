@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import * as FileSystem from "expo-file-system/legacy";
+import type { DocumentPickerAsset } from "expo-document-picker";
 import {
   Animated,
   Linking,
@@ -6,6 +8,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   Text,
@@ -13,12 +16,22 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { strFromU8 } from "fflate";
 
 import { AuthModal, type AuthMode } from "../components/AuthModal";
 import { appBuildLabel } from "../buildInfo";
 import { ColorPickerSheet } from "../components/ColorPickerSheet";
 import { Chip, ScreenTitle, StatusPill } from "../components/common";
 import { clearCurrencyConversionCache } from "../currencyConversion";
+import {
+  createSubscriptionExportJson,
+  createSubscriptionExportZip,
+  parseSubscriptionImportText,
+  parseSubscriptionImportZip,
+  subscriptionExportFileName,
+  subscriptionExportMimeType,
+  type SubscriptionExportFormat,
+} from "../dataTransfer";
 import { clearIconCache } from "../iconCache";
 import {
   type PocketBaseClient,
@@ -29,12 +42,13 @@ import {
 import { sendDebugNotification } from "../notifications";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
-import type { Settings } from "../types";
+import type { Settings, Subscription } from "../types";
 import { currencies } from "../constants";
 import { normalizeHexColor, readableTextColor } from "../utils/colors";
 
 type SettingsScreenProps = {
   c: Colors;
+  subscriptions: Subscription[];
   settings: Settings;
   session: PocketBaseSession | null;
   pocketBase: PocketBaseClient | null;
@@ -56,6 +70,7 @@ type SettingsScreenProps = {
   ) => Promise<void>;
   onDisableCloudEncryption: () => Promise<void>;
   onReset: () => void;
+  onImportSubscriptions: (subscriptions: Subscription[]) => Promise<number>;
   onApplyGlobalReminderSettings: () => void;
   onRequestNotificationPermission: () => Promise<boolean>;
 };
@@ -69,8 +84,11 @@ type SettingsSectionId =
   | "data"
   | "about";
 
+type DocumentPickerModule = typeof import("expo-document-picker");
+
 export function SettingsScreen({
   c,
+  subscriptions,
   settings,
   session,
   pocketBase,
@@ -88,6 +106,7 @@ export function SettingsScreen({
   onChangeCloudEncryptionPassword,
   onDisableCloudEncryption,
   onReset,
+  onImportSubscriptions,
   onApplyGlobalReminderSettings,
   onRequestNotificationPermission,
 }: SettingsScreenProps) {
@@ -170,6 +189,8 @@ export function SettingsScreen({
         <DataSettings
           c={c}
           openSection={openSection}
+          subscriptions={subscriptions}
+          onImportSubscriptions={onImportSubscriptions}
           onReset={onReset}
           onToast={setToastMessage}
           onToggleSection={toggleSection}
@@ -269,16 +290,22 @@ function AboutSettings({
 function DataSettings({
   c,
   openSection,
+  subscriptions,
+  onImportSubscriptions,
   onReset,
   onToast,
   onToggleSection,
 }: {
   c: Colors;
   openSection: SettingsSectionId | null;
+  subscriptions: Subscription[];
+  onImportSubscriptions: (subscriptions: Subscription[]) => Promise<number>;
   onReset: () => void;
   onToast: (message: string) => void;
   onToggleSection: (section: SettingsSectionId) => void;
 }) {
+  const [dataBusy, setDataBusy] = useState<SubscriptionExportFormat | "import" | null>(null);
+
   async function clearCache() {
     onToast("Clearing icon cache");
     await clearIconCache();
@@ -291,6 +318,68 @@ function DataSettings({
     onToast("Currency cache cleared");
   }
 
+  async function exportSubscriptions(format: SubscriptionExportFormat) {
+    if (dataBusy) return;
+
+    setDataBusy(format);
+    try {
+      const fileName = subscriptionExportFileName(format);
+      const mimeType = subscriptionExportMimeType(format);
+
+      if (Platform.OS === "web") {
+        await downloadWebExport(format, subscriptions, fileName, mimeType);
+      } else {
+        const uri = await writeSubscriptionExportFile(format, subscriptions, fileName);
+        await Share.share({
+          title: fileName,
+          url: uri,
+          message: Platform.OS === "ios" ? undefined : uri,
+        });
+      }
+
+      onToast(`Exported ${subscriptions.length} subscription${subscriptions.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      console.warn("Subscription export failed", error);
+      onToast("Could not export subscriptions");
+    } finally {
+      setDataBusy(null);
+    }
+  }
+
+  async function importSubscriptions() {
+    if (dataBusy) return;
+
+    setDataBusy("import");
+    try {
+      const DocumentPicker = await loadDocumentPicker();
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          "application/json",
+          "application/zip",
+          "application/x-zip-compressed",
+          "text/json",
+          "text/plain",
+        ],
+        copyToCacheDirectory: true,
+        base64: true,
+      });
+
+      if (result.canceled || result.assets.length === 0) {
+        setDataBusy(null);
+        return;
+      }
+
+      const imported = await readSubscriptionImport(result.assets[0]);
+      const count = await onImportSubscriptions(imported.subscriptions);
+      onToast(`Imported ${count} subscription${count === 1 ? "" : "s"}`);
+    } catch (error) {
+      console.warn("Subscription import failed", error);
+      onToast(error instanceof Error ? error.message : "Could not import subscriptions");
+    } finally {
+      setDataBusy(null);
+    }
+  }
+
   return (
     <CollapsibleSettingsSection
       c={c}
@@ -300,6 +389,48 @@ function DataSettings({
       title="Data"
       onToggleSection={onToggleSection}
     >
+      <Pressable
+        disabled={dataBusy !== null}
+        onPress={() => void exportSubscriptions("json")}
+        style={styles.settingRow}
+      >
+        <Ionicons name="download-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Export JSON</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Save your subscriptions as a readable Paynest backup
+          </Text>
+        </View>
+        {dataBusy === "json" ? <Text style={[styles.rowMeta, { color: c.textMuted }]}>Working</Text> : null}
+      </Pressable>
+      <Pressable
+        disabled={dataBusy !== null}
+        onPress={() => void exportSubscriptions("zip")}
+        style={[styles.settingRow, { borderTopColor: c.border }]}
+      >
+        <Ionicons name="archive-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Export ZIP</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Save your subscriptions in a compressed backup file
+          </Text>
+        </View>
+        {dataBusy === "zip" ? <Text style={[styles.rowMeta, { color: c.textMuted }]}>Working</Text> : null}
+      </Pressable>
+      <Pressable
+        disabled={dataBusy !== null}
+        onPress={() => void importSubscriptions()}
+        style={[styles.settingRow, { borderTopColor: c.border }]}
+      >
+        <Ionicons name="cloud-upload-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Import backup</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Add or update subscriptions from a Paynest JSON or ZIP file
+          </Text>
+        </View>
+        {dataBusy === "import" ? <Text style={[styles.rowMeta, { color: c.textMuted }]}>Working</Text> : null}
+      </Pressable>
       <Pressable onPress={() => void clearCache()} style={styles.settingRow}>
         <Ionicons name="image-outline" size={21} color={c.primary} />
         <View style={styles.rowText}>
@@ -329,6 +460,137 @@ function DataSettings({
       </Pressable>
     </CollapsibleSettingsSection>
   );
+}
+
+async function loadDocumentPicker(): Promise<DocumentPickerModule> {
+  try {
+    return await import("expo-document-picker");
+  } catch (error) {
+    console.warn("Document picker module failed to load", error);
+    throw new Error("Rebuild the app to enable backup import.");
+  }
+}
+
+async function writeSubscriptionExportFile(
+  format: SubscriptionExportFormat,
+  subscriptions: Subscription[],
+  fileName: string,
+) {
+  if (!FileSystem.cacheDirectory) throw new Error("File storage is not available.");
+
+  const uri = `${FileSystem.cacheDirectory}${fileName}`;
+  if (format === "zip") {
+    await FileSystem.writeAsStringAsync(uri, bytesToBase64(createSubscriptionExportZip(subscriptions)), {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return uri;
+  }
+
+  await FileSystem.writeAsStringAsync(uri, createSubscriptionExportJson(subscriptions), {
+    encoding: FileSystem.EncodingType.UTF8,
+  });
+  return uri;
+}
+
+async function downloadWebExport(
+  format: SubscriptionExportFormat,
+  subscriptions: Subscription[],
+  fileName: string,
+  mimeType: string,
+) {
+  const runtime = globalThis as {
+    Blob?: typeof Blob;
+    URL?: typeof URL;
+    document?: Document;
+  };
+
+  if (!runtime.Blob || !runtime.URL || !runtime.document) return;
+
+  const content = format === "zip"
+    ? createSubscriptionExportZip(subscriptions)
+    : createSubscriptionExportJson(subscriptions);
+  const url = runtime.URL.createObjectURL(new runtime.Blob([content], { type: mimeType }));
+  const anchor = runtime.document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.style.display = "none";
+  runtime.document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  runtime.URL.revokeObjectURL(url);
+}
+
+async function readSubscriptionImport(asset: DocumentPickerAsset) {
+  const name = asset.name.toLowerCase();
+  const isZip = name.endsWith(".zip")
+    || asset.mimeType === "application/zip"
+    || asset.mimeType === "application/x-zip-compressed";
+
+  if (isZip) {
+    const data = await readPickedBytes(asset);
+    return parseSubscriptionImportZip(data);
+  }
+
+  return parseSubscriptionImportText(await readPickedText(asset));
+}
+
+async function readPickedText(asset: DocumentPickerAsset) {
+  if (Platform.OS === "web" && asset.file) return asset.file.text();
+  if (asset.base64) return strFromU8(base64ToBytes(asset.base64));
+  return FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.UTF8 });
+}
+
+async function readPickedBytes(asset: DocumentPickerAsset) {
+  if (Platform.OS === "web" && asset.file) {
+    return new Uint8Array(await asset.file.arrayBuffer());
+  }
+
+  const base64 = asset.base64 ?? await FileSystem.readAsStringAsync(asset.uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return base64ToBytes(base64);
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let output = "";
+
+  for (let index = 0; index < bytes.length; index += 3) {
+    const first = bytes[index];
+    const second = bytes[index + 1];
+    const third = bytes[index + 2];
+    output += alphabet[first >> 2];
+    output += alphabet[((first & 3) << 4) | ((second ?? 0) >> 4)];
+    output += index + 1 < bytes.length ? alphabet[((second & 15) << 2) | ((third ?? 0) >> 6)] : "=";
+    output += index + 2 < bytes.length ? alphabet[third & 63] : "=";
+  }
+
+  return output;
+}
+
+function base64ToBytes(value: string) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const clean = value.replace(/^data:[^,]+,/, "").replace(/\s/g, "");
+  const outputLength = Math.floor((clean.length * 3) / 4) - (clean.endsWith("==") ? 2 : clean.endsWith("=") ? 1 : 0);
+  const bytes = new Uint8Array(outputLength);
+  let byteIndex = 0;
+
+  for (let index = 0; index < clean.length; index += 4) {
+    const first = alphabet.indexOf(clean[index]);
+    const second = alphabet.indexOf(clean[index + 1]);
+    const third = clean[index + 2] === "=" ? 0 : alphabet.indexOf(clean[index + 2]);
+    const fourth = clean[index + 3] === "=" ? 0 : alphabet.indexOf(clean[index + 3]);
+    const chunk = (first << 18) | (second << 12) | (third << 6) | fourth;
+
+    if (byteIndex < outputLength) bytes[byteIndex] = (chunk >> 16) & 255;
+    byteIndex += 1;
+    if (byteIndex < outputLength) bytes[byteIndex] = (chunk >> 8) & 255;
+    byteIndex += 1;
+    if (byteIndex < outputLength) bytes[byteIndex] = chunk & 255;
+    byteIndex += 1;
+  }
+
+  return bytes;
 }
 
 function AccountSettings({
