@@ -358,7 +358,14 @@ export const styles = StyleSheet.create({
   authBrand: { alignItems: "center", gap: 8, marginBottom: 8 },
   authLogo: { width: 64, height: 64, borderRadius: 16 },
   authBrandTitle: { fontSize: 20, fontWeight: "800" },
-  modalHeader: { flexDirection: "row", padding: 20, alignItems: "center", justifyContent: "space-between" },
+  modalHeader: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   cancel: { fontSize: 16, fontWeight: "600" },
   modalTitle: { fontSize: 18, fontWeight: "700" },
   modalCloseButton: {

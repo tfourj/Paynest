@@ -60,7 +60,7 @@ export function AuthModal({
         ? "Send reset email"
         : "Log in";
   const success = message.includes("Check") || message.includes("Signed") || message.includes("sent");
-  const modalTopPadding = Platform.OS === "android" ? insets.top : 0;
+  const modalTopPadding = Platform.OS === "web" ? 0 : insets.top;
   const saveBottomPadding = Platform.OS === "web" ? 16 : Math.max(insets.bottom + 18, 30);
 
   useEffect(() => {
@@ -165,7 +165,7 @@ export function AuthModal({
     <Modal
       visible={mode !== null}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={close}
     >
       <View style={[styles.authModalOverlay, { backgroundColor: c.background }]}>
