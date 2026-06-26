@@ -142,17 +142,19 @@ function newerSubscription(a: Subscription, b: Subscription) {
 }
 
 export async function loadCloudAppData(client: PocketBaseClient | null, token: string, userId: string) {
-  if (!client) return { subscriptions: [], settings: null };
+  if (!client) return { subscriptions: [], settings: null, settingsHasCurrencySettings: false };
   const [cloudSubscriptions, cloudSettings] = await Promise.all([
     listUserSubscriptions(client, token, userId),
     listUserSettings(client, token, userId),
   ]);
+  const settingsRecord = cloudSettings[0];
 
   return {
     subscriptions: cloudSubscriptions
       .map(toSubscription)
       .sort((a, b) => a.name.localeCompare(b.name)),
-    settings: cloudSettings[0] ? toSettings(cloudSettings[0]) : null,
+    settings: settingsRecord ? toSettings(settingsRecord) : null,
+    settingsHasCurrencySettings: hasCurrencySettings(settingsRecord),
   };
 }
 
@@ -170,8 +172,10 @@ export async function syncAppData(
   const cloud = initialCloud ?? await loadCloudAppData(client, token, userId);
 
   if (strategy === "cloud") {
-    const settings = { ...(cloud.settings ?? localSettings), theme: localSettings.theme };
-    if (!cloud.settings) await upsertSettings(client, token, userId, settings);
+    const settings = mergeCloudSettings(cloud, localSettings);
+    if (!cloud.settings || !cloud.settingsHasCurrencySettings) {
+      await upsertSettings(client, token, userId, settings);
+    }
     return { subscriptions: cloud.subscriptions, settings };
   }
 
@@ -194,7 +198,7 @@ export async function syncAppData(
   }
 
   const subscriptions = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
-  const settings = { ...(cloud.settings ?? localSettings), theme: localSettings.theme };
+  const settings = mergeCloudSettings(cloud, localSettings);
 
   await Promise.all([
     upsertSubscriptions(client, token, userId, subscriptions),
@@ -312,4 +316,21 @@ function parseEnabledCurrencies(value: string | null | undefined, displayCurrenc
   } catch {
     return [displayCurrency];
   }
+}
+
+function hasCurrencySettings(row: SettingsRecord | undefined) {
+  return Boolean(row?.enabled_currencies);
+}
+
+function mergeCloudSettings(cloud: CloudAppData, localSettings: Settings) {
+  const settings = { ...(cloud.settings ?? localSettings), theme: localSettings.theme };
+  if (!cloud.settings || cloud.settingsHasCurrencySettings) return settings;
+
+  return {
+    ...settings,
+    currency: localSettings.currency,
+    enabledCurrencies: localSettings.enabledCurrencies,
+    convertToPrimaryCurrency: localSettings.convertToPrimaryCurrency,
+    showOriginalCurrency: localSettings.showOriginalCurrency,
+  };
 }
