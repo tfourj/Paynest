@@ -467,6 +467,16 @@ function NotificationSettings({
       title="Notifications"
       onToggleSection={onToggleSection}
     >
+      <Pressable onPress={() => void testNotifications()} style={styles.settingRow}>
+        <Ionicons name="notifications-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Send test notification</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Request permission and schedule a local test
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
+      </Pressable>
       <View style={styles.settingRow}>
         <Ionicons name="notifications-circle-outline" size={21} color={c.primary} />
         <View style={styles.rowText}>
@@ -481,36 +491,41 @@ function NotificationSettings({
           trackColor={{ false: "#9CA3AF", true: c.primary }}
         />
       </View>
-      {settings.remindersEnabled ? (
-        <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
-          <Text style={[styles.rowMeta, { color: c.textMuted }]}>When to remind</Text>
-          <View style={styles.chips}>
-            {reminderDayOptions.map((days) => (
-              <Chip
-                key={days}
-                c={c}
-                label={days === 0 ? "Same day" : `${days} day${days > 1 ? "s" : ""} before`}
-                selected={settings.reminderDays === days}
-                onPress={() => onUpdate({ ...settings, reminderDays: days })}
-              />
-            ))}
-          </View>
-          <Text style={[styles.rowMeta, { color: c.textMuted }]}>Time</Text>
-          <View style={[styles.reminderTimeRow, { backgroundColor: c.surfaceMuted }]}>
-            <Ionicons name="time-outline" size={18} color={c.textMuted} />
-            <TextInput
-              value={settings.reminderTime}
-              onChangeText={updateReminderTime}
-              placeholder="09:00"
-              placeholderTextColor={c.textSoft}
-              keyboardType={Platform.select({ ios: "number-pad", default: "numeric" })}
-              maxLength={5}
-              style={[styles.reminderTimeInput, { color: c.text }]}
-            />
-          </View>
-        </View>
-      ) : null}
       <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
+        <Text style={[styles.rowName, { color: c.text }]}>Defaults to apply</Text>
+        {settings.remindersEnabled ? (
+          <>
+            <Text style={[styles.rowMeta, { color: c.textMuted }]}>When to remind</Text>
+            <View style={styles.chips}>
+              {reminderDayOptions.map((days) => (
+                <Chip
+                  key={days}
+                  c={c}
+                  label={days === 0 ? "Same day" : `${days} day${days > 1 ? "s" : ""} before`}
+                  selected={settings.reminderDays === days}
+                  onPress={() => onUpdate({ ...settings, reminderDays: days })}
+                />
+              ))}
+            </View>
+            <Text style={[styles.rowMeta, { color: c.textMuted }]}>Time</Text>
+            <View style={[styles.reminderTimeRow, { backgroundColor: c.surfaceMuted }]}>
+              <Ionicons name="time-outline" size={18} color={c.textMuted} />
+              <TextInput
+                value={settings.reminderTime}
+                onChangeText={updateReminderTime}
+                placeholder="09:00"
+                placeholderTextColor={c.textSoft}
+                keyboardType={Platform.select({ ios: "number-pad", default: "numeric" })}
+                maxLength={5}
+                style={[styles.reminderTimeInput, { color: c.text }]}
+              />
+            </View>
+          </>
+        ) : (
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Applying now will turn reminders off for every subscription.
+          </Text>
+        )}
         <Pressable onPress={applyReminderDefaults} style={[styles.syncButton, { backgroundColor: c.primary }]}>
           <Ionicons name="copy-outline" size={18} color="#FFFFFF" />
           <Text style={[styles.syncButtonText, { color: "#FFFFFF" }]}>Apply to all subscriptions</Text>
@@ -519,16 +534,6 @@ function NotificationSettings({
           Replaces each subscription reminder setting with these global defaults.
         </Text>
       </View>
-      <Pressable onPress={() => void testNotifications()} style={styles.settingRow}>
-        <Ionicons name="notifications-outline" size={21} color={c.primary} />
-        <View style={styles.rowText}>
-          <Text style={[styles.rowName, { color: c.text }]}>Send test notification</Text>
-          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-            Request permission and schedule a local test
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
-      </Pressable>
     </CollapsibleSettingsSection>
   );
 }
