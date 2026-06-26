@@ -46,6 +46,15 @@ type SettingsScreenProps = {
   onOpenPrivacyPolicy: () => void;
 };
 
+type SettingsSectionId =
+  | "notifications"
+  | "currencies"
+  | "payday"
+  | "appearance"
+  | "sync"
+  | "data"
+  | "legal";
+
 export function SettingsScreen({
   c,
   settings,
@@ -62,7 +71,11 @@ export function SettingsScreen({
   onOpenPrivacyPolicy,
 }: SettingsScreenProps) {
   const [toastMessage, setToastMessage] = useState("");
+  const [openSection, setOpenSection] = useState<SettingsSectionId | null>(null);
   const clearToast = useCallback(() => setToastMessage(""), []);
+  const toggleSection = useCallback((section: SettingsSectionId) => {
+    setOpenSection((current) => current === section ? null : section);
+  }, []);
   const syncStatus = pocketBaseConfig.isConfigured
     ? session ? "Syncing with PocketBase" : "Log in to enable sync"
     : "Add your PocketBase URL";
@@ -83,20 +96,58 @@ export function SettingsScreen({
           onAuthSuccess={onAuthSuccess}
           onSignOut={onSignOut}
         />
-        {Platform.OS === "web" ? null : <NotificationSettings c={c} onToast={setToastMessage} />}
-        <CurrencySettings c={c} settings={settings} onUpdate={onUpdate} />
-        <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
-        <AppearanceSettings c={c} settings={settings} onUpdate={onUpdate} />
+        {Platform.OS === "web" ? null : (
+          <NotificationSettings
+            c={c}
+            openSection={openSection}
+            onToggleSection={toggleSection}
+            onToast={setToastMessage}
+          />
+        )}
+        <CurrencySettings
+          c={c}
+          settings={settings}
+          openSection={openSection}
+          onToggleSection={toggleSection}
+          onUpdate={onUpdate}
+        />
+        <PaydaySettings
+          c={c}
+          settings={settings}
+          openSection={openSection}
+          onToggleSection={toggleSection}
+          onUpdate={onUpdate}
+        />
+        <AppearanceSettings
+          c={c}
+          settings={settings}
+          openSection={openSection}
+          onToggleSection={toggleSection}
+          onUpdate={onUpdate}
+        />
         <SyncSettings
           c={c}
           session={session}
           pocketBaseConfig={pocketBaseConfig}
           syncStatus={syncStatus}
+          openSection={openSection}
           onForceSync={onForceSync}
+          onToggleSection={toggleSection}
           onToast={setToastMessage}
         />
-        <DataSettings c={c} onReset={onReset} onToast={setToastMessage} />
-        <LegalSettings c={c} onOpenPrivacyPolicy={onOpenPrivacyPolicy} />
+        <DataSettings
+          c={c}
+          openSection={openSection}
+          onReset={onReset}
+          onToast={setToastMessage}
+          onToggleSection={toggleSection}
+        />
+        <LegalSettings
+          c={c}
+          openSection={openSection}
+          onOpenPrivacyPolicy={onOpenPrivacyPolicy}
+          onToggleSection={toggleSection}
+        />
         <Text style={[styles.version, { color: c.textSoft }]}>Paynest · Version 1.0.0</Text>
       </ScrollView>
       <Toast c={c} message={toastMessage} onDone={clearToast} />
@@ -106,35 +157,50 @@ export function SettingsScreen({
 
 function LegalSettings({
   c,
+  openSection,
   onOpenPrivacyPolicy,
+  onToggleSection,
 }: {
   c: Colors;
+  openSection: SettingsSectionId | null;
   onOpenPrivacyPolicy: () => void;
+  onToggleSection: (section: SettingsSectionId) => void;
 }) {
   return (
-    <CollapsibleSettingsSection c={c} title="Legal" icon="shield-checkmark-outline">
-        <Pressable onPress={onOpenPrivacyPolicy} style={styles.settingRow}>
-          <Ionicons name="shield-checkmark-outline" size={21} color={c.primary} />
-          <View style={styles.rowText}>
-            <Text style={[styles.rowName, { color: c.text }]}>Privacy Policy</Text>
-            <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-              Review how Paynest stores and syncs data
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
-        </Pressable>
+    <CollapsibleSettingsSection
+      c={c}
+      icon="shield-checkmark-outline"
+      id="legal"
+      openSection={openSection}
+      title="Legal"
+      onToggleSection={onToggleSection}
+    >
+      <Pressable onPress={onOpenPrivacyPolicy} style={styles.settingRow}>
+        <Ionicons name="shield-checkmark-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Privacy Policy</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Review how Paynest stores and syncs data
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
+      </Pressable>
     </CollapsibleSettingsSection>
   );
 }
 
 function DataSettings({
   c,
+  openSection,
   onReset,
   onToast,
+  onToggleSection,
 }: {
   c: Colors;
+  openSection: SettingsSectionId | null;
   onReset: () => void;
   onToast: (message: string) => void;
+  onToggleSection: (section: SettingsSectionId) => void;
 }) {
   async function clearCache() {
     onToast("Clearing icon cache");
@@ -149,7 +215,14 @@ function DataSettings({
   }
 
   return (
-    <CollapsibleSettingsSection c={c} title="Data" icon="folder-open-outline">
+    <CollapsibleSettingsSection
+      c={c}
+      icon="folder-open-outline"
+      id="data"
+      openSection={openSection}
+      title="Data"
+      onToggleSection={onToggleSection}
+    >
       <Pressable onPress={() => void clearCache()} style={styles.settingRow}>
         <Ionicons name="image-outline" size={21} color={c.primary} />
         <View style={styles.rowText}>
@@ -275,9 +348,13 @@ function AccountSettings({
 
 function NotificationSettings({
   c,
+  openSection,
+  onToggleSection,
   onToast,
 }: {
   c: Colors;
+  openSection: SettingsSectionId | null;
+  onToggleSection: (section: SettingsSectionId) => void;
   onToast: (message: string) => void;
 }) {
   async function testNotifications() {
@@ -291,17 +368,24 @@ function NotificationSettings({
   }
 
   return (
-    <CollapsibleSettingsSection c={c} title="Notifications" icon="notifications-outline">
-        <Pressable onPress={() => void testNotifications()} style={styles.settingRow}>
-          <Ionicons name="notifications-outline" size={21} color={c.primary} />
-          <View style={styles.rowText}>
-            <Text style={[styles.rowName, { color: c.text }]}>Send test notification</Text>
-            <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-              Request permission and schedule a local test
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
-        </Pressable>
+    <CollapsibleSettingsSection
+      c={c}
+      icon="notifications-outline"
+      id="notifications"
+      openSection={openSection}
+      title="Notifications"
+      onToggleSection={onToggleSection}
+    >
+      <Pressable onPress={() => void testNotifications()} style={styles.settingRow}>
+        <Ionicons name="notifications-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Send test notification</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Request permission and schedule a local test
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
+      </Pressable>
     </CollapsibleSettingsSection>
   );
 }
@@ -309,10 +393,14 @@ function NotificationSettings({
 function CurrencySettings({
   c,
   settings,
+  openSection,
+  onToggleSection,
   onUpdate,
 }: {
   c: Colors;
   settings: Settings;
+  openSection: SettingsSectionId | null;
+  onToggleSection: (section: SettingsSectionId) => void;
   onUpdate: (settings: Settings) => void;
 }) {
   function toggleCurrency(code: string) {
@@ -335,7 +423,14 @@ function CurrencySettings({
   ));
 
   return (
-    <CollapsibleSettingsSection c={c} title="Currencies" icon="cash-outline" defaultOpen>
+    <CollapsibleSettingsSection
+      c={c}
+      icon="cash-outline"
+      id="currencies"
+      openSection={openSection}
+      title="Currencies"
+      onToggleSection={onToggleSection}
+    >
       <View style={styles.settingRow}>
         <Ionicons name="swap-horizontal-outline" size={21} color={c.primary} />
         <View style={styles.rowText}>
@@ -438,10 +533,14 @@ function CurrencySettings({
 function PaydaySettings({
   c,
   settings,
+  openSection,
+  onToggleSection,
   onUpdate,
 }: {
   c: Colors;
   settings: Settings;
+  openSection: SettingsSectionId | null;
+  onToggleSection: (section: SettingsSectionId) => void;
   onUpdate: (settings: Settings) => void;
 }) {
   function updatePayday(value: string) {
@@ -451,42 +550,49 @@ function PaydaySettings({
   }
 
   return (
-    <CollapsibleSettingsSection c={c} title="Payday" icon="wallet-outline">
-        <View style={styles.settingRow}>
-          <Ionicons name="wallet-outline" size={21} color={c.primary} />
-          <View style={styles.rowText}>
-            <Text style={[styles.rowName, { color: c.text }]}>Monthly payday</Text>
-            <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-              Count upcoming spend until your next payday
-            </Text>
-          </View>
-          <Switch
-            value={settings.paydayEnabled}
-            onValueChange={(paydayEnabled) => onUpdate({ ...settings, paydayEnabled })}
-            trackColor={{ false: "#9CA3AF", true: c.primary }}
+    <CollapsibleSettingsSection
+      c={c}
+      icon="wallet-outline"
+      id="payday"
+      openSection={openSection}
+      title="Payday"
+      onToggleSection={onToggleSection}
+    >
+      <View style={styles.settingRow}>
+        <Ionicons name="wallet-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Monthly payday</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Count upcoming spend until your next payday
+          </Text>
+        </View>
+        <Switch
+          value={settings.paydayEnabled}
+          onValueChange={(paydayEnabled) => onUpdate({ ...settings, paydayEnabled })}
+          trackColor={{ false: "#9CA3AF", true: c.primary }}
+        />
+      </View>
+
+      {settings.paydayEnabled && (
+        <View style={[styles.settingOption, { borderTopColor: c.border }]}>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>Payday date</Text>
+          <TextInput
+            value={`${settings.payday}`}
+            onChangeText={updatePayday}
+            placeholder="Day of month"
+            placeholderTextColor={c.textSoft}
+            keyboardType="number-pad"
+            maxLength={2}
+            style={[
+              styles.paydayInput,
+              {
+                backgroundColor: c.surfaceMuted,
+                color: c.text,
+              },
+            ]}
           />
         </View>
-
-        {settings.paydayEnabled && (
-          <View style={[styles.settingOption, { borderTopColor: c.border }]}>
-            <Text style={[styles.rowMeta, { color: c.textMuted }]}>Payday date</Text>
-            <TextInput
-              value={`${settings.payday}`}
-              onChangeText={updatePayday}
-              placeholder="Day of month"
-              placeholderTextColor={c.textSoft}
-              keyboardType="number-pad"
-              maxLength={2}
-              style={[
-                styles.paydayInput,
-                {
-                  backgroundColor: c.surfaceMuted,
-                  color: c.text,
-                },
-              ]}
-            />
-          </View>
-        )}
+      )}
     </CollapsibleSettingsSection>
   );
 }
@@ -494,10 +600,14 @@ function PaydaySettings({
 function AppearanceSettings({
   c,
   settings,
+  openSection,
+  onToggleSection,
   onUpdate,
 }: {
   c: Colors;
   settings: Settings;
+  openSection: SettingsSectionId | null;
+  onToggleSection: (section: SettingsSectionId) => void;
   onUpdate: (settings: Settings) => void;
 }) {
   const [presetInput, setPresetInput] = useState("");
@@ -537,7 +647,14 @@ function AppearanceSettings({
 
   return (
     <>
-      <CollapsibleSettingsSection c={c} title="Appearance" icon="moon-outline">
+      <CollapsibleSettingsSection
+        c={c}
+        icon="moon-outline"
+        id="appearance"
+        openSection={openSection}
+        title="Appearance"
+        onToggleSection={onToggleSection}
+      >
         <View style={styles.settingRow}>
           <Ionicons name="moon-outline" size={21} color={c.primary} />
           <View style={styles.rowText}>
@@ -628,14 +745,18 @@ function SyncSettings({
   session,
   pocketBaseConfig,
   syncStatus,
+  openSection,
   onForceSync,
+  onToggleSection,
   onToast,
 }: {
   c: Colors;
   session: PocketBaseSession | null;
   pocketBaseConfig: PocketBaseResolvedConfig;
   syncStatus: string;
+  openSection: SettingsSectionId | null;
   onForceSync: () => Promise<void>;
+  onToggleSection: (section: SettingsSectionId) => void;
   onToast: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -657,54 +778,65 @@ function SyncSettings({
   }
 
   return (
-    <CollapsibleSettingsSection c={c} title="Sync" icon="cloud-outline">
-        <View style={styles.settingRow}>
-          <Ionicons name="cloud-outline" size={21} color={c.primary} />
-          <View style={styles.rowText}>
-            <Text style={[styles.rowName, { color: c.text }]}>Cloud sync</Text>
-            <Text style={[styles.rowMeta, { color: c.textMuted }]}>{syncStatus}</Text>
-            <StatusPill c={c} label={session ? "Sync active" : "Local only"} />
-          </View>
+    <CollapsibleSettingsSection
+      c={c}
+      icon="cloud-outline"
+      id="sync"
+      openSection={openSection}
+      title="Sync"
+      onToggleSection={onToggleSection}
+    >
+      <View style={styles.settingRow}>
+        <Ionicons name="cloud-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Cloud sync</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>{syncStatus}</Text>
+          <StatusPill c={c} label={session ? "Sync active" : "Local only"} />
         </View>
-        <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
-          <Pressable
-            disabled={!canSync}
-            onPress={() => void forceSync()}
-            style={[
-              styles.syncButton,
-              {
-                backgroundColor: canSync ? c.primary : c.surfaceMuted,
-              },
-            ]}
-          >
-            <Ionicons name="sync" size={18} color={canSync ? "#fff" : c.textSoft} />
-            <Text style={[styles.syncButtonText, { color: canSync ? "#fff" : c.textSoft }]}>
-              {busy ? "Syncing" : "Force sync"}
-            </Text>
-          </Pressable>
-        </View>
+      </View>
+      <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
+        <Pressable
+          disabled={!canSync}
+          onPress={() => void forceSync()}
+          style={[
+            styles.syncButton,
+            {
+              backgroundColor: canSync ? c.primary : c.surfaceMuted,
+            },
+          ]}
+        >
+          <Ionicons name="sync" size={18} color={canSync ? "#fff" : c.textSoft} />
+          <Text style={[styles.syncButtonText, { color: canSync ? "#fff" : c.textSoft }]}>
+            {busy ? "Syncing" : "Force sync"}
+          </Text>
+        </Pressable>
+      </View>
     </CollapsibleSettingsSection>
   );
 }
 
 function CollapsibleSettingsSection({
   c,
-  title,
   icon,
-  defaultOpen = false,
+  id,
+  openSection,
+  title,
+  onToggleSection,
   children,
 }: {
   c: Colors;
-  title: string;
   icon: keyof typeof Ionicons.glyphMap;
-  defaultOpen?: boolean;
+  id: SettingsSectionId;
+  openSection: SettingsSectionId | null;
+  title: string;
+  onToggleSection: (section: SettingsSectionId) => void;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const open = openSection === id;
 
   return (
     <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-      <Pressable onPress={() => setOpen((current) => !current)} style={styles.settingsSectionHeader}>
+      <Pressable onPress={() => onToggleSection(id)} style={styles.settingsSectionHeader}>
         <Ionicons name={icon} size={20} color={c.primary} />
         <Text style={[styles.settingsSectionTitle, { color: c.text }]}>{title}</Text>
         <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={c.textSoft} />
