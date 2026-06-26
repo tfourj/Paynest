@@ -227,7 +227,8 @@ export default function App() {
   useEffect(() => {
     if (!ready) return;
 
-    scheduleRenewalNotifications(subscriptions).catch((error) => {
+    const hasEnabledReminders = billableSubscriptions(subscriptions).some((item) => item.reminderEnabled);
+    scheduleRenewalNotifications(subscriptions, hasEnabledReminders).catch((error) => {
       console.warn("Notification scheduling failed", error);
     });
   }, [ready, subscriptions]);
