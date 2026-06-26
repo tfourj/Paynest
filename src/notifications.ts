@@ -40,7 +40,6 @@ export async function sendDebugNotification() {
     content: {
       title: "Paynest notification test",
       body: "Notifications are working on this device.",
-      sound: "default",
       data: { source: "paynest-debug" },
     },
     trigger: {
@@ -83,7 +82,6 @@ async function ensureAndroidNotificationChannel() {
   await Notifications.setNotificationChannelAsync(renewalChannelId, {
     name: "Renewal reminders",
     importance: Notifications.AndroidImportance.HIGH,
-    sound: "default",
     enableVibrate: true,
   });
 }
@@ -105,7 +103,6 @@ async function scheduleRenewalNotification(item: Subscription, now: Date) {
     content: {
       title: `${item.name} renews soon`,
       body: reminderBody(item),
-      sound: "default",
       data: {
         source: "paynest-renewal",
         subscriptionId: item.id,
