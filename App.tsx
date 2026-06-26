@@ -1,5 +1,8 @@
 import "react-native-gesture-handler";
 
+import { Ionicons } from "@expo/vector-icons";
+import { useFonts } from "expo-font";
+import type { FontSource } from "expo-font";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Platform, Pressable, StatusBar, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -56,6 +59,8 @@ import {
   totalsByCurrency,
   type CurrencyTotal,
 } from "./src/utils/subscriptions";
+
+const iconFonts: Record<string, FontSource> = Ionicons.font;
 
 function comparableSubscription(item: Subscription) {
   return {
@@ -144,6 +149,7 @@ function currencyDisplayTotals(
 }
 
 export default function App() {
+  const [iconsLoaded, iconsError] = useFonts(iconFonts);
   const [tab, setTab] = useState<Tab>("Dashboard");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
@@ -584,7 +590,11 @@ export default function App() {
     if (isPrivacyPolicyPath()) runtime?.history?.pushState(null, "", "/");
   }
 
-  if (!ready || !authReady) {
+  useEffect(() => {
+    if (iconsError) console.warn("Ionicons font failed to load", iconsError);
+  }, [iconsError]);
+
+  if (!ready || !authReady || (!iconsLoaded && !iconsError)) {
     return (
       <GestureHandlerRootView style={styles.safe}>
         <SafeAreaProvider>
