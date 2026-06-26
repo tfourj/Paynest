@@ -301,7 +301,7 @@ export const styles = StyleSheet.create({
     overflow: "hidden",
     ...Platform.select({
       web: {
-        maxWidth: 460,
+        maxWidth: 560,
         maxHeight: "92%",
         alignSelf: "center",
         borderRadius: 22,
