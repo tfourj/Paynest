@@ -7,7 +7,7 @@ import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { BillingPeriod, Subscription } from "../types";
 import { colorFor } from "../utils/category";
-import { formatMoney, monthlyCost } from "../utils/subscriptions";
+import { formatMoney, isSubscriptionPaused, monthlyCost } from "../utils/subscriptions";
 
 type InsightsProps = {
   c: Colors;
@@ -34,6 +34,7 @@ export function Insights({
   const calendarDays = buildRenewalCalendar(activeSubscriptions, viewedMonth);
   const calendarWeeks = chunkCalendarWeeks(calendarDays);
   const selectedDay = calendarDays.find((day) => day.dateKey === selectedDateKey);
+  const hasPausedSubscriptions = subscriptions.some(isSubscriptionPaused);
   const monthLabel = viewedMonth.toLocaleDateString(undefined, {
     month: "long",
     year: "numeric",
@@ -68,18 +69,22 @@ export function Insights({
           style={useCompactMetricGrid && styles.metricCompact}
           value={formatMoney(monthly * 12, currency)}
         />
-        <Metric
-          c={c}
-          label="Saved monthly"
-          style={useCompactMetricGrid && styles.metricCompact}
-          value={formatMoney(savedMonthly, currency)}
-        />
-        <Metric
-          c={c}
-          label="Saved yearly"
-          style={useCompactMetricGrid && styles.metricCompact}
-          value={formatMoney(savedMonthly * 12, currency)}
-        />
+        {hasPausedSubscriptions ? (
+          <>
+            <Metric
+              c={c}
+              label="Saved monthly"
+              style={useCompactMetricGrid && styles.metricCompact}
+              value={formatMoney(savedMonthly, currency)}
+            />
+            <Metric
+              c={c}
+              label="Saved yearly"
+              style={useCompactMetricGrid && styles.metricCompact}
+              value={formatMoney(savedMonthly * 12, currency)}
+            />
+          </>
+        ) : null}
       </View>
 
       {subscriptions.length === 0 ? (
