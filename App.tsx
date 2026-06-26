@@ -7,7 +7,18 @@ import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
@@ -363,6 +374,7 @@ export default function App() {
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(isPrivacyPolicyPath);
   const [cloudEncryptionState, setCloudEncryptionState] = useState<CloudEncryptionState>("off");
   const [encryptionPassword, setEncryptionPassword] = useState<string | null>(null);
+  const [loginEncryptionPromptVisible, setLoginEncryptionPromptVisible] = useState(false);
   const [pendingSyncPrompt, setPendingSyncPrompt] = useState<{
     userId: string;
     cloudSubscriptions: Subscription[];
@@ -415,6 +427,7 @@ export default function App() {
       loginPromptUserId.current = null;
       setCloudEncryptionState("off");
       setEncryptionPassword(null);
+      setLoginEncryptionPromptVisible(false);
       setAuthReady(true);
       return;
     }
@@ -466,14 +479,17 @@ export default function App() {
       if (cloud.encrypted && cloud.locked) {
         setCloudEncryptionState("locked");
         setEncryptionPassword(null);
+        setLoginEncryptionPromptVisible(true);
         return;
       }
       if (cloud.encrypted) {
         setCloudEncryptionState("unlocked");
         setEncryptionPassword(savedPassword);
+        setLoginEncryptionPromptVisible(false);
       } else {
         setCloudEncryptionState("off");
         setEncryptionPassword(null);
+        setLoginEncryptionPromptVisible(false);
       }
       const canAskForChoice = loginPromptUserId.current === userId;
       const needsChoice = canAskForChoice
@@ -489,6 +505,11 @@ export default function App() {
       setPendingSyncPrompt({ userId, cloudSubscriptions: cloud.subscriptions });
     }).catch((error) => {
       syncedUserId.current = null;
+      if (savedEncryptionFailed(error)) {
+        setCloudEncryptionState("locked");
+        setEncryptionPassword(null);
+        setLoginEncryptionPromptVisible(true);
+      }
       console.warn("PocketBase sync failed", error);
     });
   }, [ready, session?.token, session?.user.id, pocketBase, pocketBaseConfig.url]);
@@ -784,6 +805,7 @@ export default function App() {
     setPendingSyncPrompt(null);
     setCloudEncryptionState("off");
     setEncryptionPassword(null);
+    setLoginEncryptionPromptVisible(false);
     void savePocketBaseConnection(next);
   }
 
@@ -797,6 +819,7 @@ export default function App() {
     setPendingSyncPrompt(null);
     setCloudEncryptionState("off");
     setEncryptionPassword(null);
+    setLoginEncryptionPromptVisible(false);
     void savePocketBaseConnection(next);
   }
 
@@ -808,6 +831,7 @@ export default function App() {
     setPendingSyncPrompt(null);
     setCloudEncryptionState("off");
     setEncryptionPassword(null);
+    setLoginEncryptionPromptVisible(false);
   }
 
   function useLocally() {
@@ -914,6 +938,7 @@ export default function App() {
     }
     setEncryptionPassword(normalizedPassword);
     setCloudEncryptionState("unlocked");
+    setLoginEncryptionPromptVisible(false);
     await syncUserData(userId, "cloud", cloud, normalizedPassword);
   }
 
@@ -1166,9 +1191,135 @@ export default function App() {
               );
             }}
           />
+          <LoginEncryptionPrompt
+            c={c}
+            visible={Boolean(session) && cloudEncryptionState === "locked" && loginEncryptionPromptVisible}
+            onClose={() => setLoginEncryptionPromptVisible(false)}
+            onSubmit={async (password, rememberPassword) => {
+              await unlockCloudEncryption(password, rememberPassword);
+              setLoginEncryptionPromptVisible(false);
+            }}
+          />
         </SafeAreaView>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function savedEncryptionFailed(error: unknown) {
+  return error instanceof Error && /decrypt|encrypted|password|corrupted/i.test(error.message);
+}
+
+function LoginEncryptionPrompt({
+  c,
+  visible,
+  onClose,
+  onSubmit,
+}: {
+  c: Colors;
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (password: string, rememberPassword: boolean) => Promise<void>;
+}) {
+  const [password, setPassword] = useState("");
+  const [rememberPassword, setRememberPassword] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!visible) {
+      setPassword("");
+      setRememberPassword(true);
+      setBusy(false);
+      setMessage("");
+    }
+  }, [visible]);
+
+  async function submit() {
+    if (busy) return;
+    const normalizedPassword = password.trim();
+    if (normalizedPassword.length === 0) {
+      setMessage("Enter your encryption password.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+    try {
+      await onSubmit(normalizedPassword, rememberPassword);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not unlock encrypted data.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.encryptionModalOverlay}>
+        <View style={[styles.encryptionModalPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={styles.encryptionModalTitleRow}>
+            <View style={[styles.encryptionIcon, { backgroundColor: c.primarySoft }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={c.primary} />
+            </View>
+            <Text style={[styles.encryptionModalTitle, { color: c.text }]}>Unlock encrypted data</Text>
+            <Pressable
+              accessibilityLabel="Close encryption prompt"
+              onPress={onClose}
+              style={[styles.encryptionModalClose, { backgroundColor: c.surfaceMuted }]}
+            >
+              <Ionicons name="close" size={20} color={c.text} />
+            </Pressable>
+          </View>
+          <View style={[styles.encryptionWarning, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+            <Ionicons name="warning-outline" size={20} color="#DC2626" />
+            <Text style={[styles.encryptionWarningText, { color: "#991B1B" }]}>
+              Paynest cannot recover encrypted cloud data if this password is lost.
+            </Text>
+          </View>
+          <View style={styles.encryptionFieldStack}>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Encryption password"
+              placeholderTextColor={c.textSoft}
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete="current-password"
+              style={[styles.encryptionInput, styles.inputNoOutline, { color: c.text, borderColor: c.border }]}
+              onSubmitEditing={() => void submit()}
+            />
+          </View>
+          <View style={[styles.encryptionRememberRow, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowName, { color: c.text }]}>Remember on this device</Text>
+              <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+                Turn off to require the password after restarting or signing in again.
+              </Text>
+            </View>
+            <Switch value={rememberPassword} onValueChange={setRememberPassword} />
+          </View>
+          {message ? <Text style={[styles.statusText, { color: "#DC2626" }]}>{message}</Text> : null}
+          <View style={styles.encryptionModalActions}>
+            <Pressable
+              onPress={onClose}
+              style={[styles.encryptionButton, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}
+            >
+              <Text style={[styles.encryptionButtonText, { color: c.text }]}>Later</Text>
+            </Pressable>
+            <Pressable
+              disabled={busy}
+              onPress={() => void submit()}
+              style={[styles.encryptionButton, { backgroundColor: c.primary, borderColor: c.primary }]}
+            >
+              <Text style={[styles.encryptionButtonText, { color: "#FFFFFF" }]}>
+                {busy ? "Unlocking" : "Unlock"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
