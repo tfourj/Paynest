@@ -7,7 +7,7 @@ import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
@@ -91,6 +91,192 @@ function comparableSubscription(item: Subscription) {
   };
 }
 
+type SubscriptionDiffField = {
+  label: string;
+  localValue: (item: Subscription) => string | number | boolean | null;
+  cloudValue: (item: Subscription) => string | number | boolean | null;
+};
+type ChangedSubscriptionDiff = {
+  id: string;
+  name: string;
+  fields: {
+    label: string;
+    localValue: string;
+    cloudValue: string;
+  }[];
+};
+type SyncDiffRow = {
+  id: string;
+  kind: "local" | "database" | "changed";
+  localText: string;
+  databaseText: string;
+};
+
+const subscriptionDiffFields: SubscriptionDiffField[] = [
+  { label: "Name", localValue: (item) => item.name, cloudValue: (item) => item.name },
+  { label: "Category", localValue: (item) => item.category, cloudValue: (item) => item.category },
+  { label: "Price", localValue: (item) => item.price, cloudValue: (item) => item.price },
+  { label: "Currency", localValue: (item) => item.currency, cloudValue: (item) => item.currency },
+  {
+    label: "Billing period",
+    localValue: (item) => item.billingPeriod,
+    cloudValue: (item) => item.billingPeriod,
+  },
+  { label: "Pay day", localValue: (item) => item.payDay ?? null, cloudValue: (item) => item.payDay ?? null },
+  {
+    label: "Next renewal",
+    localValue: (item) => item.nextRenewalDate,
+    cloudValue: (item) => item.nextRenewalDate,
+  },
+  {
+    label: "Reminder enabled",
+    localValue: (item) => item.reminderEnabled ?? false,
+    cloudValue: (item) => item.reminderEnabled ?? false,
+  },
+  {
+    label: "Reminder days",
+    localValue: (item) => item.reminderDays ?? 0,
+    cloudValue: (item) => item.reminderDays ?? 0,
+  },
+  {
+    label: "Reminder time",
+    localValue: (item) => item.reminderTime ?? "09:00",
+    cloudValue: (item) => item.reminderTime ?? "09:00",
+  },
+  {
+    label: "Icon",
+    localValue: (item) => item.iconName ?? null,
+    cloudValue: (item) => item.iconName ?? null,
+  },
+  {
+    label: "Icon label",
+    localValue: (item) => item.iconLabel ?? null,
+    cloudValue: (item) => item.iconLabel ?? null,
+  },
+  {
+    label: "Icon color",
+    localValue: (item) => item.iconColor ?? null,
+    cloudValue: (item) => item.iconColor ?? null,
+  },
+  {
+    label: "Background color",
+    localValue: (item) => item.backgroundColor ?? null,
+    cloudValue: (item) => item.backgroundColor ?? null,
+  },
+  {
+    label: "Icon background",
+    localValue: (item) => item.iconBackgroundColor ?? null,
+    cloudValue: (item) => item.iconBackgroundColor ?? null,
+  },
+  {
+    label: "Simple icon",
+    localValue: (item) => item.simpleIconSlug ?? null,
+    cloudValue: (item) => item.simpleIconSlug ?? null,
+  },
+  {
+    label: "Icon provider",
+    localValue: (item) => item.iconProvider ?? null,
+    cloudValue: (item) => item.iconProvider ?? null,
+  },
+  {
+    label: "Icon URL",
+    localValue: (item) => item.iconUrl ?? null,
+    cloudValue: (item) => item.iconUrl ?? null,
+  },
+  {
+    label: "Icon source",
+    localValue: (item) => item.iconSourceTitle ?? null,
+    cloudValue: (item) => item.iconSourceTitle ?? null,
+  },
+  {
+    label: "Paused",
+    localValue: (item) => item.paused ?? false,
+    cloudValue: (item) => item.paused ?? false,
+  },
+];
+
+function formatDiffValue(value: string | number | boolean | null) {
+  if (value === null || value === undefined || value === "") return "Not set";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value);
+}
+
+function subscriptionDiff(localSubscriptions: Subscription[], cloudSubscriptions: Subscription[]) {
+  const localById = new Map(localSubscriptions.map((item) => [item.id, item]));
+  const cloudById = new Map(cloudSubscriptions.map((item) => [item.id, item]));
+  const onlyLocal = localSubscriptions
+    .filter((item) => !cloudById.has(item.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const onlyCloud = cloudSubscriptions
+    .filter((item) => !localById.has(item.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const changed: ChangedSubscriptionDiff[] = [];
+  for (const localItem of localSubscriptions) {
+    const cloudItem = cloudById.get(localItem.id);
+    if (!cloudItem) continue;
+
+    const fields = [];
+    for (const field of subscriptionDiffFields) {
+      const localValue = field.localValue(localItem);
+      const cloudValue = field.cloudValue(cloudItem);
+      if (localValue === cloudValue) continue;
+
+      fields.push({
+        label: field.label,
+        localValue: formatDiffValue(localValue),
+        cloudValue: formatDiffValue(cloudValue),
+      });
+    }
+
+    if (fields.length > 0) {
+      changed.push({
+        id: localItem.id,
+        name: localItem.name || cloudItem.name,
+        fields,
+      });
+    }
+  }
+  changed.sort((a, b) => a.name.localeCompare(b.name));
+
+  return { onlyLocal, onlyCloud, changed };
+}
+
+function syncDiffRows(localSubscriptions: Subscription[], cloudSubscriptions: Subscription[]) {
+  const diff = subscriptionDiff(localSubscriptions, cloudSubscriptions);
+  const rows: SyncDiffRow[] = [];
+
+  for (const item of diff.onlyLocal) {
+    rows.push({
+      id: `local-${item.id}`,
+      kind: "local",
+      localText: `- ${item.name}`,
+      databaseText: "",
+    });
+  }
+
+  for (const item of diff.onlyCloud) {
+    rows.push({
+      id: `database-${item.id}`,
+      kind: "database",
+      localText: "",
+      databaseText: `+ ${item.name}`,
+    });
+  }
+
+  for (const item of diff.changed) {
+    for (const field of item.fields) {
+      rows.push({
+        id: `changed-${item.id}-${field.label}`,
+        kind: "changed",
+        localText: `~ ${item.name}\n${field.label}: ${field.localValue}`,
+        databaseText: `~ ${item.name}\n${field.label}: ${field.cloudValue}`,
+      });
+    }
+  }
+
+  return rows;
+}
+
 function subscriptionListsMatch(left: Subscription[], right: Subscription[]) {
   if (left.length !== right.length) return false;
 
@@ -165,11 +351,15 @@ export default function App() {
   const [localMode, setLocalMode] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(isPrivacyPolicyPath);
-  const [pendingSyncPrompt, setPendingSyncPrompt] = useState<{ userId: string } | null>(null);
+  const [pendingSyncPrompt, setPendingSyncPrompt] = useState<{
+    userId: string;
+    cloudSubscriptions: Subscription[];
+  } | null>(null);
   const [refreshingDashboard, setRefreshingDashboard] = useState(false);
   const [currencyRates, setCurrencyRates] = useState<Record<string, number>>({});
   const syncedUserId = useRef<string | null>(null);
   const loginPromptUserId = useRef<string | null>(null);
+  const pendingSyncCloud = useRef<CloudAppData | null>(null);
   const pocketBaseConfig = useMemo(
     () => resolvePocketBaseConfig(pocketBaseConnection),
     [pocketBaseConnection],
@@ -267,7 +457,8 @@ export default function App() {
         return;
       }
 
-      setPendingSyncPrompt({ userId });
+      pendingSyncCloud.current = cloud;
+      setPendingSyncPrompt({ userId, cloudSubscriptions: cloud.subscriptions });
     }).catch((error) => {
       syncedUserId.current = null;
       console.warn("PocketBase sync failed", error);
@@ -493,6 +684,7 @@ export default function App() {
     setSession(null);
     syncedUserId.current = null;
     loginPromptUserId.current = null;
+    pendingSyncCloud.current = null;
     setPendingSyncPrompt(null);
     void savePocketBaseConnection(next);
   }
@@ -503,6 +695,7 @@ export default function App() {
     setAuthReady(true);
     syncedUserId.current = null;
     loginPromptUserId.current = nextSession.user.id;
+    pendingSyncCloud.current = null;
     setPendingSyncPrompt(null);
     void savePocketBaseConnection(next);
   }
@@ -511,6 +704,7 @@ export default function App() {
     setSession(null);
     syncedUserId.current = null;
     loginPromptUserId.current = null;
+    pendingSyncCloud.current = null;
     setPendingSyncPrompt(null);
   }
 
@@ -541,11 +735,13 @@ export default function App() {
     ]);
   }
 
-  async function runInitialSync(userId: string, strategy: SyncStrategy) {
+  async function runInitialSync(userId: string, strategy: SyncStrategy, initialCloud?: CloudAppData) {
     setPendingSyncPrompt(null);
     try {
-      await syncUserData(userId, strategy);
+      await syncUserData(userId, strategy, initialCloud);
+      pendingSyncCloud.current = null;
     } catch (error) {
+      pendingSyncCloud.current = null;
       if (loginPromptUserId.current === userId) loginPromptUserId.current = null;
       syncedUserId.current = null;
       console.warn("PocketBase sync failed", error);
@@ -742,9 +938,11 @@ export default function App() {
           <SyncChoicePrompt
             c={c}
             visible={Boolean(pendingSyncPrompt)}
+            localSubscriptions={subscriptions}
+            cloudSubscriptions={pendingSyncPrompt?.cloudSubscriptions ?? []}
             onChoose={(strategy) => {
               if (!pendingSyncPrompt) return;
-              void runInitialSync(pendingSyncPrompt.userId, strategy);
+              void runInitialSync(pendingSyncPrompt.userId, strategy, pendingSyncCloud.current ?? undefined);
             }}
           />
         </SafeAreaView>
@@ -767,20 +965,118 @@ function SystemBars({ dark }: { dark: boolean }) {
 function SyncChoicePrompt({
   c,
   visible,
+  localSubscriptions,
+  cloudSubscriptions,
   onChoose,
 }: {
   c: Colors;
   visible: boolean;
+  localSubscriptions: Subscription[];
+  cloudSubscriptions: Subscription[];
   onChoose: (strategy: SyncStrategy) => void;
 }) {
+  const [showDiff, setShowDiff] = useState(false);
+  const diffRows = useMemo(
+    () => syncDiffRows(localSubscriptions, cloudSubscriptions),
+    [cloudSubscriptions, localSubscriptions],
+  );
+  const changedCount = diffRows.length;
+
+  useEffect(() => {
+    if (!visible) setShowDiff(false);
+  }, [visible]);
+
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.syncPromptOverlay}>
         <View style={[styles.syncPromptPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.syncPromptTitle, { color: c.text }]}>Sync subscriptions?</Text>
-          <Text style={[styles.syncPromptBody, { color: c.textMuted }]}>
-            This device already has subscriptions. Choose how Paynest should combine local and cloud data.
-          </Text>
+          {showDiff ? (
+            <>
+              <View style={styles.syncPromptHeaderRow}>
+                <Pressable
+                  accessibilityLabel="Back to sync options"
+                  onPress={() => setShowDiff(false)}
+                  style={[styles.syncPromptIconButton, { backgroundColor: c.surfaceMuted }]}
+                >
+                  <Ionicons name="chevron-back" size={20} color={c.text} />
+                </Pressable>
+                <Text style={[styles.syncPromptTitle, styles.syncPromptHeaderTitle, { color: c.text }]}>
+                  Sync diff
+                </Text>
+              </View>
+              <View style={[styles.syncDiffBox, { borderColor: c.border }]}>
+                <View style={[styles.syncDiffHeader, { borderBottomColor: c.border }]}>
+                  <Text style={[styles.syncDiffHeaderText, { color: c.text }]}>Local</Text>
+                  <Text
+                    style={[
+                      styles.syncDiffHeaderText,
+                      styles.syncDiffRightHeader,
+                      { color: c.text, borderLeftColor: c.border },
+                    ]}
+                  >
+                    Database
+                  </Text>
+                </View>
+                <ScrollView style={styles.syncDiffScroll} contentContainerStyle={styles.syncDiffContent}>
+                  {changedCount === 0 ? (
+                    <Text style={[styles.syncDiffEmptyBox, { color: c.textMuted }]}>
+                      No subscription differences found.
+                    </Text>
+                  ) : diffRows.map((row) => (
+                    <View
+                      key={row.id}
+                      style={[
+                        styles.syncDiffRow,
+                        row.kind === "local" ? styles.syncDiffLocalRow : null,
+                        row.kind === "database" ? styles.syncDiffDatabaseRow : null,
+                        row.kind === "changed" ? styles.syncDiffChangedRow : null,
+                        { borderBottomColor: c.border },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.syncDiffCell,
+                          row.kind === "local" ? styles.syncDiffLocalText : null,
+                          row.kind === "changed" ? styles.syncDiffChangedText : null,
+                          { color: row.localText ? undefined : c.textSoft },
+                        ]}
+                      >
+                        {row.localText || " "}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.syncDiffCell,
+                          styles.syncDiffDatabaseCell,
+                          row.kind === "database" ? styles.syncDiffDatabaseText : null,
+                          row.kind === "changed" ? styles.syncDiffChangedText : null,
+                          { color: row.databaseText ? undefined : c.textSoft, borderLeftColor: c.border },
+                        ]}
+                      >
+                        {row.databaseText || " "}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.syncPromptTitle, { color: c.text }]}>Sync subscriptions?</Text>
+              <Text style={[styles.syncPromptBody, { color: c.textMuted }]}>
+                This device already has subscriptions. Choose how Paynest should combine local and cloud data.
+              </Text>
+
+              <Pressable
+                onPress={() => setShowDiff(true)}
+                style={[styles.syncPromptButton, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}
+              >
+                <Text style={[styles.syncPromptButtonText, { color: c.text }]}>See diff</Text>
+                <Text style={[styles.syncPromptButtonMeta, { color: c.textMuted }]}>
+                  {changedCount} subscription {changedCount === 1 ? "difference" : "differences"} found
+                </Text>
+              </Pressable>
+            </>
+          )}
 
           <View style={styles.syncPromptActions}>
             <Pressable
