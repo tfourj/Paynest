@@ -301,6 +301,7 @@ type BreakdownItem = {
 };
 
 const PIE_BREAKDOWN_BATCH_SIZE = 3;
+const PIE_BREAKDOWN_SHOW_MORE_SIZE = 20;
 
 function SubscriptionBreakdownPie({
   c,
@@ -330,7 +331,7 @@ function SubscriptionBreakdownPie({
 
   function showMoreChartItems() {
     setVisibleItemCount((current) => (
-      Math.min(current + PIE_BREAKDOWN_BATCH_SIZE, chartItems.length)
+      Math.min(current + PIE_BREAKDOWN_SHOW_MORE_SIZE, chartItems.length)
     ));
   }
 
