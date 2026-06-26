@@ -13,7 +13,9 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Switch,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -389,6 +391,7 @@ export default function App() {
     visible: false,
     message: "",
   });
+  const [unlockPromptVisible, setUnlockPromptVisible] = useState(false);
   const [pendingSyncPrompt, setPendingSyncPrompt] = useState<{
     userId: string;
     cloudSubscriptions: Subscription[];
@@ -495,6 +498,10 @@ export default function App() {
     syncedUserId.current = userId;
     void initializeCloudSession(userId, session.token);
   }, [ready, session?.token, session?.user.id, pocketBase, pocketBaseConfig.url]);
+
+  useEffect(() => {
+    if (cloudEncryptionState !== "locked") setUnlockPromptVisible(false);
+  }, [cloudEncryptionState]);
 
   const dark = settings.theme === "dark";
   const c = dark ? darkColors : lightColors;
@@ -851,12 +858,7 @@ export default function App() {
         setCloudEncryptionState("locked");
         setEncryptionPassword(null);
         cloudEncryptionSession.current = null;
-        if (savedEncryptionPassword.current) {
-          void unlockCloudEncryption(savedEncryptionPassword.current, true).catch((error) => {
-            savedEncryptionPassword.current = null;
-            console.warn("PocketBase encrypted background unlock failed", error);
-          });
-        }
+        promptForEncryptionUnlock();
         return;
       }
 
@@ -884,17 +886,26 @@ export default function App() {
         setCloudEncryptionState("locked");
         setEncryptionPassword(null);
         cloudEncryptionSession.current = null;
-        if (savedEncryptionPassword.current) {
-          void unlockCloudEncryption(savedEncryptionPassword.current, true).catch((unlockError) => {
-            savedEncryptionPassword.current = null;
-            console.warn("PocketBase encrypted background unlock failed", unlockError);
-          });
-        }
+        promptForEncryptionUnlock();
         return;
       }
       syncedUserId.current = null;
       console.warn("PocketBase sync failed", error);
     }
+  }
+
+  function promptForEncryptionUnlock() {
+    // Try a remembered password silently first; if that fails (or none is saved),
+    // surface the unlock prompt so the user can enter the encryption password.
+    if (savedEncryptionPassword.current) {
+      void unlockCloudEncryption(savedEncryptionPassword.current, true).catch((error) => {
+        savedEncryptionPassword.current = null;
+        setUnlockPromptVisible(true);
+        console.warn("PocketBase encrypted background unlock failed", error);
+      });
+      return;
+    }
+    setUnlockPromptVisible(true);
   }
 
   async function applyUnlockedCloud(userId: string, cloud: CloudAppData) {
@@ -1398,6 +1409,12 @@ export default function App() {
             onCancel={() => setDeleteLocalDataPromptVisible(false)}
             onDelete={deleteLocalData}
           />
+          <UnlockEncryptionPrompt
+            c={c}
+            visible={unlockPromptVisible}
+            onUnlock={unlockCloudEncryption}
+            onDismiss={() => setUnlockPromptVisible(false)}
+          />
           <EncryptionOperationOverlay c={c} status={encryptionOperationStatus} />
         </SafeAreaView>
       </SafeAreaProvider>
@@ -1425,6 +1442,108 @@ function EncryptionOperationOverlay({
           <Text style={[styles.encryptionStatusText, { color: c.textMuted }]}>
             Keep Paynest open while this finishes.
           </Text>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function UnlockEncryptionPrompt({
+  c,
+  visible,
+  onUnlock,
+  onDismiss,
+}: {
+  c: Colors;
+  visible: boolean;
+  onUnlock: (password: string, rememberPassword: boolean) => Promise<void>;
+  onDismiss: () => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [rememberPassword, setRememberPassword] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!visible) {
+      setPassword("");
+      setRememberPassword(true);
+      setBusy(false);
+      setMessage("");
+    }
+  }, [visible]);
+
+  async function submit() {
+    if (busy) return;
+    const trimmed = password.trim();
+    if (trimmed.length === 0) {
+      setMessage("Enter your encryption password.");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      await onUnlock(trimmed, rememberPassword);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not unlock encrypted data.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
+      <View style={styles.syncPromptOverlay}>
+        <View style={[styles.syncPromptPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={styles.syncPromptHeaderRow}>
+            <View style={[styles.syncPromptIconButton, { backgroundColor: c.primarySoft }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={c.primary} />
+            </View>
+            <Text style={[styles.syncPromptTitle, styles.syncPromptHeaderTitle, { color: c.text }]}>
+              Unlock encrypted data
+            </Text>
+          </View>
+          <Text style={[styles.syncPromptBody, { color: c.textMuted }]}>
+            Enter your encryption password to decrypt your synced subscriptions and settings on this device.
+          </Text>
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Encryption password"
+            placeholderTextColor={c.textSoft}
+            secureTextEntry
+            autoCapitalize="none"
+            onSubmitEditing={() => void submit()}
+            style={[styles.encryptionInput, styles.inputNoOutline, { color: c.text, borderColor: c.border }]}
+          />
+          <View style={[styles.encryptionRememberRow, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowName, { color: c.text }]}>Remember on this device</Text>
+              <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+                Turn off to require the password after restarting or signing in again.
+              </Text>
+            </View>
+            <Switch value={rememberPassword} onValueChange={setRememberPassword} />
+          </View>
+          {message ? <Text style={[styles.syncPromptBody, { color: "#DC2626" }]}>{message}</Text> : null}
+          <View style={styles.syncPromptActions}>
+            <Pressable
+              disabled={busy}
+              onPress={onDismiss}
+              style={[styles.syncPromptButton, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}
+            >
+              <Text style={[styles.syncPromptButtonText, { color: c.text }]}>Not now</Text>
+            </Pressable>
+            <Pressable
+              disabled={busy}
+              onPress={() => void submit()}
+              style={[styles.syncPromptButton, { backgroundColor: c.primary, borderColor: c.primary }]}
+            >
+              <Text style={[styles.syncPromptButtonText, { color: "#FFFFFF" }]}>
+                {busy ? "Unlocking" : "Unlock"}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </Modal>
