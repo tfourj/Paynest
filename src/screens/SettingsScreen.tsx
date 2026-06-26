@@ -25,6 +25,7 @@ import {
   type PocketBaseResolvedConfig,
   type PocketBaseSession,
 } from "../pocketbase";
+import { sendDebugNotification } from "../notifications";
 import { styles } from "../styles";
 import type { Colors } from "../theme";
 import type { Settings } from "../types";
@@ -421,6 +422,8 @@ function NotificationSettings({
   onUpdate: (settings: Settings) => void;
   onToast: (message: string) => void;
 }) {
+  const [sendingTestNotification, setSendingTestNotification] = useState(false);
+
   async function updateRemindersEnabled(enabled: boolean) {
     if (!enabled) {
       onUpdate({ ...settings, remindersEnabled: false });
@@ -454,6 +457,21 @@ function NotificationSettings({
 
     onApplyGlobalReminderSettings();
     onToast("Reminder defaults applied to all subscriptions");
+  }
+
+  async function sendTestNotification() {
+    if (sendingTestNotification) return;
+
+    setSendingTestNotification(true);
+    try {
+      const didSchedule = await sendDebugNotification();
+      onToast(didSchedule ? "Test notification scheduled" : "Notification permission not granted");
+    } catch (error) {
+      console.warn("Test notification failed", error);
+      onToast("Could not send test notification");
+    } finally {
+      setSendingTestNotification(false);
+    }
   }
 
   return (
@@ -521,6 +539,27 @@ function NotificationSettings({
         <Text style={[styles.rowMeta, { color: c.textMuted }]}>
           Replaces each subscription reminder setting with these global defaults.
         </Text>
+        {!isWeb ? (
+          <Pressable
+            disabled={sendingTestNotification}
+            onPress={() => void sendTestNotification()}
+            style={[
+              styles.syncButton,
+              {
+                backgroundColor: sendingTestNotification ? c.surfaceMuted : c.primary,
+              },
+            ]}
+          >
+            <Ionicons
+              name="paper-plane-outline"
+              size={18}
+              color={sendingTestNotification ? c.textSoft : "#FFFFFF"}
+            />
+            <Text style={[styles.syncButtonText, { color: sendingTestNotification ? c.textSoft : "#FFFFFF" }]}>
+              {sendingTestNotification ? "Sending test" : "Send test notification"}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </CollapsibleSettingsSection>
   );
