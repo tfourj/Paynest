@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,6 +36,9 @@ export function AuthModal({
   onAuthSuccess,
 }: AuthModalProps) {
   const insets = useSafeAreaInsets();
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -96,6 +99,8 @@ export function AuthModal({
   }
 
   async function submit() {
+    if (busy) return;
+
     const connection = currentConnection();
     const validationError = validateConnection(connection);
     if (validationError) return setMessage(validationError);
@@ -133,6 +138,8 @@ export function AuthModal({
   }
 
   async function resetPassword() {
+    if (busy) return;
+
     const connection = currentConnection();
     const validationError = validateConnection(connection);
     if (validationError) return setMessage(validationError);
@@ -238,6 +245,9 @@ export function AuthModal({
                   autoComplete="url"
                   importantForAutofill="yes"
                   textContentType="URL"
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailInputRef.current?.focus()}
+                  blurOnSubmit={false}
                 />
               </View>
             )}
@@ -253,6 +263,7 @@ export function AuthModal({
               ]}
             >
               <TextInput
+                ref={emailInputRef}
                 id="paynest-auth-email"
                 nativeID="paynest-auth-email"
                 value={email}
@@ -276,6 +287,16 @@ export function AuthModal({
                 autoComplete="email"
                 importantForAutofill="yes"
                 textContentType="emailAddress"
+                returnKeyType={mode === "forgot" ? "send" : "next"}
+                onSubmitEditing={() => {
+                  if (mode === "forgot") {
+                    void submit();
+                    return;
+                  }
+
+                  passwordInputRef.current?.focus();
+                }}
+                blurOnSubmit={mode === "forgot"}
               />
 
               {mode !== "forgot" && (
@@ -289,6 +310,7 @@ export function AuthModal({
                   ]}
                 >
                   <TextInput
+                    ref={passwordInputRef}
                     id={mode === "create" ? "paynest-auth-new-password" : "paynest-auth-password"}
                     nativeID={mode === "create" ? "paynest-auth-new-password" : "paynest-auth-password"}
                     value={password}
@@ -302,6 +324,16 @@ export function AuthModal({
                     autoComplete={mode === "create" ? "new-password" : "current-password"}
                     importantForAutofill="yes"
                     textContentType={mode === "create" ? "newPassword" : "password"}
+                    returnKeyType={mode === "create" ? "next" : "go"}
+                    onSubmitEditing={() => {
+                      if (mode === "create") {
+                        confirmPasswordInputRef.current?.focus();
+                        return;
+                      }
+
+                      void submit();
+                    }}
+                    blurOnSubmit={mode !== "create"}
                   />
                   <Pressable
                     accessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
@@ -320,6 +352,7 @@ export function AuthModal({
               {mode === "create" && (
                 <View style={styles.passwordInputRow}>
                   <TextInput
+                    ref={confirmPasswordInputRef}
                     id="paynest-auth-confirm-password"
                     nativeID="paynest-auth-confirm-password"
                     value={confirmPassword}
@@ -333,6 +366,8 @@ export function AuthModal({
                     autoComplete="new-password"
                     importantForAutofill="yes"
                     textContentType="newPassword"
+                    returnKeyType="go"
+                    onSubmitEditing={() => void submit()}
                   />
                   <Pressable
                     accessibilityLabel={confirmPasswordVisible ? "Hide confirm password" : "Show confirm password"}
