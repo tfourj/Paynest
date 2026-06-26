@@ -1164,6 +1164,12 @@ export default function App() {
       forgetMasterKey(pocketBaseConfig.url, userId),
     ]);
     savedEncryptionPassword.current = null;
+    setEncryptionPassword(null);
+    cloudEncryptionSession.current = null;
+    if (cloudEncryptionState !== "off") {
+      setCloudEncryptionState("locked");
+      setUnlockPromptVisible(true);
+    }
   }
 
   async function changeCloudEncryptionPassword(
