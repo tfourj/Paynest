@@ -60,7 +60,7 @@ export function AuthModal({
         ? "Send reset email"
         : "Log in";
   const success = message.includes("Check") || message.includes("Signed") || message.includes("sent");
-  const modalTopPadding = Platform.OS === "web" ? 0 : Math.max(insets.top, Platform.OS === "ios" ? 44 : 0);
+  const modalTopPadding = Platform.OS === "android" ? insets.top : 0;
   const saveBottomPadding = Platform.OS === "web" ? 16 : Math.max(insets.bottom + 18, 30);
 
   useEffect(() => {
@@ -165,7 +165,7 @@ export function AuthModal({
     <Modal
       visible={mode !== null}
       animationType="slide"
-      presentationStyle={Platform.OS === "web" ? "pageSheet" : "fullScreen"}
+      presentationStyle="pageSheet"
       onRequestClose={close}
     >
       <View style={[styles.authModalOverlay, { backgroundColor: c.background }]}>
@@ -188,11 +188,14 @@ export function AuthModal({
               },
             ]}
           >
-            <Pressable onPress={close}>
-              <Text style={[styles.cancel, { color: c.primary }]}>Cancel</Text>
-            </Pressable>
             <Text style={[styles.modalTitle, { color: c.text }]}>{title}</Text>
-            <View style={{ width: 48 }} />
+            <Pressable
+              onPress={close}
+              style={[styles.modalCloseButton, { backgroundColor: c.surfaceMuted }]}
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={18} color={c.textMuted} />
+            </Pressable>
           </View>
 
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
@@ -409,10 +412,8 @@ export function AuthModal({
               onPress={() => void submit()}
               style={[
                 styles.saveButton,
-                styles.authSaveButton,
                 {
                   backgroundColor: c.primary,
-                  borderColor: c.border,
                 },
               ]}
             >
