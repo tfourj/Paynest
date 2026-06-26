@@ -5,12 +5,51 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_DIR="$ROOT_DIR/android"
 OUTPUT_DIR="$ROOT_DIR/build/android"
 APP_NAME="Paynest"
+KEYSTORE_PATH="$OUTPUT_DIR/temp-release.keystore"
+KEY_ALIAS="paynest-temp-release"
+KEY_PASSWORD="paynest-temp-password"
+STORE_PASSWORD="paynest-temp-password"
 
-VERSION="$(node -e "console.log(require(process.argv[1]).version)" "$ROOT_DIR/package.json" 2>/dev/null || printf "0.0.0")"
+VERSION_OVERRIDE=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --version)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --version"
+        exit 1
+      fi
+      VERSION_OVERRIDE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      echo "Usage: $0 [--version v1.0.0]"
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      echo "Usage: $0 [--version v1.0.0]"
+      exit 1
+      ;;
+  esac
+done
+
+PACKAGE_VERSION="$(node -e "console.log(require(process.argv[1]).version)" "$ROOT_DIR/package.json" 2>/dev/null || printf "0.0.0")"
+VERSION="${VERSION_OVERRIDE#v}"
+VERSION="${VERSION:-$PACKAGE_VERSION}"
 ARCHITECTURES="${REACT_NATIVE_ARCHITECTURES:-arm64-v8a}"
-APK_NAME="${APP_NAME}-${VERSION}-unsigned.apk"
+APK_NAME="${APP_NAME}-${VERSION}-test-signed.apk"
 
-echo "Building unsigned Android APK"
+if [ -n "$VERSION_OVERRIDE" ]; then
+  if [[ ! "$VERSION_OVERRIDE" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
+    echo "Invalid --version value: $VERSION_OVERRIDE"
+    echo "Expected a semantic version like v1.0.0 or 1.0.0"
+    exit 1
+  fi
+  export EXPO_PUBLIC_BUILD_VERSION="$VERSION"
+  export EXPO_PUBLIC_BUILD_SUFFIX=""
+fi
+
+echo "Building test-signed Android APK"
 echo "Version: $VERSION"
 echo "Architectures: $ARCHITECTURES"
 
@@ -74,8 +113,10 @@ if (!patched) {
 fs.writeFileSync(buildFile, output.join("\n"));
 NODE
 
+rm -rf "$ANDROID_DIR/app/.cxx" "$ANDROID_DIR/app/build"
+
 cd "$ANDROID_DIR"
-./gradlew clean :app:assembleRelease \
+./gradlew :app:assembleRelease \
   -PreactNativeArchitectures="$ARCHITECTURES"
 
 APK_PATH="$ANDROID_DIR/app/build/outputs/apk/release/app-release-unsigned.apk"
@@ -85,5 +126,59 @@ if [ ! -f "$APK_PATH" ]; then
   exit 1
 fi
 
-cp "$APK_PATH" "$OUTPUT_DIR/$APK_NAME"
-echo "Unsigned APK created at: $OUTPUT_DIR/$APK_NAME"
+ANDROID_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+if [ -z "$ANDROID_SDK" ]; then
+  echo "ANDROID_HOME or ANDROID_SDK_ROOT is required to find apksigner"
+  exit 1
+fi
+
+APKSIGNER="$(ANDROID_SDK="$ANDROID_SDK" node <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+
+const buildTools = path.join(process.env.ANDROID_SDK, "build-tools");
+const versions = fs.existsSync(buildTools)
+  ? fs.readdirSync(buildTools, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  : [];
+
+for (const version of versions.reverse()) {
+  const candidate = path.join(buildTools, version, process.platform === "win32" ? "apksigner.bat" : "apksigner");
+  if (fs.existsSync(candidate)) {
+    console.log(candidate);
+    break;
+  }
+}
+NODE
+)"
+if [ -z "$APKSIGNER" ]; then
+  echo "Could not find apksigner under $ANDROID_SDK/build-tools"
+  exit 1
+fi
+
+SIGNED_APK="$OUTPUT_DIR/$APK_NAME"
+
+keytool -genkeypair \
+  -keystore "$KEYSTORE_PATH" \
+  -storepass "$STORE_PASSWORD" \
+  -keypass "$KEY_PASSWORD" \
+  -alias "$KEY_ALIAS" \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 3650 \
+  -dname "CN=Paynest Temporary Release,O=Paynest,C=US" \
+  -noprompt
+
+cp "$APK_PATH" "$SIGNED_APK"
+"$APKSIGNER" sign \
+  --ks "$KEYSTORE_PATH" \
+  --ks-key-alias "$KEY_ALIAS" \
+  --ks-pass "pass:$STORE_PASSWORD" \
+  --key-pass "pass:$KEY_PASSWORD" \
+  "$SIGNED_APK"
+"$APKSIGNER" verify "$SIGNED_APK"
+rm -f "$KEYSTORE_PATH"
+
+echo "Test-signed APK created at: $SIGNED_APK"

@@ -12,7 +12,7 @@ env:
 
 jobs:
   android:
-    name: Build unsigned APK
+    name: Build test-signed APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -47,9 +47,9 @@ jobs:
           fi
 
           SAFE_BUILD_ID="$(printf "%s" "$BUILD_ID" | tr '/\\":<>|*?' '-' | tr -s '[:space:]' '-')"
-          echo "ARTIFACT_NAME=Paynest-${SAFE_BUILD_ID}-unsigned-APK" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=Paynest-${SAFE_BUILD_ID}-test-signed-APK" >> "$GITHUB_ENV"
 
-      - name: Build unsigned APK
+      - name: Build test-signed APK
         run: ./scripts/build-unsigned-apk.sh
 
       - name: Upload APK artifact

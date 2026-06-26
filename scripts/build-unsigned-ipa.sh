@@ -7,9 +7,45 @@ PROJECT_NAME="Paynest"
 SCHEME_NAME="Paynest"
 WORKSPACE_PATH="$ROOT_DIR/ios/${PROJECT_NAME}.xcworkspace"
 ARCHIVE_PATH="$BUILD_DIR/${PROJECT_NAME}.xcarchive"
+INFO_PLIST="$ROOT_DIR/ios/${PROJECT_NAME}/Info.plist"
 
-VERSION="$(node -e "console.log(require(process.argv[1]).version)" "$ROOT_DIR/package.json" 2>/dev/null || printf "0.0.0")"
+VERSION_OVERRIDE=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --version)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --version"
+        exit 1
+      fi
+      VERSION_OVERRIDE="$2"
+      shift 2
+      ;;
+    -h|--help)
+      echo "Usage: $0 [--version v1.0.0]"
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      echo "Usage: $0 [--version v1.0.0]"
+      exit 1
+      ;;
+  esac
+done
+
+PACKAGE_VERSION="$(node -e "console.log(require(process.argv[1]).version)" "$ROOT_DIR/package.json" 2>/dev/null || printf "0.0.0")"
+VERSION="${VERSION_OVERRIDE#v}"
+VERSION="${VERSION:-$PACKAGE_VERSION}"
 IPA_NAME="${PROJECT_NAME}-${VERSION}-unsigned.ipa"
+
+if [ -n "$VERSION_OVERRIDE" ]; then
+  if [[ ! "$VERSION_OVERRIDE" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
+    echo "Invalid --version value: $VERSION_OVERRIDE"
+    echo "Expected a semantic version like v1.0.0 or 1.0.0"
+    exit 1
+  fi
+  export EXPO_PUBLIC_BUILD_VERSION="$VERSION"
+  export EXPO_PUBLIC_BUILD_SUFFIX=""
+fi
 
 echo "Building unsigned iOS IPA"
 echo "Version: $VERSION"
@@ -19,6 +55,11 @@ if [ ! -d "$WORKSPACE_PATH" ]; then
   echo "Generating iOS project with Expo prebuild"
   cd "$ROOT_DIR"
   npx expo prebuild --platform ios --no-install
+fi
+
+if [ -f "$INFO_PLIST" ]; then
+  echo "Setting iOS bundle version to $VERSION"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$INFO_PLIST"
 fi
 
 echo "Installing CocoaPods dependencies"

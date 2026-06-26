@@ -50,17 +50,28 @@ npm run typecheck
 
 ## CI Artifacts
 
-GitHub Actions builds unsigned release artifacts with:
+GitHub Actions builds release artifacts with:
 
 ```sh
 ./scripts/build-unsigned-apk.sh
 ./scripts/build-unsigned-ipa.sh
 ```
 
+To build as if the current commit had a release tag, pass `--version`:
+
+```sh
+./scripts/build-unsigned-ipa.sh --version v1.0.0
+```
+
+The iOS script also writes that version to `CFBundleShortVersionString` in the
+generated native project before running `xcodebuild`.
+
 The APK is written to `build/android/`. The IPA is written to `build/ios/`.
 The workflow runs on tag pushes or manual dispatch only. Uploaded artifact names
 include the tag name for tag builds or the short commit ID for manual builds.
-The Android script builds an unsigned release APK for `arm64-v8a` by default.
+The Android script builds a release APK for `arm64-v8a` by default, then signs it
+with a temporary test keystore so Android devices can install it. This signature
+is not suitable for Play Store releases or app updates across machines.
 Set `REACT_NATIVE_ARCHITECTURES` to override the Android native architectures.
 If `android/` or `ios/` is missing, the scripts generate the native project
 with Expo prebuild before compiling.
