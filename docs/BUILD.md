@@ -48,6 +48,23 @@ Run the TypeScript check:
 npm run typecheck
 ```
 
+## CI Artifacts
+
+GitHub Actions builds unsigned release artifacts with:
+
+```sh
+./scripts/build-unsigned-apk.sh
+./scripts/build-unsigned-ipa.sh
+```
+
+The APK is written to `build/android/`. The IPA is written to `build/ios/`.
+The Android script builds an unsigned release APK for `arm64-v8a` by default.
+Set `REACT_NATIVE_ARCHITECTURES` to override the Android native architectures.
+If `android/` or `ios/` is missing, the scripts generate the native project
+with Expo prebuild before compiling.
+The iOS script also patches CocoaPods `fmt/base.h` to disable consteval on
+newer Apple SDKs before running `xcodebuild`.
+
 ## PocketBase
 
 Paynest works locally without signing in. PocketBase is used for optional authentication and sync.
