@@ -3,6 +3,8 @@ import "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
 import type { FontSource } from "expo-font";
+import * as NavigationBar from "expo-navigation-bar";
+import * as SystemUI from "expo-system-ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Platform, Pressable, StatusBar, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -273,6 +275,26 @@ export default function App() {
 
   const dark = settings.theme === "dark";
   const c = dark ? darkColors : lightColors;
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    void SystemUI.setBackgroundColorAsync(c.background).catch((error) => {
+      console.warn("System background color update failed", error);
+    });
+
+    if (Platform.OS !== "android") return;
+
+    StatusBar.setBackgroundColor(c.background, true);
+    StatusBar.setBarStyle(dark ? "light-content" : "dark-content", true);
+    void NavigationBar.setBackgroundColorAsync(c.background).catch((error) => {
+      console.warn("Navigation bar color update failed", error);
+    });
+    void NavigationBar.setButtonStyleAsync(dark ? "light" : "dark").catch((error) => {
+      console.warn("Navigation bar button style update failed", error);
+    });
+  }, [c.background, dark]);
+
   const activeSubscriptions = useMemo(
     () => billableSubscriptions(subscriptions),
     [subscriptions],
@@ -612,7 +634,10 @@ export default function App() {
       <GestureHandlerRootView style={styles.safe}>
         <SafeAreaProvider>
           <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
-            <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
+            <StatusBar
+              backgroundColor={c.background}
+              barStyle={dark ? "light-content" : "dark-content"}
+            />
             <View style={styles.shell}>
               <PrivacyPolicy c={c} onBack={closePrivacyPolicy} />
             </View>
@@ -627,7 +652,10 @@ export default function App() {
       <GestureHandlerRootView style={styles.safe}>
         <SafeAreaProvider>
           <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
-            <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
+            <StatusBar
+              backgroundColor={c.background}
+              barStyle={dark ? "light-content" : "dark-content"}
+            />
             <LoginScreen
               c={c}
               pocketBaseConnection={pocketBaseConnection}
@@ -645,7 +673,10 @@ export default function App() {
     <GestureHandlerRootView style={styles.safe}>
       <SafeAreaProvider>
         <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
-          <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
+          <StatusBar
+            backgroundColor={c.background}
+            barStyle={dark ? "light-content" : "dark-content"}
+          />
           <View style={styles.shell}>
             <View style={styles.content}>
               {tab === "Dashboard" && (
