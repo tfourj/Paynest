@@ -1,5 +1,6 @@
 import type { PocketBaseClient } from "./pocketbase";
 import {
+  createEncryptionSalt,
   decryptJsonPayload,
   encryptJsonPayload,
   parseEncryptedEnvelope,
@@ -208,9 +209,13 @@ export async function loadCloudAppData(
       };
     }
 
-    const subscriptions = await Promise.all(encryptedRows.subscriptions.map(async (record) => {
-      return decryptJsonPayload<Subscription>(parseEncryptedEnvelope(record.payload), encryptionPassword);
-    }));
+    const subscriptions: Subscription[] = [];
+    for (const record of encryptedRows.subscriptions) {
+      subscriptions.push(await decryptJsonPayload<Subscription>(
+        parseEncryptedEnvelope(record.payload),
+        encryptionPassword,
+      ));
+    }
     const settingsRecord = encryptedRows.settings[0];
     const settings = settingsRecord
       ? await decryptJsonPayload<Settings>(parseEncryptedEnvelope(settingsRecord.payload), encryptionPassword)
@@ -369,9 +374,10 @@ export async function upsertEncryptedCloudData(
   if (!client) return;
 
   try {
+    const salt = createEncryptionSalt();
     await Promise.all([
-      upsertEncryptedSubscriptions(client, token, userId, password, subscriptions),
-      upsertEncryptedSettings(client, token, userId, password, settings),
+      upsertEncryptedSubscriptions(client, token, userId, password, salt, subscriptions),
+      upsertEncryptedSettings(client, token, userId, password, salt, settings),
     ]);
   } catch (error) {
     if (isMissingEncryptedCollectionError(error)) {
@@ -505,6 +511,7 @@ async function upsertEncryptedSubscriptions(
   token: string,
   userId: string,
   password: string,
+  salt: string,
   subscriptions: Subscription[],
 ) {
   const existingRecords = await listEncryptedSubscriptions(client, token, userId);
@@ -513,7 +520,7 @@ async function upsertEncryptedSubscriptions(
 
   await Promise.all(subscriptions.map(async (item) => {
     const existing = recordsByLocalId.get(item.id);
-    const envelope = await encryptJsonPayload(item, password);
+    const envelope = await encryptJsonPayload(item, password, salt);
     const body = {
       user: userId,
       local_id: item.id,
@@ -536,10 +543,11 @@ async function upsertEncryptedSettings(
   token: string,
   userId: string,
   password: string,
+  salt: string,
   settings: Settings,
 ) {
   const existing = await listEncryptedSettings(client, token, userId);
-  const envelope = await encryptJsonPayload(settings, password);
+  const envelope = await encryptJsonPayload(settings, password, salt);
   const body = {
     user: userId,
     payload: serializeEncryptedEnvelope(envelope),

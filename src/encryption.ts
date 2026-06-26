@@ -10,6 +10,7 @@ const keyLength = 32;
 const saltLength = 16;
 const nonceLength = 12;
 const associatedData = utf8Encode("paynest.encryptedAppData.v1");
+const derivedKeyCache = new Map<string, Promise<Uint8Array>>();
 
 export type EncryptedEnvelope = {
   version: typeof envelopeVersion;
@@ -27,11 +28,18 @@ export class EncryptionError extends Error {
   }
 }
 
-export async function encryptJsonPayload<T>(payload: T, password: string): Promise<EncryptedEnvelope> {
+export async function encryptJsonPayload<T>(
+  payload: T,
+  password: string,
+  saltOverride?: string,
+): Promise<EncryptedEnvelope> {
   const normalizedPassword = normalizeEncryptionPassword(password);
-  const salt = randomBytes(saltLength);
+  const salt = saltOverride ? hexToBytes(saltOverride) : randomBytes(saltLength);
+  if (salt.length !== saltLength) {
+    throw new EncryptionError("Encrypted cloud data uses an unsupported key format.");
+  }
   const nonce = randomBytes(nonceLength);
-  const key = await deriveKey(normalizedPassword, salt, kdfIterations);
+  const key = await getDerivedKey(normalizedPassword, salt, kdfIterations);
   const plaintext = utf8Encode(JSON.stringify(payload));
   const ciphertext = gcm(key, nonce, associatedData).encrypt(plaintext);
 
@@ -52,7 +60,7 @@ export async function decryptJsonPayload<T>(envelope: EncryptedEnvelope, passwor
   const salt = hexToBytes(envelope.salt);
   const nonce = hexToBytes(envelope.nonce);
   const ciphertext = hexToBytes(envelope.ciphertext);
-  const key = await deriveKey(normalizedPassword, salt, envelope.iterations);
+  const key = await getDerivedKey(normalizedPassword, salt, envelope.iterations);
 
   try {
     const plaintext = gcm(key, nonce, associatedData).decrypt(ciphertext);
@@ -64,6 +72,10 @@ export async function decryptJsonPayload<T>(envelope: EncryptedEnvelope, passwor
 
 export function serializeEncryptedEnvelope(envelope: EncryptedEnvelope) {
   return JSON.stringify(envelope);
+}
+
+export function createEncryptionSalt() {
+  return bytesToHex(randomBytes(saltLength));
 }
 
 export function parseEncryptedEnvelope(value: unknown): EncryptedEnvelope {
@@ -100,6 +112,19 @@ function assertSupportedEnvelope(envelope: EncryptedEnvelope) {
   ) {
     throw new EncryptionError("Encrypted cloud data is corrupted.");
   }
+  if (envelope.salt.length !== saltLength * 2 || envelope.nonce.length !== nonceLength * 2) {
+    throw new EncryptionError("Encrypted cloud data is corrupted.");
+  }
+}
+
+function getDerivedKey(password: string, salt: Uint8Array, iterations: number) {
+  const cacheKey = `${iterations}:${bytesToHex(salt)}:${password}`;
+  let cached = derivedKeyCache.get(cacheKey);
+  if (!cached) {
+    cached = deriveKey(password, salt, iterations);
+    derivedKeyCache.set(cacheKey, cached);
+  }
+  return cached;
 }
 
 async function deriveKey(password: string, salt: Uint8Array, iterations: number) {
