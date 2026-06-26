@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -458,17 +469,27 @@ export function AddSubscription({
     >
       <View style={Platform.OS === "web" ? styles.modalOverlay : styles.modalHost}>
         <SafeAreaView style={[styles.modal, { backgroundColor: c.background, borderColor: c.border }]}>
-        <View style={styles.modalHeader}>
-          <Pressable onPress={onClose}>
-            <Text style={[styles.cancel, { color: c.primary }]}>Cancel</Text>
-          </Pressable>
-          <Text style={[styles.modalTitle, { color: c.text }]}>
-            {editing ? "Edit subscription" : "Add subscription"}
-          </Text>
-          <View style={{ width: 48 }} />
-        </View>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            enabled={Platform.OS !== "web"}
+            keyboardVerticalOffset={0}
+            style={styles.keyboardAvoidingModal}
+          >
+            <View style={styles.modalHeader}>
+              <Pressable onPress={onClose}>
+                <Text style={[styles.cancel, { color: c.primary }]}>Cancel</Text>
+              </Pressable>
+              <Text style={[styles.modalTitle, { color: c.text }]}>
+                {editing ? "Edit subscription" : "Add subscription"}
+              </Text>
+              <View style={{ width: 48 }} />
+            </View>
 
-        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+            <ScrollView
+              contentContainerStyle={[styles.form, styles.keyboardAwareForm]}
+              keyboardDismissMode="interactive"
+              keyboardShouldPersistTaps="handled"
+            >
           <Text style={[styles.formLabel, { color: c.textMuted }]}>BASIC INFO</Text>
           <View
             style={[
@@ -988,55 +1009,56 @@ export function AddSubscription({
             ) : null}
           </View>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        </ScrollView>
+            </ScrollView>
 
-        <ColorPickerSheet
-          c={c}
-          visible={activeColorPicker !== null}
-          title={activeColorPicker === "icon" ? "Icon background" : "Row background"}
-          value={activeColorPicker === "icon" ? iconBackgroundColor : backgroundColor}
-          presets={colorPresets}
-          onClose={() => setActiveColorPicker(null)}
-          onChangeColor={(color) => {
-            if (activeColorPicker === "icon") {
-              updateCustomIconBackground(color);
-            } else {
-              updateCustomBackground(color);
-            }
-          }}
-        />
+            <ColorPickerSheet
+              c={c}
+              visible={activeColorPicker !== null}
+              title={activeColorPicker === "icon" ? "Icon background" : "Row background"}
+              value={activeColorPicker === "icon" ? iconBackgroundColor : backgroundColor}
+              presets={colorPresets}
+              onClose={() => setActiveColorPicker(null)}
+              onChangeColor={(color) => {
+                if (activeColorPicker === "icon") {
+                  updateCustomIconBackground(color);
+                } else {
+                  updateCustomBackground(color);
+                }
+              }}
+            />
 
-        <View style={[styles.saveArea, { borderTopColor: c.border, backgroundColor: c.background }]}>
-          {subscription && onDelete ? (
-            confirmingDelete ? (
-              <View style={styles.deleteConfirmRow}>
-                <Pressable
-                  onPress={() => setConfirmingDelete(false)}
-                  style={[styles.deleteConfirmButton, { backgroundColor: c.surfaceMuted }]}
-                >
-                  <Text style={[styles.deleteConfirmText, { color: c.text }]}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  onPress={deleteSubscription}
-                  style={[styles.deleteConfirmButton, { backgroundColor: "#DC2626" }]}
-                >
-                  <Text style={[styles.deleteConfirmText, { color: "#FFFFFF" }]}>Delete</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <Pressable
-                onPress={() => setConfirmingDelete(true)}
-                style={[styles.deleteSubscriptionButton, { backgroundColor: c.surfaceMuted }]}
-              >
-                <Ionicons name="trash-outline" size={18} color="#DC2626" />
-                <Text style={styles.deleteSubscriptionText}>Delete subscription</Text>
+            <View style={[styles.saveArea, { borderTopColor: c.border, backgroundColor: c.background }]}>
+              {subscription && onDelete ? (
+                confirmingDelete ? (
+                  <View style={styles.deleteConfirmRow}>
+                    <Pressable
+                      onPress={() => setConfirmingDelete(false)}
+                      style={[styles.deleteConfirmButton, { backgroundColor: c.surfaceMuted }]}
+                    >
+                      <Text style={[styles.deleteConfirmText, { color: c.text }]}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={deleteSubscription}
+                      style={[styles.deleteConfirmButton, { backgroundColor: "#DC2626" }]}
+                    >
+                      <Text style={[styles.deleteConfirmText, { color: "#FFFFFF" }]}>Delete</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => setConfirmingDelete(true)}
+                    style={[styles.deleteSubscriptionButton, { backgroundColor: c.surfaceMuted }]}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                    <Text style={styles.deleteSubscriptionText}>Delete subscription</Text>
+                  </Pressable>
+                )
+              ) : null}
+              <Pressable onPress={save} style={[styles.saveButton, { backgroundColor: c.primary }]}>
+                <Text style={styles.saveText}>{editing ? "Save changes" : "Add subscription"}</Text>
               </Pressable>
-            )
-          ) : null}
-          <Pressable onPress={save} style={[styles.saveButton, { backgroundColor: c.primary }]}>
-            <Text style={styles.saveText}>{editing ? "Save changes" : "Add subscription"}</Text>
-          </Pressable>
-        </View>
+            </View>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </View>
     </Modal>

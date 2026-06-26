@@ -334,6 +334,7 @@ export const styles = StyleSheet.create({
       default: {},
     }),
   },
+  keyboardAvoidingModal: { flex: 1 },
   authModalOverlay: {
     flex: 1,
     justifyContent: "center",
@@ -361,6 +362,7 @@ export const styles = StyleSheet.create({
   cancel: { fontSize: 16, fontWeight: "600" },
   modalTitle: { fontSize: 17, fontWeight: "700" },
   form: { padding: 20, gap: 12 },
+  keyboardAwareForm: { paddingBottom: 128 },
   formLabel: { fontSize: 12, fontWeight: "700", letterSpacing: 0.8, marginTop: 7 },
   inputGroup: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
   input: { fontSize: 16, padding: 15, minHeight: 50 },
