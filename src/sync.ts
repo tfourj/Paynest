@@ -562,14 +562,21 @@ async function syncEncryptedRecords(
 ) {
   let subscriptions = localSubscriptions;
   let settings = localSettings;
+  let subscriptionsToUpload: Subscription[] = [];
+  let shouldUploadSettings = false;
+  const shouldRewriteAll = strategy === "local" || Boolean(session.needsMigration);
 
   if (strategy === "cloud") {
     settings = mergeCloudSettings(cloud, localSettings);
     subscriptions = cloud.subscriptions;
+    shouldUploadSettings = shouldRewriteAll || encryptedCloudSettingsNeedUpdate(cloud);
   } else if (strategy === "local") {
     subscriptions = [...localSubscriptions].sort((a, b) => a.name.localeCompare(b.name));
+    subscriptionsToUpload = subscriptions;
+    shouldUploadSettings = true;
   } else {
     const merged = new Map<string, Subscription>();
+    const cloudById = new Map(cloud.subscriptions.map((item) => [item.id, item]));
     for (const item of localSubscriptions) merged.set(item.id, item);
     for (const cloudItem of cloud.subscriptions) {
       const localItem = merged.get(cloudItem.id);
@@ -577,10 +584,28 @@ async function syncEncryptedRecords(
     }
     subscriptions = [...merged.values()].sort((a, b) => a.name.localeCompare(b.name));
     settings = mergeCloudSettings(cloud, localSettings);
+    subscriptionsToUpload = localSubscriptions.filter((item) => {
+      const cloudItem = cloudById.get(item.id);
+      return !cloudItem || newerSubscription(item, cloudItem) === item;
+    });
+    shouldUploadSettings = encryptedCloudSettingsNeedUpdate(cloud);
   }
 
-  await upsertEncryptedCloudData(client, token, userId, session, subscriptions, settings);
-  await deletePlaintextCloudData(client, token, userId);
+  if (shouldRewriteAll) {
+    await upsertEncryptedCloudData(client, token, userId, session, subscriptions, settings);
+    session.needsMigration = false;
+  } else {
+    await Promise.all([
+      upsertEncryptedSubscriptionChanges(client, token, userId, session, subscriptionsToUpload),
+      shouldUploadSettings
+        ? upsertEncryptedSettingsChange(client, token, userId, session, settings)
+        : Promise.resolve(),
+    ]);
+  }
+
+  if (!cloud.encrypted || shouldRewriteAll) {
+    await deletePlaintextCloudData(client, token, userId);
+  }
   return { subscriptions, settings, encryptionSession: session };
 }
 
@@ -856,6 +881,10 @@ function parseEnabledCurrencies(value: string | null | undefined, displayCurrenc
 
 function hasCurrencySettings(row: SettingsRecord | undefined) {
   return Boolean(row?.enabled_currencies);
+}
+
+function encryptedCloudSettingsNeedUpdate(cloud: CloudAppData) {
+  return !cloud.settings || !cloud.settingsHasCurrencySettings;
 }
 
 function mergeCloudSettings(cloud: CloudAppData, localSettings: Settings) {
