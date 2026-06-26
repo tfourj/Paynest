@@ -328,19 +328,21 @@ function DataSettings({
 
       if (Platform.OS === "web") {
         await downloadWebExport(format, subscriptions, fileName, mimeType);
+      } else if (Platform.OS === "android") {
+        onToast("Choose a folder for the export");
+        await saveAndroidSubscriptionExportFile(format, subscriptions, fileName, mimeType);
       } else {
         const uri = await writeSubscriptionExportFile(format, subscriptions, fileName);
         await Share.share({
           title: fileName,
           url: uri,
-          message: Platform.OS === "ios" ? undefined : uri,
         });
       }
 
       onToast(`Exported ${subscriptions.length} subscription${subscriptions.length === 1 ? "" : "s"}`);
     } catch (error) {
       console.warn("Subscription export failed", error);
-      onToast("Could not export subscriptions");
+      onToast(error instanceof Error ? error.message : "Could not export subscriptions");
     } finally {
       setDataBusy(null);
     }
@@ -489,6 +491,38 @@ async function writeSubscriptionExportFile(
   await FileSystem.writeAsStringAsync(uri, createSubscriptionExportJson(subscriptions), {
     encoding: FileSystem.EncodingType.UTF8,
   });
+  return uri;
+}
+
+async function saveAndroidSubscriptionExportFile(
+  format: SubscriptionExportFormat,
+  subscriptions: Subscription[],
+  fileName: string,
+  mimeType: string,
+) {
+  const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+  if (!permissions.granted) throw new Error("Choose a folder to export subscriptions.");
+
+  const uri = await FileSystem.StorageAccessFramework.createFileAsync(
+    permissions.directoryUri,
+    fileName,
+    mimeType,
+  );
+
+  if (format === "zip") {
+    await FileSystem.StorageAccessFramework.writeAsStringAsync(
+      uri,
+      bytesToBase64(createSubscriptionExportZip(subscriptions)),
+      { encoding: FileSystem.EncodingType.Base64 },
+    );
+    return uri;
+  }
+
+  await FileSystem.StorageAccessFramework.writeAsStringAsync(
+    uri,
+    createSubscriptionExportJson(subscriptions),
+    { encoding: FileSystem.EncodingType.UTF8 },
+  );
   return uri;
 }
 
