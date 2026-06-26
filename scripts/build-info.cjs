@@ -1,6 +1,6 @@
 const { spawnSync } = require("node:child_process");
 
-const fallbackVersion = "0.1.0";
+const fallbackVersion = require("../package.json").version || "1.0.0";
 
 function git(args) {
   const result = spawnSync("git", args, {
