@@ -19,7 +19,6 @@ import { ColorPickerSheet } from "../components/ColorPickerSheet";
 import { Chip, StatusPill } from "../components/common";
 import { clearCurrencyConversionCache } from "../currencyConversion";
 import { clearIconCache } from "../iconCache";
-import { sendDebugNotification } from "../notifications";
 import {
   type PocketBaseClient,
   type PocketBaseConnectionSettings,
@@ -80,6 +79,7 @@ export function SettingsScreen({
   const toggleSection = useCallback((section: SettingsSectionId) => {
     setOpenSection((current) => current === section ? null : section);
   }, []);
+  const shouldShowNotificationSettings = Platform.OS !== "web" || Boolean(session);
   const syncStatus = pocketBaseConfig.isConfigured
     ? session ? "Syncing with PocketBase" : "Log in to enable sync"
     : "Add your PocketBase URL";
@@ -100,9 +100,10 @@ export function SettingsScreen({
           onAuthSuccess={onAuthSuccess}
           onSignOut={onSignOut}
         />
-        {Platform.OS === "web" ? null : (
+        {shouldShowNotificationSettings ? (
           <NotificationSettings
             c={c}
+            isWeb={Platform.OS === "web"}
             openSection={openSection}
             settings={settings}
             onApplyGlobalReminderSettings={onApplyGlobalReminderSettings}
@@ -111,7 +112,7 @@ export function SettingsScreen({
             onUpdate={onUpdate}
             onToast={setToastMessage}
           />
-        )}
+        ) : null}
         <CurrencySettings
           c={c}
           settings={settings}
@@ -401,6 +402,7 @@ function AccountSettings({
 
 function NotificationSettings({
   c,
+  isWeb,
   openSection,
   settings,
   onApplyGlobalReminderSettings,
@@ -410,6 +412,7 @@ function NotificationSettings({
   onToast,
 }: {
   c: Colors;
+  isWeb: boolean;
   openSection: SettingsSectionId | null;
   settings: Settings;
   onApplyGlobalReminderSettings: () => void;
@@ -421,6 +424,11 @@ function NotificationSettings({
   async function updateRemindersEnabled(enabled: boolean) {
     if (!enabled) {
       onUpdate({ ...settings, remindersEnabled: false });
+      return;
+    }
+
+    if (isWeb) {
+      onUpdate({ ...settings, remindersEnabled: true });
       return;
     }
 
@@ -448,41 +456,21 @@ function NotificationSettings({
     onToast("Reminder defaults applied to all subscriptions");
   }
 
-  async function testNotifications() {
-    onToast("Requesting notification permission");
-    try {
-      const scheduled = await sendDebugNotification();
-      onToast(scheduled ? "Test notification scheduled" : "Notification permission not granted");
-    } catch {
-      onToast("Could not schedule notification");
-    }
-  }
-
   return (
     <CollapsibleSettingsSection
       c={c}
       icon="notifications-outline"
       id="notifications"
       openSection={openSection}
-      title="Notifications"
+      title="Mobile notifications"
       onToggleSection={onToggleSection}
     >
-      <Pressable onPress={() => void testNotifications()} style={styles.settingRow}>
-        <Ionicons name="notifications-outline" size={21} color={c.primary} />
-        <View style={styles.rowText}>
-          <Text style={[styles.rowName, { color: c.text }]}>Send test notification</Text>
-          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-            Request permission and schedule a local test
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
-      </Pressable>
       <View style={styles.settingRow}>
         <Ionicons name="notifications-circle-outline" size={21} color={c.primary} />
         <View style={styles.rowText}>
           <Text style={[styles.rowName, { color: c.text }]}>Global reminder defaults</Text>
           <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-            Keep off until you want one reminder setup for subscriptions
+            Manage reminder settings that sync to the mobile app
           </Text>
         </View>
         <Switch
