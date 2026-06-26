@@ -5,6 +5,7 @@ App.tsx             App shell, navigation, state, and sync flow
 assets/             App icon, Android adaptive icon layers, and logo assets
 docs/               Development and build documentation
 scripts/            Local development, Expo, and CI build helper scripts
+scripts/patch-ios-fmt-consteval.cjs  CocoaPods fmt header patch for unsigned iOS builds
 src/components/     Shared UI components and subscription rows
 src/screens/        Login, dashboard, subscriptions, insights, settings, and privacy policy
 src/buildInfo.ts    App version and build label shown in settings

@@ -64,8 +64,9 @@ The Android script builds an unsigned release APK for `arm64-v8a` by default.
 Set `REACT_NATIVE_ARCHITECTURES` to override the Android native architectures.
 If `android/` or `ios/` is missing, the scripts generate the native project
 with Expo prebuild before compiling.
-The iOS script also patches CocoaPods `fmt/base.h` to disable consteval on
-newer Apple SDKs before running `xcodebuild`.
+The iOS script also runs `scripts/patch-ios-fmt-consteval.cjs` to patch
+CocoaPods `fmt/base.h` and disable consteval on newer Apple SDKs before running
+`xcodebuild`.
 
 ## PocketBase
 

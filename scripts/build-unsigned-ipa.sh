@@ -27,42 +27,7 @@ pod install
 cd "$ROOT_DIR"
 
 echo "Patching fmt consteval for newer Apple SDKs"
-ROOT_DIR="$ROOT_DIR" node <<'NODE'
-const fs = require("node:fs");
-const path = require("node:path");
-
-const fmtBase = path.join(
-  process.env.ROOT_DIR,
-  "ios",
-  "Pods",
-  "fmt",
-  "include",
-  "fmt",
-  "base.h",
-);
-
-if (!fs.existsSync(fmtBase)) {
-  throw new Error(`Missing fmt header at ${fmtBase}`);
-}
-
-const source = fs.readFileSync(fmtBase, "utf8");
-const patched = source
-  .replace(
-    "#elif defined(__cpp_consteval)\n#  define FMT_USE_CONSTEVAL 1",
-    "#elif defined(__cpp_consteval)\n#  define FMT_USE_CONSTEVAL 0",
-  )
-  .replace(
-    "#elif FMT_GCC_VERSION >= 1002 || FMT_CLANG_VERSION >= 1101\n#  define FMT_USE_CONSTEVAL 1",
-    "#elif FMT_GCC_VERSION >= 1002 || FMT_CLANG_VERSION >= 1101\n#  define FMT_USE_CONSTEVAL 0",
-  );
-
-if (patched === source && !source.includes("#  define FMT_USE_CONSTEVAL 0")) {
-  throw new Error("Could not patch FMT_USE_CONSTEVAL in fmt/base.h");
-}
-
-fs.chmodSync(fmtBase, 0o644);
-fs.writeFileSync(fmtBase, patched);
-NODE
+node "$ROOT_DIR/scripts/patch-ios-fmt-consteval.cjs"
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
