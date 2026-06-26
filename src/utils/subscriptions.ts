@@ -1,7 +1,27 @@
 import { symbols } from "../constants";
 import type { BillingPeriod, Subscription } from "../types";
 
-export const formatMoney = (value: number, currency: string) => `${symbols[currency] ?? currency} ${value.toFixed(2)}`;
+const suffixSymbolCurrencies = new Set([
+  "BGN",
+  "CZK",
+  "DKK",
+  "EUR",
+  "HRK",
+  "HUF",
+  "ISK",
+  "NOK",
+  "PLN",
+  "RON",
+  "RUB",
+  "SEK",
+]);
+
+export const formatMoney = (value: number, currency: string) => {
+  const formattedValue = value.toFixed(2);
+  const symbol = symbols[currency] ?? currency;
+  if (suffixSymbolCurrencies.has(currency)) return `${formattedValue} ${symbol}`;
+  return `${symbol} ${formattedValue}`;
+};
 
 export type CurrencyTotal = {
   currency: string;
