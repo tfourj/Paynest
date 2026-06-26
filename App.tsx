@@ -1159,10 +1159,6 @@ export default function App() {
   async function forgetCloudEncryptionPassword() {
     const userId = session?.user.id;
     if (!userId) return;
-    await Promise.all([
-      forgetEncryptionPassword(pocketBaseConfig.url, userId),
-      forgetMasterKey(pocketBaseConfig.url, userId),
-    ]);
     savedEncryptionPassword.current = null;
     setEncryptionPassword(null);
     cloudEncryptionSession.current = null;
@@ -1170,6 +1166,10 @@ export default function App() {
       setCloudEncryptionState("locked");
       setUnlockPromptVisible(true);
     }
+    await Promise.all([
+      forgetEncryptionPassword(pocketBaseConfig.url, userId),
+      forgetMasterKey(pocketBaseConfig.url, userId),
+    ]);
   }
 
   async function changeCloudEncryptionPassword(
