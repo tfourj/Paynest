@@ -1,5 +1,15 @@
-import { useState, type ReactNode } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Animated,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { AuthModal, type AuthMode } from "../components/AuthModal";
@@ -51,40 +61,46 @@ export function SettingsScreen({
   onReset,
   onOpenPrivacyPolicy,
 }: SettingsScreenProps) {
+  const [toastMessage, setToastMessage] = useState("");
+  const clearToast = useCallback(() => setToastMessage(""), []);
   const syncStatus = pocketBaseConfig.isConfigured
     ? session ? "Syncing with PocketBase" : "Log in to enable sync"
     : "Add your PocketBase URL";
 
   return (
-    <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
-      <Text style={[styles.greeting, { color: c.textMuted }]}>Saved on this device</Text>
-      <Text style={[styles.title, { color: c.text }]}>Settings</Text>
+    <View style={styles.screenHost}>
+      <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
+        <Text style={[styles.greeting, { color: c.textMuted }]}>Saved on this device</Text>
+        <Text style={[styles.title, { color: c.text }]}>Settings</Text>
 
-      <AccountSettings
-        c={c}
-        session={session}
-        pocketBase={pocketBase}
-        pocketBaseConnection={pocketBaseConnection}
-        pocketBaseConfig={pocketBaseConfig}
-        onUpdatePocketBaseConnection={onUpdatePocketBaseConnection}
-        onAuthSuccess={onAuthSuccess}
-        onSignOut={onSignOut}
-      />
-      {Platform.OS === "web" ? null : <NotificationSettings c={c} />}
-      <CurrencySettings c={c} settings={settings} onUpdate={onUpdate} />
-      <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
-      <AppearanceSettings c={c} settings={settings} onUpdate={onUpdate} />
-      <SyncSettings
-        c={c}
-        session={session}
-        pocketBaseConfig={pocketBaseConfig}
-        syncStatus={syncStatus}
-        onForceSync={onForceSync}
-      />
-      <DataSettings c={c} onReset={onReset} />
-      <LegalSettings c={c} onOpenPrivacyPolicy={onOpenPrivacyPolicy} />
-      <Text style={[styles.version, { color: c.textSoft }]}>Paynest · Version 1.0.0</Text>
-    </ScrollView>
+        <AccountSettings
+          c={c}
+          session={session}
+          pocketBase={pocketBase}
+          pocketBaseConnection={pocketBaseConnection}
+          pocketBaseConfig={pocketBaseConfig}
+          onUpdatePocketBaseConnection={onUpdatePocketBaseConnection}
+          onAuthSuccess={onAuthSuccess}
+          onSignOut={onSignOut}
+        />
+        {Platform.OS === "web" ? null : <NotificationSettings c={c} onToast={setToastMessage} />}
+        <CurrencySettings c={c} settings={settings} onUpdate={onUpdate} />
+        <PaydaySettings c={c} settings={settings} onUpdate={onUpdate} />
+        <AppearanceSettings c={c} settings={settings} onUpdate={onUpdate} />
+        <SyncSettings
+          c={c}
+          session={session}
+          pocketBaseConfig={pocketBaseConfig}
+          syncStatus={syncStatus}
+          onForceSync={onForceSync}
+          onToast={setToastMessage}
+        />
+        <DataSettings c={c} onReset={onReset} onToast={setToastMessage} />
+        <LegalSettings c={c} onOpenPrivacyPolicy={onOpenPrivacyPolicy} />
+        <Text style={[styles.version, { color: c.textSoft }]}>Paynest · Version 1.0.0</Text>
+      </ScrollView>
+      <Toast c={c} message={toastMessage} onDone={clearToast} />
+    </View>
   );
 }
 
@@ -111,51 +127,57 @@ function LegalSettings({
   );
 }
 
-function DataSettings({ c, onReset }: { c: Colors; onReset: () => void }) {
-  const [cacheStatus, setCacheStatus] = useState("");
-
+function DataSettings({
+  c,
+  onReset,
+  onToast,
+}: {
+  c: Colors;
+  onReset: () => void;
+  onToast: (message: string) => void;
+}) {
   async function clearCache() {
-    setCacheStatus("Clearing icon cache");
+    onToast("Clearing icon cache");
     await clearIconCache();
-    setCacheStatus("Icon cache cleared");
+    onToast("Icon cache cleared");
   }
 
   async function clearCurrencyCache() {
-    setCacheStatus("Clearing currency cache");
+    onToast("Clearing currency cache");
     await clearCurrencyConversionCache();
-    setCacheStatus("Currency cache cleared");
+    onToast("Currency cache cleared");
   }
 
   return (
-    <>
-      <CollapsibleSettingsSection c={c} title="Data" icon="folder-open-outline">
-        <Pressable onPress={() => void clearCache()} style={styles.settingRow}>
-          <Ionicons name="image-outline" size={21} color={c.primary} />
-          <View style={styles.rowText}>
-            <Text style={[styles.rowName, { color: c.text }]}>Clear icon cache</Text>
-            <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-              Remove cached custom icons from this device
-            </Text>
-            {cacheStatus ? (
-              <Text style={[styles.rowMeta, { color: c.textSoft }]}>{cacheStatus}</Text>
-            ) : null}
-          </View>
-        </Pressable>
-        <Pressable onPress={() => void clearCurrencyCache()} style={[styles.settingRow, { borderTopColor: c.border }]}>
-          <Ionicons name="cash-outline" size={21} color={c.primary} />
-          <View style={styles.rowText}>
-            <Text style={[styles.rowName, { color: c.text }]}>Clear currency cache</Text>
-            <Text style={[styles.rowMeta, { color: c.textMuted }]}>
-              Refresh cached exchange rates on next conversion
-            </Text>
-          </View>
-        </Pressable>
-      </CollapsibleSettingsSection>
-      <Pressable onPress={onReset} style={[styles.dangerRow, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <Ionicons name="trash-outline" size={20} color="#DC2626" />
-        <Text style={styles.dangerText}>Delete local data</Text>
+    <CollapsibleSettingsSection c={c} title="Data" icon="folder-open-outline">
+      <Pressable onPress={() => void clearCache()} style={styles.settingRow}>
+        <Ionicons name="image-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Clear icon cache</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Remove cached custom icons from this device
+          </Text>
+        </View>
       </Pressable>
-    </>
+      <Pressable onPress={() => void clearCurrencyCache()} style={[styles.settingRow, { borderTopColor: c.border }]}>
+        <Ionicons name="cash-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Clear currency cache</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Refresh cached exchange rates on next conversion
+          </Text>
+        </View>
+      </Pressable>
+      <Pressable onPress={onReset} style={[styles.settingRow, { borderTopColor: c.border }]}>
+        <Ionicons name="trash-outline" size={21} color="#DC2626" />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: "#DC2626" }]}>Delete local data</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Remove local subscriptions and reset preferences
+          </Text>
+        </View>
+      </Pressable>
+    </CollapsibleSettingsSection>
   );
 }
 
@@ -180,7 +202,6 @@ function AccountSettings({
 }) {
   const [mode, setMode] = useState<AuthMode | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
 
   async function signOut() {
     if (!pocketBase) return;
@@ -215,7 +236,6 @@ function AccountSettings({
                 {busy ? "Working" : "Sign out"}
               </Text>
             </Pressable>
-            {message ? <Text style={[styles.statusText, { color: c.textMuted }]}>{message}</Text> : null}
           </View>
         ) : (
           <View style={styles.settingOption}>
@@ -253,16 +273,20 @@ function AccountSettings({
   );
 }
 
-function NotificationSettings({ c }: { c: Colors }) {
-  const [status, setStatus] = useState("");
-
+function NotificationSettings({
+  c,
+  onToast,
+}: {
+  c: Colors;
+  onToast: (message: string) => void;
+}) {
   async function testNotifications() {
-    setStatus("Requesting notification permission");
+    onToast("Requesting notification permission");
     try {
       const scheduled = await sendDebugNotification();
-      setStatus(scheduled ? "Test notification scheduled" : "Notification permission not granted");
+      onToast(scheduled ? "Test notification scheduled" : "Notification permission not granted");
     } catch {
-      setStatus("Could not schedule notification");
+      onToast("Could not schedule notification");
     }
   }
 
@@ -275,7 +299,6 @@ function NotificationSettings({ c }: { c: Colors }) {
             <Text style={[styles.rowMeta, { color: c.textMuted }]}>
               Request permission and schedule a local test
             </Text>
-            {status ? <Text style={[styles.rowMeta, { color: c.textSoft }]}>{status}</Text> : null}
           </View>
           <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
         </Pressable>
@@ -606,27 +629,28 @@ function SyncSettings({
   pocketBaseConfig,
   syncStatus,
   onForceSync,
+  onToast,
 }: {
   c: Colors;
   session: PocketBaseSession | null;
   pocketBaseConfig: PocketBaseResolvedConfig;
   syncStatus: string;
   onForceSync: () => Promise<void>;
+  onToast: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
   const canSync = pocketBaseConfig.isConfigured && Boolean(session) && !busy;
 
   async function forceSync() {
     if (!canSync) return;
 
     setBusy(true);
-    setMessage("");
+    onToast("Syncing");
     try {
       await onForceSync();
-      setMessage("Sync complete");
+      onToast("Sync complete");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Sync failed");
+      onToast(error instanceof Error ? error.message : "Sync failed");
     } finally {
       setBusy(false);
     }
@@ -658,7 +682,6 @@ function SyncSettings({
               {busy ? "Syncing" : "Force sync"}
             </Text>
           </Pressable>
-          {message ? <Text style={[styles.statusText, { color: c.textMuted }]}>{message}</Text> : null}
         </View>
     </CollapsibleSettingsSection>
   );
@@ -687,6 +710,84 @@ function CollapsibleSettingsSection({
         <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={c.textSoft} />
       </Pressable>
       {open ? <View style={[styles.settingsSectionBody, { borderTopColor: c.border }]}>{children}</View> : null}
+    </View>
+  );
+}
+
+function Toast({
+  c,
+  message,
+  onDone,
+}: {
+  c: Colors;
+  message: string;
+  onDone: () => void;
+}) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(12)).current;
+  const [displayMessage, setDisplayMessage] = useState("");
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!message) return undefined;
+
+    if (timer.current) clearTimeout(timer.current);
+    setDisplayMessage(message);
+    opacity.setValue(0);
+    translateY.setValue(12);
+
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    timer.current = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 12,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setDisplayMessage("");
+        onDone();
+      });
+    }, 2200);
+
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [message, onDone, opacity, translateY]);
+
+  if (!displayMessage) return null;
+
+  return (
+    <View pointerEvents="none" style={styles.toastOverlay}>
+      <Animated.View
+        style={[
+          styles.toast,
+          {
+            backgroundColor: c.text,
+            opacity,
+            transform: [{ translateY }],
+          },
+        ]}
+      >
+        <Text style={[styles.toastText, { color: c.background }]}>{displayMessage}</Text>
+      </Animated.View>
     </View>
   );
 }

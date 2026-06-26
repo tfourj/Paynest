@@ -2,6 +2,7 @@ import { Platform, StyleSheet, type TextStyle } from "react-native";
 
 export const styles = StyleSheet.create({
   safe: { flex: 1 },
+  screenHost: { flex: 1 },
   loading: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   loadingText: { fontSize: 14 },
   shell: {
@@ -212,6 +213,27 @@ export const styles = StyleSheet.create({
   statusText: { fontSize: 13, lineHeight: 18 },
   statusPill: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, marginTop: 2 },
   statusPillText: { fontSize: 12, fontWeight: "700" },
+  toastOverlay: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 18,
+    alignItems: "center",
+  },
+  toast: {
+    maxWidth: 420,
+    minHeight: 42,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
+  },
+  toastText: { fontSize: 14, fontWeight: "800", textAlign: "center" },
   syncButton: {
     minHeight: 44,
     borderRadius: 12,
