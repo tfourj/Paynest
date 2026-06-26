@@ -7,17 +7,22 @@
     "icon": "./assets/paynest.png",
     "backgroundColor": "#F7F8FA",
     "userInterfaceStyle": "automatic",
-    "androidStatusBar": {
-      "barStyle": "dark-content",
-      "backgroundColor": "#F7F8FA",
-      "translucent": false
-    },
-    "androidNavigationBar": {
-      "barStyle": "dark-content",
-      "backgroundColor": "#F7F8FA",
-      "enforceContrast": false
-    },
     "plugins": [
+      [
+        "expo-status-bar",
+        {
+          "style": "dark",
+          "hidden": false
+        }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "style": "dark",
+          "hidden": false,
+          "enforceContrast": false
+        }
+      ],
       [
         "expo-build-properties",
         {
@@ -31,7 +36,6 @@
       "bundleIdentifier": "com.tfourj.paynest"
     },
     "android": {
-      "edgeToEdgeEnabled": true,
       "backgroundColor": "#F7F8FA",
       "icon": "./assets/paynest-android-foreground.png",
       "adaptiveIcon": {
