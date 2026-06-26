@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import * as FileSystem from "expo-file-system/legacy";
 import type { DocumentPickerAsset } from "expo-document-picker";
 import {
@@ -88,7 +88,7 @@ type SettingsSectionId =
   | "about";
 
 type DocumentPickerModule = typeof import("expo-document-picker");
-type SettingsSectionLayoutHandler = (section: SettingsSectionId, y: number, height: number) => void;
+type SettingsSectionLayoutHandler = (section: SettingsSectionId, sectionRef: RefObject<View | null>) => void;
 
 export function SettingsScreen({
   c,
@@ -116,6 +116,7 @@ export function SettingsScreen({
 }: SettingsScreenProps) {
   const [toastMessage, setToastMessage] = useState("");
   const [openSection, setOpenSection] = useState<SettingsSectionId | null>(null);
+  const scrollHostRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const pendingScrollSectionRef = useRef<SettingsSectionId | null>(null);
   const scrollYRef = useRef(0);
@@ -134,24 +135,37 @@ export function SettingsScreen({
   const handleScrollLayout = useCallback((event: LayoutChangeEvent) => {
     scrollViewportHeightRef.current = event.nativeEvent.layout.height;
   }, []);
-  const handleSectionLayout = useCallback((section: SettingsSectionId, y: number, height: number) => {
+  const handleSectionLayout = useCallback((section: SettingsSectionId, sectionRef: RefObject<View | null>) => {
     if (pendingScrollSectionRef.current !== section) return;
 
-    const viewportHeight = scrollViewportHeightRef.current;
-    if (viewportHeight <= 0) return;
+    const requestFrame = globalThis.requestAnimationFrame ?? ((callback: FrameRequestCallback) => {
+      return globalThis.setTimeout(() => callback(Date.now()), 0);
+    });
 
-    const viewportBottom = scrollYRef.current + viewportHeight;
-    const sectionBottom = y + height;
-    const scrollPadding = 20;
+    requestFrame(() => {
+      sectionRef.current?.measureInWindow((_sectionX, sectionY, _sectionWidth, sectionHeight) => {
+        scrollHostRef.current?.measureInWindow((_scrollX, scrollY, _scrollWidth, scrollHeight) => {
+          if (pendingScrollSectionRef.current !== section) return;
 
-    if (sectionBottom > viewportBottom - scrollPadding) {
-      scrollViewRef.current?.scrollTo({
-        y: Math.max(0, sectionBottom - viewportHeight + scrollPadding),
-        animated: true,
+          const viewportHeight = scrollHeight || scrollViewportHeightRef.current;
+          if (viewportHeight <= 0) return;
+
+          const sectionBottom = sectionY + sectionHeight;
+          const viewportBottom = scrollY + viewportHeight;
+          const scrollPadding = 20;
+          const clippedDistance = sectionBottom - viewportBottom + scrollPadding;
+
+          if (clippedDistance > 0) {
+            scrollViewRef.current?.scrollTo({
+              y: Math.max(0, scrollYRef.current + clippedDistance),
+              animated: true,
+            });
+          }
+
+          pendingScrollSectionRef.current = null;
+        });
       });
-    }
-
-    pendingScrollSectionRef.current = null;
+    });
   }, []);
   const shouldShowNotificationSettings = Platform.OS !== "web" || (Boolean(session) && settings.usesMobile);
   const syncStatus = pocketBaseConfig.isConfigured
@@ -159,7 +173,7 @@ export function SettingsScreen({
     : "Add your PocketBase URL";
 
   return (
-    <View style={styles.screenHost}>
+    <View ref={scrollHostRef} style={styles.screenHost}>
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.screen}
@@ -1770,14 +1784,15 @@ function CollapsibleSettingsSection({
   children: ReactNode;
 }) {
   const open = openSection === id;
+  const sectionRef = useRef<View>(null);
 
   return (
     <View
-      onLayout={(event) => {
+      ref={sectionRef}
+      onLayout={() => {
         if (!open) return;
 
-        const { y, height } = event.nativeEvent.layout;
-        onSectionLayout(id, y, height);
+        onSectionLayout(id, sectionRef);
       }}
       style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}
     >
