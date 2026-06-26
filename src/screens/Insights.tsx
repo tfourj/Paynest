@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -55,6 +55,7 @@ export function Insights({
   const breakdownTotal = breakdownItems.reduce((total, item) => total + item.amount, 0);
   const calendarDays = buildRenewalCalendar(activeSubscriptions, viewedMonth);
   const calendarWeeks = chunkCalendarWeeks(calendarDays);
+  const autoSelectedDateKey = defaultSelectedCalendarDate(calendarDays);
   const selectedDay = calendarDays.find((day) => day.dateKey === selectedDateKey);
   const hasPausedSubscriptions = subscriptions.some(isSubscriptionPaused);
   const monthLabel = viewedMonth.toLocaleDateString(undefined, {
@@ -73,6 +74,12 @@ export function Insights({
     setViewedMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
     setSelectedDateKey(null);
   }
+
+  useEffect(() => {
+    if (!selectedDateKey && autoSelectedDateKey) {
+      setSelectedDateKey(autoSelectedDateKey);
+    }
+  }, [autoSelectedDateKey, selectedDateKey]);
 
   return (
     <ScrollView contentContainerStyle={styles.screen} showsVerticalScrollIndicator={false}>
@@ -567,6 +574,13 @@ function chunkCalendarWeeks(days: CalendarDay[]) {
   }
 
   return weeks;
+}
+
+function defaultSelectedCalendarDate(days: CalendarDay[]) {
+  return days.find((day) => day.isToday)?.dateKey
+    ?? days.find((day) => day.subscriptions.length > 0)?.dateKey
+    ?? days.find((day) => day.dateKey)?.dateKey
+    ?? null;
 }
 
 function formatDateKey(date: Date) {
