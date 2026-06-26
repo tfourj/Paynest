@@ -1558,7 +1558,9 @@ function UnlockEncryptionPrompt({
               onPress={onDismiss}
               style={[styles.syncPromptButton, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}
             >
-              <Text style={[styles.syncPromptButtonText, { color: c.text }]}>Not now</Text>
+              <View style={styles.syncPromptButtonContent}>
+                <Text style={[styles.syncPromptButtonText, { color: c.text }]}>Not now</Text>
+              </View>
             </Pressable>
             <Pressable
               disabled={busy}
