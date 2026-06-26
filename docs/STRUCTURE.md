@@ -9,7 +9,7 @@ src/components/     Shared UI components and subscription rows
 src/screens/        Login, dashboard, subscriptions, insights, settings, and privacy policy
 src/buildInfo.ts    App version and build label shown in settings
 src/encryption.ts   Local encryption envelope, key derivation, and payload crypto helpers
-src/encryptionStorage.ts  Device-local encryption password storage
+src/encryptionStorage.ts  Device-local secure storage for the encryption password and cached master key
 src/storage.ts      Local AsyncStorage persistence
 src/currencyConversion.ts  Exchange-rate loading and local conversion cache
 src/pocketbase.ts   PocketBase REST client and auth persistence
