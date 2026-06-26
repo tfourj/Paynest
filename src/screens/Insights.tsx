@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   Text,
@@ -336,17 +334,6 @@ function SubscriptionBreakdownPie({
     ));
   }
 
-  function handleBreakdownScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    if (!hasMoreChartItems) return;
-
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
-
-    if (distanceFromBottom <= 24) {
-      showMoreChartItems();
-    }
-  }
-
   useEffect(() => {
     setVisibleItemCount(PIE_BREAKDOWN_BATCH_SIZE);
     setSelectedItemId(null);
@@ -398,8 +385,7 @@ function SubscriptionBreakdownPie({
       <ScrollView
         contentContainerStyle={styles.pieSubscriptionListContent}
         nestedScrollEnabled
-        onScroll={handleBreakdownScroll}
-        scrollEventThrottle={120}
+        scrollEnabled={visibleItemCount > PIE_BREAKDOWN_BATCH_SIZE}
         showsVerticalScrollIndicator={false}
         style={styles.pieSubscriptionList}
       >

@@ -170,7 +170,7 @@ export const styles = StyleSheet.create({
   },
   pieCenterLabel: { fontSize: 12, fontWeight: "800", marginBottom: 4 },
   pieCenterValue: { maxWidth: 82, fontSize: 14, fontWeight: "800", textAlign: "center" },
-  pieSubscriptionList: { flex: 1, minWidth: 240, maxHeight: 236 },
+  pieSubscriptionList: { flex: 1, minWidth: 240, maxHeight: 276 },
   pieSubscriptionListContent: { gap: 10, paddingRight: 2 },
   pieSubscriptionRow: {
     minHeight: 64,
