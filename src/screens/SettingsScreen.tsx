@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -44,7 +45,6 @@ type SettingsScreenProps = {
   onSignOut: () => void;
   onForceSync: () => Promise<void>;
   onReset: () => void;
-  onOpenPrivacyPolicy: () => void;
 };
 
 type SettingsSectionId =
@@ -54,7 +54,7 @@ type SettingsSectionId =
   | "appearance"
   | "sync"
   | "data"
-  | "legal";
+  | "about";
 
 export function SettingsScreen({
   c,
@@ -69,7 +69,6 @@ export function SettingsScreen({
   onSignOut,
   onForceSync,
   onReset,
-  onOpenPrivacyPolicy,
 }: SettingsScreenProps) {
   const [toastMessage, setToastMessage] = useState("");
   const [openSection, setOpenSection] = useState<SettingsSectionId | null>(null);
@@ -143,10 +142,10 @@ export function SettingsScreen({
           onToast={setToastMessage}
           onToggleSection={toggleSection}
         />
-        <LegalSettings
+        <AboutSettings
           c={c}
           openSection={openSection}
-          onOpenPrivacyPolicy={onOpenPrivacyPolicy}
+          onToast={setToastMessage}
           onToggleSection={toggleSection}
         />
         <Text style={[styles.version, { color: c.textSoft }]}>{appBuildLabel}</Text>
@@ -156,27 +155,50 @@ export function SettingsScreen({
   );
 }
 
-function LegalSettings({
+const websiteUrl = "https://usepaynest.com";
+const privacyUrl = "https://usepaynest.com/privacy";
+const githubUrl = "https://github.com/tfourj/Paynest";
+
+function AboutSettings({
   c,
   openSection,
-  onOpenPrivacyPolicy,
+  onToast,
   onToggleSection,
 }: {
   c: Colors;
   openSection: SettingsSectionId | null;
-  onOpenPrivacyPolicy: () => void;
+  onToast: (message: string) => void;
   onToggleSection: (section: SettingsSectionId) => void;
 }) {
+  async function openLink(url: string) {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      onToast("Could not open link");
+    }
+  }
+
   return (
     <CollapsibleSettingsSection
       c={c}
-      icon="shield-checkmark-outline"
-      id="legal"
+      icon="information-circle-outline"
+      id="about"
       openSection={openSection}
-      title="Legal"
+      title="About"
       onToggleSection={onToggleSection}
     >
-      <Pressable onPress={onOpenPrivacyPolicy} style={styles.settingRow}>
+      <Pressable onPress={() => void openLink(websiteUrl)} style={styles.settingRow}>
+        <Ionicons name="globe-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Website</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>{websiteUrl.replace("https://", "")}</Text>
+        </View>
+        <Ionicons name="open-outline" size={18} color={c.textSoft} />
+      </Pressable>
+      <Pressable
+        onPress={() => void openLink(privacyUrl)}
+        style={[styles.settingRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}
+      >
         <Ionicons name="shield-checkmark-outline" size={21} color={c.primary} />
         <View style={styles.rowText}>
           <Text style={[styles.rowName, { color: c.text }]}>Privacy Policy</Text>
@@ -184,7 +206,18 @@ function LegalSettings({
             Review how Paynest stores and syncs data
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={c.textSoft} />
+        <Ionicons name="open-outline" size={18} color={c.textSoft} />
+      </Pressable>
+      <Pressable
+        onPress={() => void openLink(githubUrl)}
+        style={[styles.settingRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}
+      >
+        <Ionicons name="logo-github" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>GitHub</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>github.com/tfourj/Paynest</Text>
+        </View>
+        <Ionicons name="open-outline" size={18} color={c.textSoft} />
       </Pressable>
     </CollapsibleSettingsSection>
   );

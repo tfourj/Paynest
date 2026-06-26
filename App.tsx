@@ -671,7 +671,6 @@ export default function App() {
                   onSignOut={signOutPocketBase}
                   onForceSync={forceSync}
                   onReset={resetData}
-                  onOpenPrivacyPolicy={openPrivacyPolicy}
                 />
               )}
             </View>
