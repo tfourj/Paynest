@@ -1,10 +1,15 @@
 import type { PocketBaseClient } from "./pocketbase";
 import {
-  createEncryptionSalt,
+  createMasterKey,
   decryptJsonPayload,
-  encryptJsonPayload,
+  decryptJsonPayloadWithMasterKey,
+  encryptJsonPayloadWithMasterKey,
+  isLegacyEncryptedEnvelope,
   parseEncryptedEnvelope,
   serializeEncryptedEnvelope,
+  unwrapMasterKey,
+  wrapMasterKey,
+  type WrappedMasterKey,
 } from "./encryption";
 import {
   defaultSettings,
@@ -77,12 +82,34 @@ type EncryptedSettingsRecord = {
   updated_at: string;
 };
 
+type UserKeyRecord = {
+  id: string;
+  user: string;
+  kdf: WrappedMasterKey["kdf"];
+  iterations: number;
+  salt: string;
+  encrypted_master_key: string;
+  nonce: string;
+  schema_version?: number | null;
+  updated_at: string;
+};
+
 export type SyncStrategy = "merge" | "cloud" | "local";
 export type CloudAppData = Awaited<ReturnType<typeof loadCloudAppData>>;
+export type CloudEncryptionSession = {
+  masterKey: Uint8Array;
+  needsMigration?: boolean;
+};
 
 export type SyncEncryptionOptions = {
   enabled?: boolean;
   password?: string | null;
+  session?: CloudEncryptionSession | null;
+};
+
+type LoadCloudEncryptionOptions = string | null | {
+  password?: string | null;
+  session?: CloudEncryptionSession | null;
 };
 
 function toSubscription(row: SubscriptionRecord): Subscription {
@@ -182,12 +209,35 @@ function newerSubscription(a: Subscription, b: Subscription) {
   return new Date(a.updatedAt).getTime() >= new Date(b.updatedAt).getTime() ? a : b;
 }
 
+function normalizeLoadCloudEncryptionOptions(encryption?: LoadCloudEncryptionOptions) {
+  if (typeof encryption === "string" || encryption === null) {
+    return { password: encryption ?? null, session: null };
+  }
+  return {
+    password: encryption?.password ?? null,
+    session: encryption?.session ?? null,
+  };
+}
+
+async function decryptEncryptedPayload<T>(
+  envelope: ReturnType<typeof parseEncryptedEnvelope>,
+  session: CloudEncryptionSession,
+  password?: string | null,
+) {
+  if (isLegacyEncryptedEnvelope(envelope)) {
+    if (!password) throw new Error("Enter your encryption password to sync encrypted data.");
+    return decryptJsonPayload<T>(envelope, password);
+  }
+  return decryptJsonPayloadWithMasterKey<T>(envelope, session.masterKey);
+}
+
 export async function loadCloudAppData(
   client: PocketBaseClient | null,
   token: string,
   userId: string,
-  encryptionPassword?: string | null,
+  encryption?: LoadCloudEncryptionOptions,
 ) {
+  const encryptionOptions = normalizeLoadCloudEncryptionOptions(encryption);
   if (!client) {
     return {
       subscriptions: [],
@@ -195,45 +245,40 @@ export async function loadCloudAppData(
       settingsHasCurrencySettings: false,
       encrypted: false,
       locked: false,
+      encryptionSession: null,
     };
   }
 
-  if (!encryptionPassword) {
-    if (await hasEncryptedRecordDataIfAvailable(client, token, userId)) {
+  const userKey = await getUserKeyIfAvailable(client, token, userId);
+  if (userKey) {
+    if (!encryptionOptions.session && !encryptionOptions.password) {
       return {
         subscriptions: [],
         settings: null,
         settingsHasCurrencySettings: false,
         encrypted: true,
         locked: true,
+        encryptionSession: null,
       };
     }
 
-    return loadPlaintextCloudAppData(client, token, userId);
-  }
-
-  const encryptedRows = await listEncryptedRecordDataIfAvailable(client, token, userId);
-  if (encryptedRows.settings.length > 0 || encryptedRows.subscriptions.length > 0) {
-    if (!encryptionPassword) {
-      return {
-        subscriptions: [],
-        settings: null,
-        settingsHasCurrencySettings: false,
-        encrypted: true,
-        locked: true,
-      };
-    }
-
+    const session = encryptionOptions.session ?? {
+      masterKey: await unwrapUserKeyRecord(userKey, encryptionOptions.password ?? ""),
+    };
+    const encryptedRows = await listEncryptedRecordDataIfAvailable(client, token, userId);
     const subscriptions: Subscription[] = [];
+    let needsMigration = false;
     for (const record of encryptedRows.subscriptions) {
-      subscriptions.push(await decryptJsonPayload<Subscription>(
-        parseEncryptedEnvelope(record.payload),
-        encryptionPassword,
-      ));
+      const envelope = parseEncryptedEnvelope(record.payload);
+      if (isLegacyEncryptedEnvelope(envelope)) needsMigration = true;
+      subscriptions.push(await decryptEncryptedPayload<Subscription>(envelope, session, encryptionOptions.password));
     }
+
     const settingsRecord = encryptedRows.settings[0];
-    const settings = settingsRecord
-      ? await decryptJsonPayload<Settings>(parseEncryptedEnvelope(settingsRecord.payload), encryptionPassword)
+    const settingsEnvelope = settingsRecord ? parseEncryptedEnvelope(settingsRecord.payload) : null;
+    if (settingsEnvelope && isLegacyEncryptedEnvelope(settingsEnvelope)) needsMigration = true;
+    const settings = settingsEnvelope
+      ? await decryptEncryptedPayload<Settings>(settingsEnvelope, session, encryptionOptions.password)
       : null;
 
     return {
@@ -242,6 +287,49 @@ export async function loadCloudAppData(
       settingsHasCurrencySettings: true,
       encrypted: true,
       locked: false,
+      encryptionSession: {
+        masterKey: session.masterKey,
+        needsMigration: session.needsMigration || needsMigration,
+      },
+    };
+  }
+
+  const encryptedRows = await listEncryptedRecordDataIfAvailable(client, token, userId);
+  if (encryptedRows.settings.length > 0 || encryptedRows.subscriptions.length > 0) {
+    if (!encryptionOptions.password) {
+      return {
+        subscriptions: [],
+        settings: null,
+        settingsHasCurrencySettings: false,
+        encrypted: true,
+        locked: true,
+        encryptionSession: null,
+      };
+    }
+
+    const subscriptions: Subscription[] = [];
+    for (const record of encryptedRows.subscriptions) {
+      subscriptions.push(await decryptJsonPayload<Subscription>(
+        parseEncryptedEnvelope(record.payload),
+        encryptionOptions.password,
+      ));
+    }
+    const settingsRecord = encryptedRows.settings[0];
+    const settings = settingsRecord
+      ? await decryptJsonPayload<Settings>(parseEncryptedEnvelope(settingsRecord.payload), encryptionOptions.password)
+      : null;
+    const legacySession = {
+      masterKey: createMasterKey(),
+      needsMigration: true,
+    };
+
+    return {
+      subscriptions: subscriptions.sort((a, b) => a.name.localeCompare(b.name)),
+      settings,
+      settingsHasCurrencySettings: true,
+      encrypted: true,
+      locked: false,
+      encryptionSession: legacySession,
     };
   }
 
@@ -258,13 +346,30 @@ export async function syncAppData(
   initialCloud?: CloudAppData,
   encryption?: SyncEncryptionOptions,
 ) {
-  if (!client) return { subscriptions: localSubscriptions, settings: localSettings };
+  if (!client) return { subscriptions: localSubscriptions, settings: localSettings, encryptionSession: null };
 
-  const cloud = initialCloud ?? await loadCloudAppData(client, token, userId, encryption?.password);
+  const cloud = initialCloud ?? await loadCloudAppData(client, token, userId, {
+    password: encryption?.password,
+    session: encryption?.session,
+  });
   const shouldEncrypt = Boolean(encryption?.enabled || cloud.encrypted);
   if (shouldEncrypt) {
     if (!encryption?.password) throw new Error("Enter your encryption password to sync encrypted data.");
     if (cloud.locked) throw new Error("Unlock encrypted cloud data before syncing.");
+    const session = encryption.session ?? cloud.encryptionSession ?? { masterKey: createMasterKey() };
+    const shouldWriteUserKey = !cloud.encrypted || session.needsMigration || !cloud.encryptionSession;
+    if (shouldWriteUserKey) {
+      try {
+        await upsertUserKey(client, token, userId, encryption.password, session.masterKey);
+      } catch (error) {
+        if (isMissingEncryptedCollectionError(error)) {
+          throw new Error(
+            "Update your PocketBase server. The user_keys, encrypted_subscriptions, and encrypted_settings collections are missing.",
+          );
+        }
+        throw error;
+      }
+    }
     return syncEncryptedRecords(
       client,
       token,
@@ -273,7 +378,7 @@ export async function syncAppData(
       localSettings,
       strategy,
       cloud,
-      encryption.password,
+      session,
     );
   }
 
@@ -282,7 +387,7 @@ export async function syncAppData(
     if (!cloud.settings || !cloud.settingsHasCurrencySettings) {
       await upsertSettings(client, token, userId, settings);
     }
-    return { subscriptions: cloud.subscriptions, settings };
+    return { subscriptions: cloud.subscriptions, settings, encryptionSession: null };
   }
 
   if (strategy === "local") {
@@ -293,7 +398,7 @@ export async function syncAppData(
       upsertSubscriptions(client, token, userId, subscriptions),
       upsertSettings(client, token, userId, localSettings),
     ]);
-    return { subscriptions, settings: localSettings };
+    return { subscriptions, settings: localSettings, encryptionSession: null };
   }
 
   const merged = new Map<string, Subscription>();
@@ -311,7 +416,7 @@ export async function syncAppData(
     upsertSettings(client, token, userId, settings),
   ]);
 
-  return { subscriptions, settings };
+  return { subscriptions, settings, encryptionSession: null };
 }
 
 export async function upsertSubscriptions(
@@ -346,6 +451,29 @@ export async function deleteSubscriptionFromCloud(
   await Promise.all(records.map((record) => client.deleteRecord("subscriptions", record.id, token)));
 }
 
+export async function upsertEncryptedSubscriptionChanges(
+  client: PocketBaseClient | null,
+  token: string,
+  userId: string,
+  session: CloudEncryptionSession,
+  subscriptions: Subscription[],
+) {
+  if (!client || subscriptions.length === 0) return;
+  await upsertEncryptedSubscriptions(client, token, userId, session, subscriptions, false);
+}
+
+export async function deleteEncryptedSubscriptionFromCloud(
+  client: PocketBaseClient | null,
+  token: string,
+  userId: string,
+  localId: string,
+) {
+  if (!client) return;
+
+  const records = await listEncryptedSubscriptions(client, token, userId, 500, localId);
+  await Promise.all(records.map((record) => client.deleteRecord("encrypted_subscriptions", record.id, token)));
+}
+
 export async function upsertSettings(
   client: PocketBaseClient | null,
   token: string,
@@ -364,26 +492,36 @@ export async function upsertSettings(
   await client.createRecord("settings", token, body);
 }
 
+export async function upsertEncryptedSettingsChange(
+  client: PocketBaseClient | null,
+  token: string,
+  userId: string,
+  session: CloudEncryptionSession,
+  settings: Settings,
+) {
+  if (!client) return;
+  await upsertEncryptedSettings(client, token, userId, session, settings);
+}
+
 export async function upsertEncryptedCloudData(
   client: PocketBaseClient | null,
   token: string,
   userId: string,
-  password: string,
+  session: CloudEncryptionSession,
   subscriptions: Subscription[],
   settings: Settings,
 ) {
   if (!client) return;
 
   try {
-    const salt = createEncryptionSalt();
     await Promise.all([
-      upsertEncryptedSubscriptions(client, token, userId, password, salt, subscriptions),
-      upsertEncryptedSettings(client, token, userId, password, salt, settings),
+      upsertEncryptedSubscriptions(client, token, userId, session, subscriptions),
+      upsertEncryptedSettings(client, token, userId, session, settings),
     ]);
   } catch (error) {
     if (isMissingEncryptedCollectionError(error)) {
       throw new Error(
-        "Update your PocketBase server. The encrypted_subscriptions and encrypted_settings collections are missing.",
+        "Update your PocketBase server. The user_keys, encrypted_subscriptions, and encrypted_settings collections are missing.",
       );
     }
     throw error;
@@ -392,13 +530,15 @@ export async function upsertEncryptedCloudData(
 
 export async function deleteEncryptedCloudData(client: PocketBaseClient | null, token: string, userId: string) {
   if (!client) return;
-  const [subscriptions, settings] = await Promise.all([
+  const [subscriptions, settings, userKeys] = await Promise.all([
     listEncryptedSubscriptionsIfAvailable(client, token, userId),
     listEncryptedSettingsIfAvailable(client, token, userId),
+    listUserKeysIfAvailable(client, token, userId),
   ]);
   await Promise.all([
     ...subscriptions.map((record) => client.deleteRecord("encrypted_subscriptions", record.id, token)),
     ...settings.map((record) => client.deleteRecord("encrypted_settings", record.id, token)),
+    ...userKeys.map((record) => client.deleteRecord("user_keys", record.id, token)),
   ]);
 }
 
@@ -418,7 +558,7 @@ async function syncEncryptedRecords(
   localSettings: Settings,
   strategy: SyncStrategy,
   cloud: CloudAppData,
-  password: string,
+  session: CloudEncryptionSession,
 ) {
   let subscriptions = localSubscriptions;
   let settings = localSettings;
@@ -439,9 +579,9 @@ async function syncEncryptedRecords(
     settings = mergeCloudSettings(cloud, localSettings);
   }
 
-  await upsertEncryptedCloudData(client, token, userId, password, subscriptions, settings);
+  await upsertEncryptedCloudData(client, token, userId, session, subscriptions, settings);
   await deletePlaintextCloudData(client, token, userId);
-  return { subscriptions, settings };
+  return { subscriptions, settings, encryptionSession: session };
 }
 
 async function listUserSubscriptions(
@@ -480,6 +620,7 @@ async function loadPlaintextCloudAppData(client: PocketBaseClient, token: string
     settingsHasCurrencySettings: hasCurrencySettings(settingsRecord),
     encrypted: false,
     locked: false,
+    encryptionSession: null,
   };
 }
 
@@ -488,9 +629,11 @@ function listEncryptedSubscriptions(
   token: string,
   userId: string,
   perPage = 500,
+  localId?: string,
 ) {
+  const localIdFilter = localId ? ` && local_id="${escapeFilterValue(localId)}"` : "";
   return client.listRecords<EncryptedSubscriptionRecord>("encrypted_subscriptions", token, {
-    filter: `user="${escapeFilterValue(userId)}"`,
+    filter: `user="${escapeFilterValue(userId)}"${localIdFilter}`,
     perPage,
     sort: "local_id",
   });
@@ -502,6 +645,68 @@ function listEncryptedSettings(client: PocketBaseClient, token: string, userId: 
     perPage: 1,
     sort: "-updated_at",
   });
+}
+
+function listUserKeys(client: PocketBaseClient, token: string, userId: string) {
+  return client.listRecords<UserKeyRecord>("user_keys", token, {
+    filter: `user="${escapeFilterValue(userId)}"`,
+    perPage: 1,
+    sort: "-updated_at",
+  });
+}
+
+async function getUserKeyIfAvailable(client: PocketBaseClient, token: string, userId: string) {
+  const records = await listUserKeysIfAvailable(client, token, userId);
+  return records[0] ?? null;
+}
+
+async function listUserKeysIfAvailable(client: PocketBaseClient, token: string, userId: string) {
+  try {
+    return await listUserKeys(client, token, userId);
+  } catch (error) {
+    if (isMissingEncryptedCollectionError(error)) return [];
+    throw error;
+  }
+}
+
+async function unwrapUserKeyRecord(record: UserKeyRecord, password: string) {
+  return unwrapMasterKey({
+    kdf: record.kdf,
+    iterations: record.iterations,
+    salt: record.salt,
+    encryptedMasterKey: record.encrypted_master_key,
+    nonce: record.nonce,
+  }, password);
+}
+
+export async function upsertUserKey(
+  client: PocketBaseClient | null,
+  token: string,
+  userId: string,
+  password: string,
+  masterKey: Uint8Array,
+) {
+  if (!client) return;
+
+  const wrapped = await wrapMasterKey(masterKey, password);
+  const existing = await listUserKeys(client, token, userId);
+  const body = {
+    user: userId,
+    kdf: wrapped.kdf,
+    iterations: wrapped.iterations,
+    salt: wrapped.salt,
+    encrypted_master_key: wrapped.encryptedMasterKey,
+    nonce: wrapped.nonce,
+    schema_version: 1,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existing[0]) {
+    await client.updateRecord("user_keys", existing[0].id, token, body);
+    return;
+  }
+
+  await client.createRecord("user_keys", token, body);
 }
 
 async function listEncryptedRecordDataIfAvailable(client: PocketBaseClient, token: string, userId: string) {
@@ -547,9 +752,9 @@ async function upsertEncryptedSubscriptions(
   client: PocketBaseClient,
   token: string,
   userId: string,
-  password: string,
-  salt: string,
+  session: CloudEncryptionSession,
   subscriptions: Subscription[],
+  deleteMissing = true,
 ) {
   const existingRecords = await listEncryptedSubscriptions(client, token, userId);
   const recordsByLocalId = new Map(existingRecords.map((record) => [record.local_id, record]));
@@ -557,7 +762,7 @@ async function upsertEncryptedSubscriptions(
 
   await Promise.all(subscriptions.map(async (item) => {
     const existing = recordsByLocalId.get(item.id);
-    const envelope = await encryptJsonPayload(item, password, salt);
+    const envelope = encryptJsonPayloadWithMasterKey(item, session.masterKey);
     const body = {
       user: userId,
       local_id: item.id,
@@ -570,21 +775,22 @@ async function upsertEncryptedSubscriptions(
       : client.createRecord("encrypted_subscriptions", token, body);
   }));
 
-  await Promise.all(existingRecords
-    .filter((record) => !localIds.has(record.local_id))
-    .map((record) => client.deleteRecord("encrypted_subscriptions", record.id, token)));
+  if (deleteMissing) {
+    await Promise.all(existingRecords
+      .filter((record) => !localIds.has(record.local_id))
+      .map((record) => client.deleteRecord("encrypted_subscriptions", record.id, token)));
+  }
 }
 
 async function upsertEncryptedSettings(
   client: PocketBaseClient,
   token: string,
   userId: string,
-  password: string,
-  salt: string,
+  session: CloudEncryptionSession,
   settings: Settings,
 ) {
   const existing = await listEncryptedSettings(client, token, userId);
-  const envelope = await encryptJsonPayload(settings, password, salt);
+  const envelope = encryptJsonPayloadWithMasterKey(settings, session.masterKey);
   const body = {
     user: userId,
     payload: serializeEncryptedEnvelope(envelope),
