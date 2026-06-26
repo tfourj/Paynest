@@ -314,6 +314,12 @@ type WebRuntime = {
   location?: { pathname?: string };
 };
 
+type EncryptionOperationStatus = {
+  visible: boolean;
+  message: string;
+  tone: "working" | "success";
+};
+
 function webRuntime() {
   return Platform.OS === "web" ? globalThis as WebRuntime : undefined;
 }
@@ -376,6 +382,11 @@ export default function App() {
   const [encryptionPassword, setEncryptionPassword] = useState<string | null>(null);
   const [loginEncryptionPromptVisible, setLoginEncryptionPromptVisible] = useState(false);
   const [backgroundUnlocking, setBackgroundUnlocking] = useState(false);
+  const [encryptionOperationStatus, setEncryptionOperationStatus] = useState<EncryptionOperationStatus>({
+    visible: false,
+    message: "",
+    tone: "working",
+  });
   const [pendingSyncPrompt, setPendingSyncPrompt] = useState<{
     userId: string;
     cloudSubscriptions: Subscription[];
@@ -387,6 +398,7 @@ export default function App() {
   const pendingSyncCloud = useRef<CloudAppData | null>(null);
   const pendingSyncPassword = useRef<string | null>(null);
   const savedEncryptionPassword = useRef<string | null>(null);
+  const encryptionOperationId = useRef(0);
   const pocketBaseConfig = useMemo(
     () => resolvePocketBaseConfig(pocketBaseConnection),
     [pocketBaseConnection],
@@ -434,6 +446,7 @@ export default function App() {
       savedEncryptionPassword.current = null;
       setLoginEncryptionPromptVisible(false);
       setBackgroundUnlocking(false);
+      hideEncryptionOperation();
       setAuthReady(true);
       return;
     }
@@ -821,6 +834,7 @@ export default function App() {
     setLoginEncryptionPromptVisible(false);
     setBackgroundUnlocking(false);
     savedEncryptionPassword.current = null;
+    hideEncryptionOperation();
     void savePocketBaseConnection(next);
   }
 
@@ -838,6 +852,7 @@ export default function App() {
     setLoginEncryptionPromptVisible(false);
     setBackgroundUnlocking(false);
     savedEncryptionPassword.current = null;
+    hideEncryptionOperation();
     void savePocketBaseConnection(next);
   }
 
@@ -853,11 +868,36 @@ export default function App() {
     setLoginEncryptionPromptVisible(false);
     setBackgroundUnlocking(false);
     savedEncryptionPassword.current = null;
+    hideEncryptionOperation();
   }
 
   function useLocally() {
     setLocalMode(true);
     void saveLocalModePreference(true);
+  }
+
+  function showEncryptionOperation(message: string) {
+    encryptionOperationId.current += 1;
+    const operationId = encryptionOperationId.current;
+    setEncryptionOperationStatus({ visible: true, message, tone: "working" });
+    return operationId;
+  }
+
+  function completeEncryptionOperation(operationId: number, message: string) {
+    if (encryptionOperationId.current !== operationId) return;
+    setEncryptionOperationStatus({ visible: true, message, tone: "success" });
+    setTimeout(() => {
+      if (encryptionOperationId.current === operationId) hideEncryptionOperation();
+    }, 1600);
+  }
+
+  function hideEncryptionOperation(operationId?: number) {
+    if (operationId && encryptionOperationId.current !== operationId) return;
+    setEncryptionOperationStatus({ visible: false, message: "", tone: "working" });
+  }
+
+  async function allowStatusToPaint() {
+    await new Promise((resolve) => setTimeout(resolve, 80));
   }
 
   async function syncUserData(
@@ -924,68 +964,86 @@ export default function App() {
     if (!session || !userId) throw new Error("Log in to enable encryption.");
     const normalizedPassword = password.trim();
     if (normalizedPassword.length < 8) throw new Error("Use an encryption password with at least 8 characters.");
+    const operationId = showEncryptionOperation("Encrypting cloud data");
+    await allowStatusToPaint();
 
-    if (rememberPassword) {
-      const saved = await saveEncryptionPassword(pocketBaseConfig.url, userId, normalizedPassword);
-      if (!saved) throw new Error("This device cannot securely remember the encryption password.");
-      savedEncryptionPassword.current = normalizedPassword;
-    } else {
-      await forgetEncryptionPassword(pocketBaseConfig.url, userId);
-      savedEncryptionPassword.current = null;
+    try {
+      if (rememberPassword) {
+        const saved = await saveEncryptionPassword(pocketBaseConfig.url, userId, normalizedPassword);
+        if (!saved) throw new Error("This device cannot securely remember the encryption password.");
+        savedEncryptionPassword.current = normalizedPassword;
+      } else {
+        await forgetEncryptionPassword(pocketBaseConfig.url, userId);
+        savedEncryptionPassword.current = null;
+      }
+      const cloud = await loadCloudAppData(pocketBase, session.token, userId, normalizedPassword);
+      const synced = await syncAppData(
+        pocketBase,
+        session.token,
+        userId,
+        subscriptions,
+        settings,
+        "merge",
+        cloud,
+        { enabled: true, password: normalizedPassword },
+      );
+      setEncryptionPassword(normalizedPassword);
+      setCloudEncryptionState("unlocked");
+      setSubscriptions(synced.subscriptions);
+      setSettings(synced.settings);
+      await Promise.all([
+        saveSubscriptions(synced.subscriptions),
+        saveSettings(synced.settings),
+      ]);
+      completeEncryptionOperation(operationId, "Cloud encryption enabled");
+    } catch (error) {
+      hideEncryptionOperation(operationId);
+      throw error;
     }
-    const cloud = await loadCloudAppData(pocketBase, session.token, userId, normalizedPassword);
-    const synced = await syncAppData(
-      pocketBase,
-      session.token,
-      userId,
-      subscriptions,
-      settings,
-      "merge",
-      cloud,
-      { enabled: true, password: normalizedPassword },
-    );
-    setEncryptionPassword(normalizedPassword);
-    setCloudEncryptionState("unlocked");
-    setSubscriptions(synced.subscriptions);
-    setSettings(synced.settings);
-    await Promise.all([
-      saveSubscriptions(synced.subscriptions),
-      saveSettings(synced.settings),
-    ]);
   }
 
   async function unlockCloudEncryption(password: string, rememberPassword: boolean) {
     const userId = session?.user.id;
     if (!session || !userId) throw new Error("Log in to unlock encrypted data.");
     const normalizedPassword = password.trim();
-    const cloud = await loadCloudAppData(pocketBase, session.token, userId, normalizedPassword);
-    if (!cloud.encrypted || cloud.locked) throw new Error("Could not unlock encrypted cloud data.");
-    if (rememberPassword) {
-      const saved = await saveEncryptionPassword(pocketBaseConfig.url, userId, normalizedPassword);
-      if (!saved) throw new Error("This device cannot securely remember the encryption password.");
-      savedEncryptionPassword.current = normalizedPassword;
-    } else {
-      await forgetEncryptionPassword(pocketBaseConfig.url, userId);
-      savedEncryptionPassword.current = null;
-    }
-    setEncryptionPassword(normalizedPassword);
-    setCloudEncryptionState("unlocked");
-    setLoginEncryptionPromptVisible(false);
-    setBackgroundUnlocking(false);
+    const operationId = showEncryptionOperation("Decrypting cloud data");
+    await allowStatusToPaint();
 
-    const canAskForChoice = loginPromptUserId.current === userId;
-    const needsChoice = canAskForChoice
-      && subscriptions.length > 0
-      && cloud.subscriptions.length > 0
-      && !subscriptionListsMatch(subscriptions, cloud.subscriptions);
-    if (needsChoice) {
-      pendingSyncCloud.current = cloud;
-      pendingSyncPassword.current = normalizedPassword;
-      setPendingSyncPrompt({ userId, cloudSubscriptions: cloud.subscriptions });
-      return;
-    }
+    try {
+      const cloud = await loadCloudAppData(pocketBase, session.token, userId, normalizedPassword);
+      if (!cloud.encrypted || cloud.locked) throw new Error("Could not unlock encrypted cloud data.");
+      if (rememberPassword) {
+        const saved = await saveEncryptionPassword(pocketBaseConfig.url, userId, normalizedPassword);
+        if (!saved) throw new Error("This device cannot securely remember the encryption password.");
+        savedEncryptionPassword.current = normalizedPassword;
+      } else {
+        await forgetEncryptionPassword(pocketBaseConfig.url, userId);
+        savedEncryptionPassword.current = null;
+      }
+      setEncryptionPassword(normalizedPassword);
+      setCloudEncryptionState("unlocked");
+      setLoginEncryptionPromptVisible(false);
+      setBackgroundUnlocking(false);
 
-    await syncUserData(userId, canAskForChoice ? "merge" : "cloud", cloud, normalizedPassword);
+      const canAskForChoice = loginPromptUserId.current === userId;
+      const needsChoice = canAskForChoice
+        && subscriptions.length > 0
+        && cloud.subscriptions.length > 0
+        && !subscriptionListsMatch(subscriptions, cloud.subscriptions);
+      if (needsChoice) {
+        pendingSyncCloud.current = cloud;
+        pendingSyncPassword.current = normalizedPassword;
+        setPendingSyncPrompt({ userId, cloudSubscriptions: cloud.subscriptions });
+        completeEncryptionOperation(operationId, "Encrypted data unlocked");
+        return;
+      }
+
+      await syncUserData(userId, canAskForChoice ? "merge" : "cloud", cloud, normalizedPassword);
+      completeEncryptionOperation(operationId, "Encrypted data unlocked");
+    } catch (error) {
+      hideEncryptionOperation(operationId);
+      throw error;
+    }
   }
 
   async function forgetCloudEncryptionPassword() {
@@ -1005,18 +1063,27 @@ export default function App() {
     const normalizedCurrent = currentPassword.trim();
     const normalizedNext = nextPassword.trim();
     if (normalizedNext.length < 8) throw new Error("Use an encryption password with at least 8 characters.");
-    await loadCloudAppData(pocketBase, session.token, userId, normalizedCurrent);
-    if (rememberPassword) {
-      const saved = await saveEncryptionPassword(pocketBaseConfig.url, userId, normalizedNext);
-      if (!saved) throw new Error("This device cannot securely remember the encryption password.");
-      savedEncryptionPassword.current = normalizedNext;
-    } else {
-      await forgetEncryptionPassword(pocketBaseConfig.url, userId);
-      savedEncryptionPassword.current = null;
+    const operationId = showEncryptionOperation("Re-encrypting cloud data");
+    await allowStatusToPaint();
+
+    try {
+      await loadCloudAppData(pocketBase, session.token, userId, normalizedCurrent);
+      if (rememberPassword) {
+        const saved = await saveEncryptionPassword(pocketBaseConfig.url, userId, normalizedNext);
+        if (!saved) throw new Error("This device cannot securely remember the encryption password.");
+        savedEncryptionPassword.current = normalizedNext;
+      } else {
+        await forgetEncryptionPassword(pocketBaseConfig.url, userId);
+        savedEncryptionPassword.current = null;
+      }
+      await upsertEncryptedCloudData(pocketBase, session.token, userId, normalizedNext, subscriptions, settings);
+      setEncryptionPassword(normalizedNext);
+      setCloudEncryptionState("unlocked");
+      completeEncryptionOperation(operationId, "Encryption password changed");
+    } catch (error) {
+      hideEncryptionOperation(operationId);
+      throw error;
     }
-    await upsertEncryptedCloudData(pocketBase, session.token, userId, normalizedNext, subscriptions, settings);
-    setEncryptionPassword(normalizedNext);
-    setCloudEncryptionState("unlocked");
   }
 
   async function disableCloudEncryption() {
@@ -1025,17 +1092,25 @@ export default function App() {
     if (cloudEncryptionState !== "unlocked" || !encryptionPassword) {
       throw new Error("Unlock encrypted data before disabling encryption.");
     }
+    const operationId = showEncryptionOperation("Disabling cloud encryption");
+    await allowStatusToPaint();
 
-    await deletePlaintextCloudData(pocketBase, session.token, userId);
-    await Promise.all([
-      upsertSubscriptions(pocketBase, session.token, userId, subscriptions),
-      upsertSettings(pocketBase, session.token, userId, settings),
-    ]);
-    await deleteEncryptedCloudData(pocketBase, session.token, userId);
-    await forgetEncryptionPassword(pocketBaseConfig.url, userId);
-    savedEncryptionPassword.current = null;
-    setEncryptionPassword(null);
-    setCloudEncryptionState("off");
+    try {
+      await deletePlaintextCloudData(pocketBase, session.token, userId);
+      await Promise.all([
+        upsertSubscriptions(pocketBase, session.token, userId, subscriptions),
+        upsertSettings(pocketBase, session.token, userId, settings),
+      ]);
+      await deleteEncryptedCloudData(pocketBase, session.token, userId);
+      await forgetEncryptionPassword(pocketBaseConfig.url, userId);
+      savedEncryptionPassword.current = null;
+      setEncryptionPassword(null);
+      setCloudEncryptionState("off");
+      completeEncryptionOperation(operationId, "Cloud encryption disabled");
+    } catch (error) {
+      hideEncryptionOperation(operationId);
+      throw error;
+    }
   }
 
   async function refreshDashboard() {
@@ -1261,6 +1336,7 @@ export default function App() {
               setLoginEncryptionPromptVisible(false);
             }}
           />
+          <EncryptionOperationOverlay c={c} status={encryptionOperationStatus} />
         </SafeAreaView>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -1269,6 +1345,34 @@ export default function App() {
 
 function savedEncryptionFailed(error: unknown) {
   return error instanceof Error && /decrypt|encrypted|password|corrupted/i.test(error.message);
+}
+
+function EncryptionOperationOverlay({
+  c,
+  status,
+}: {
+  c: Colors;
+  status: EncryptionOperationStatus;
+}) {
+  return (
+    <Modal visible={status.visible} transparent animationType="fade">
+      <View style={styles.encryptionModalOverlay}>
+        <View style={[styles.encryptionStatusPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
+          {status.tone === "success" ? (
+            <View style={[styles.encryptionIcon, { backgroundColor: "#DCFCE7" }]}>
+              <Ionicons name="checkmark" size={22} color="#16A34A" />
+            </View>
+          ) : (
+            <ActivityIndicator size="large" color={c.primary} />
+          )}
+          <Text style={[styles.encryptionStatusTitle, { color: c.text }]}>{status.message}</Text>
+          <Text style={[styles.encryptionStatusText, { color: c.textMuted }]}>
+            {status.tone === "success" ? "Done" : "Keep Paynest open while this finishes."}
+          </Text>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 function DeleteLocalDataPrompt({
