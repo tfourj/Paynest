@@ -14,13 +14,23 @@
     },
     "androidNavigationBar": {
       "barStyle": "dark-content",
-      "backgroundColor": "#F7F8FA"
+      "backgroundColor": "#F7F8FA",
+      "enforceContrast": false
     },
     "plugins": [
       [
         "expo-build-properties",
         {
           "buildReactNativeFromSource": false
+        }
+      ],
+      [
+        "react-native-edge-to-edge",
+        {
+          "android": {
+            "parentTheme": "Light",
+            "enforceNavigationBarContrast": false
+          }
         }
       ]
     ],
@@ -30,6 +40,7 @@
       "bundleIdentifier": "com.tfourj.paynest"
     },
     "android": {
+      "edgeToEdgeEnabled": true,
       "backgroundColor": "#F7F8FA",
       "icon": "./assets/paynest.png",
       "adaptiveIcon": {
