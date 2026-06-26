@@ -186,6 +186,17 @@ export const styles = StyleSheet.create({
   pieSelectionTitle: { fontSize: 15, fontWeight: "800" },
   pieSelectionPrice: { fontSize: 14, fontWeight: "800", textAlign: "right", flexShrink: 0 },
   pieLegendMeta: { fontSize: 12, marginTop: 2 },
+  pieShowMoreButton: {
+    minHeight: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  pieShowMoreText: { fontSize: 14, fontWeight: "800" },
   calendarCard: { padding: 12, gap: 10 },
   calendarHeader: {
     flexDirection: "row",

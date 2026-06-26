@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
+import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Path } from "react-native-svg";
 
@@ -294,6 +302,8 @@ type BreakdownItem = {
   item: Subscription;
 };
 
+const PIE_BREAKDOWN_BATCH_SIZE = 3;
+
 function SubscriptionBreakdownPie({
   c,
   convertToPrimaryCurrency,
@@ -310,12 +320,37 @@ function SubscriptionBreakdownPie({
   total: number;
 }) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [visibleItemCount, setVisibleItemCount] = useState(PIE_BREAKDOWN_BATCH_SIZE);
   const chartItems = items
     .filter((item) => item.amount > 0)
     .sort((a, b) => b.amount - a.amount);
+  const visibleChartItems = chartItems.slice(0, visibleItemCount);
+  const hasMoreChartItems = visibleItemCount < chartItems.length;
   const selectedItem = chartItems.find((item) => item.item.id === selectedItemId) ?? null;
   const effectiveSelectedItemId = selectedItem?.item.id ?? null;
   const pieSlices = buildPieSlices(chartItems, total, effectiveSelectedItemId);
+
+  function showMoreChartItems() {
+    setVisibleItemCount((current) => (
+      Math.min(current + PIE_BREAKDOWN_BATCH_SIZE, chartItems.length)
+    ));
+  }
+
+  function handleBreakdownScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (!hasMoreChartItems) return;
+
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+
+    if (distanceFromBottom <= 24) {
+      showMoreChartItems();
+    }
+  }
+
+  useEffect(() => {
+    setVisibleItemCount(PIE_BREAKDOWN_BATCH_SIZE);
+    setSelectedItemId(null);
+  }, [items.length]);
 
   return (
     <Pressable onPress={() => setSelectedItemId(null)} style={styles.pieBreakdown}>
@@ -363,10 +398,12 @@ function SubscriptionBreakdownPie({
       <ScrollView
         contentContainerStyle={styles.pieSubscriptionListContent}
         nestedScrollEnabled
+        onScroll={handleBreakdownScroll}
+        scrollEventThrottle={120}
         showsVerticalScrollIndicator={false}
         style={styles.pieSubscriptionList}
       >
-        {chartItems.map((chartItem) => {
+        {visibleChartItems.map((chartItem) => {
           const isSelected = chartItem.item.id === effectiveSelectedItemId;
 
           return (
@@ -402,6 +439,22 @@ function SubscriptionBreakdownPie({
             </Pressable>
           );
         })}
+        {hasMoreChartItems ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={showMoreChartItems}
+            style={[
+              styles.pieShowMoreButton,
+              {
+                backgroundColor: c.surfaceMuted,
+                borderColor: c.border,
+              },
+            ]}
+          >
+            <Text style={[styles.pieShowMoreText, { color: c.text }]}>Show more</Text>
+            <Ionicons name="chevron-down" size={16} color={c.textMuted} />
+          </Pressable>
+        ) : null}
       </ScrollView>
     </Pressable>
   );
