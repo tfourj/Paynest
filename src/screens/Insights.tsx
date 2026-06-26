@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import { EmptyState, Metric, ScreenTitle } from "../components/common";
 import { styles } from "../styles";
@@ -41,10 +42,17 @@ export function Insights({
   const [viewedMonth, setViewedMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const useCompactMetricGrid = width < 560;
-  const max = Math.max(
-    1,
-    ...activeSubscriptions.map((item) => displayMonthlyCost(item, convertedMonthlyAmounts, convertToPrimaryCurrency)),
-  );
+  const breakdownItems = activeSubscriptions.map((item) => {
+    const amount = displayMonthlyCost(item, convertedMonthlyAmounts, convertToPrimaryCurrency);
+
+    return {
+      amount,
+      color: colorFor(item.category),
+      convertedMonthlyAmount: convertedMonthlyAmounts[item.id],
+      item,
+    };
+  });
+  const breakdownTotal = breakdownItems.reduce((total, item) => total + item.amount, 0);
   const calendarDays = buildRenewalCalendar(activeSubscriptions, viewedMonth);
   const calendarWeeks = chunkCalendarWeeks(calendarDays);
   const selectedDay = calendarDays.find((day) => day.dateKey === selectedDateKey);
@@ -114,18 +122,14 @@ export function Insights({
         <>
           <Text style={[styles.sectionTitle, { color: c.text }]}>Monthly breakdown</Text>
           <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
-            {activeSubscriptions.map((item) => (
-              <SubscriptionBreakdownBar
-                key={item.id}
-                c={c}
-                item={item}
-                convertedMonthlyAmount={convertedMonthlyAmounts[item.id]}
-                convertToPrimaryCurrency={convertToPrimaryCurrency}
-                displayCurrency={displayCurrency}
-                max={max}
-                showOriginalCurrency={showOriginalCurrency}
-              />
-            ))}
+            <SubscriptionBreakdownPie
+              c={c}
+              convertToPrimaryCurrency={convertToPrimaryCurrency}
+              displayCurrency={displayCurrency}
+              items={breakdownItems}
+              showOriginalCurrency={showOriginalCurrency}
+              total={breakdownTotal}
+            />
           </View>
 
           <Text style={[styles.sectionTitle, { color: c.text }]}>Renewal calendar</Text>
@@ -276,52 +280,188 @@ export function Insights({
   );
 }
 
-function SubscriptionBreakdownBar({
+type BreakdownItem = {
+  amount: number;
+  color: string;
+  convertedMonthlyAmount: number | null | undefined;
+  item: Subscription;
+};
+
+function SubscriptionBreakdownPie({
   c,
-  item,
-  convertedMonthlyAmount,
   convertToPrimaryCurrency,
   displayCurrency,
-  max,
+  items,
   showOriginalCurrency,
+  total,
 }: {
   c: Colors;
-  item: Subscription;
-  convertedMonthlyAmount: number | null | undefined;
   convertToPrimaryCurrency: boolean;
   displayCurrency: string;
-  max: number;
+  items: BreakdownItem[];
   showOriginalCurrency: boolean;
+  total: number;
 }) {
-  const amount = displayMonthlyCost(item, { [item.id]: convertedMonthlyAmount ?? null }, convertToPrimaryCurrency);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const chartItems = items
+    .filter((item) => item.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const selectedItem = chartItems.find((item) => item.item.id === selectedItemId) ?? null;
+  const effectiveSelectedItemId = selectedItem?.item.id ?? null;
 
   return (
-    <View style={styles.barRow}>
-      <View style={styles.barTitle}>
-        <Text style={[styles.barName, { color: c.text }]}>{item.name}</Text>
-        <Text style={[styles.barPrice, { color: c.textMuted }]}>
-          {formatSubscriptionMonthlyCost(
-            item,
-            convertedMonthlyAmount,
-            displayCurrency,
-            convertToPrimaryCurrency,
-            showOriginalCurrency,
+    <View style={styles.pieBreakdown}>
+      <View style={styles.pieChartWrap}>
+        <Svg width={224} height={224} viewBox="0 0 224 224">
+          <Circle cx={112} cy={112} fill="none" r={78} stroke={c.surfaceMuted} strokeWidth={34} />
+          {chartItems.length === 0 ? null : chartItems.length === 1 ? (
+            <Circle
+              cx={112}
+              cy={112}
+              fill="none"
+              r={78}
+              stroke={chartItems[0].color}
+              strokeLinecap="round"
+              strokeWidth={effectiveSelectedItemId === chartItems[0].item.id ? 42 : 34}
+            />
+          ) : (
+            buildPieSlices(chartItems, total, effectiveSelectedItemId).map((slice) => (
+              <Path
+                d={slice.path}
+                fill={slice.color}
+                key={slice.key}
+                opacity={effectiveSelectedItemId && effectiveSelectedItemId !== slice.key ? 0.3 : 1}
+                stroke={c.surface}
+                strokeLinejoin="round"
+                strokeWidth={4}
+              />
+            ))
           )}
-        </Text>
-      </View>
-      <View style={[styles.barTrack, { backgroundColor: c.surfaceMuted }]}>
+        </Svg>
         <View
+          pointerEvents="none"
           style={[
-            styles.barFill,
+            styles.pieCenter,
             {
-              backgroundColor: colorFor(item.category),
-              width: `${Math.max((amount / max) * 100, 8)}%`,
+              backgroundColor: c.surface,
+              borderColor: c.border,
             },
           ]}
-        />
+        >
+          <Text style={[styles.pieCenterLabel, { color: c.textMuted }]}>
+            {selectedItem ? `${itemPercentage(selectedItem, total)}%` : "Monthly"}
+          </Text>
+          <Text style={[styles.pieCenterValue, { color: c.text }]} numberOfLines={1}>
+            {selectedItem ? selectedItem.item.name : "Breakdown"}
+          </Text>
+        </View>
       </View>
+      <ScrollView
+        contentContainerStyle={styles.pieSubscriptionListContent}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator={false}
+        style={styles.pieSubscriptionList}
+      >
+        {chartItems.map((chartItem) => {
+          const isSelected = chartItem.item.id === effectiveSelectedItemId;
+
+          return (
+            <Pressable
+              key={chartItem.item.id}
+              onPress={() => setSelectedItemId(chartItem.item.id)}
+              style={[
+                styles.pieSubscriptionRow,
+                {
+                  backgroundColor: isSelected ? c.primarySoft : c.surfaceMuted,
+                  borderColor: isSelected ? c.primary : c.border,
+                },
+              ]}
+            >
+              <View style={[styles.pieSelectionAccent, { backgroundColor: chartItem.color }]} />
+              <View style={styles.rowText}>
+                <Text style={[styles.pieSelectionTitle, { color: c.text }]} numberOfLines={1}>
+                  {chartItem.item.name}
+                </Text>
+                <Text style={[styles.pieLegendMeta, { color: c.textMuted }]}>
+                  {chartItem.item.category} · {itemPercentage(chartItem, total)}%
+                </Text>
+              </View>
+              <Text style={[styles.pieSelectionPrice, { color: c.text }]}>
+                {formatSubscriptionMonthlyCost(
+                  chartItem.item,
+                  chartItem.convertedMonthlyAmount,
+                  displayCurrency,
+                  convertToPrimaryCurrency,
+                  showOriginalCurrency,
+                )}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
+}
+
+function buildPieSlices(items: BreakdownItem[], total: number, selectedItemId: string | null) {
+  const center = 112;
+  let currentAngle = -Math.PI / 2;
+
+  return items.map((breakdownItem) => {
+    const { amount, color, item } = breakdownItem;
+    const sliceAngle = (amount / total) * Math.PI * 2;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + sliceAngle;
+    const isSelected = item.id === selectedItemId;
+    currentAngle = endAngle;
+
+    return {
+      color,
+      key: item.id,
+      path: donutSlicePath(
+        center,
+        center,
+        isSelected ? 100 : 92,
+        isSelected ? 48 : 56,
+        startAngle,
+        endAngle,
+      ),
+    };
+  });
+}
+
+function donutSlicePath(
+  cx: number,
+  cy: number,
+  outerRadius: number,
+  innerRadius: number,
+  startAngle: number,
+  endAngle: number,
+) {
+  const outerStart = polarToCartesian(cx, cy, outerRadius, startAngle);
+  const outerEnd = polarToCartesian(cx, cy, outerRadius, endAngle);
+  const innerStart = polarToCartesian(cx, cy, innerRadius, startAngle);
+  const innerEnd = polarToCartesian(cx, cy, innerRadius, endAngle);
+  const largeArcFlag = endAngle - startAngle > Math.PI ? 1 : 0;
+
+  return [
+    `M ${outerStart.x} ${outerStart.y}`,
+    `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${outerEnd.x} ${outerEnd.y}`,
+    `L ${innerEnd.x} ${innerEnd.y}`,
+    `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${innerStart.x} ${innerStart.y}`,
+    "Z",
+  ].join(" ");
+}
+
+function itemPercentage(item: BreakdownItem, total: number) {
+  return total > 0 ? Math.round((item.amount / total) * 100) : 0;
+}
+
+function polarToCartesian(cx: number, cy: number, radius: number, angle: number) {
+  return {
+    x: cx + radius * Math.cos(angle),
+    y: cy + radius * Math.sin(angle),
+  };
 }
 
 function displayMonthlyCost(
