@@ -9,7 +9,6 @@ import * as SystemUI from "expo-system-ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Platform,
   Pressable,
@@ -372,6 +371,7 @@ export default function App() {
   const [localMode, setLocalMode] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(isPrivacyPolicyPath);
+  const [deleteLocalDataPromptVisible, setDeleteLocalDataPromptVisible] = useState(false);
   const [cloudEncryptionState, setCloudEncryptionState] = useState<CloudEncryptionState>("off");
   const [encryptionPassword, setEncryptionPassword] = useState<string | null>(null);
   const [loginEncryptionPromptVisible, setLoginEncryptionPromptVisible] = useState(false);
@@ -1010,14 +1010,14 @@ export default function App() {
   }
 
   function resetData() {
-    Alert.alert("Delete all local data?", "This removes all subscriptions and resets preferences on this device.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete data", style: "destructive", onPress: () => {
-        setSubscriptions([]);
-        setSettings(defaultSettings);
-        void clearAppData();
-      } },
-    ]);
+    setDeleteLocalDataPromptVisible(true);
+  }
+
+  function deleteLocalData() {
+    setDeleteLocalDataPromptVisible(false);
+    setSubscriptions([]);
+    setSettings(defaultSettings);
+    void clearAppData();
   }
 
   function openPrivacyPolicy() {
@@ -1191,6 +1191,12 @@ export default function App() {
               );
             }}
           />
+          <DeleteLocalDataPrompt
+            c={c}
+            visible={deleteLocalDataPromptVisible}
+            onCancel={() => setDeleteLocalDataPromptVisible(false)}
+            onDelete={deleteLocalData}
+          />
           <LoginEncryptionPrompt
             c={c}
             visible={Boolean(session) && cloudEncryptionState === "locked" && loginEncryptionPromptVisible}
@@ -1208,6 +1214,58 @@ export default function App() {
 
 function savedEncryptionFailed(error: unknown) {
   return error instanceof Error && /decrypt|encrypted|password|corrupted/i.test(error.message);
+}
+
+function DeleteLocalDataPrompt({
+  c,
+  visible,
+  onCancel,
+  onDelete,
+}: {
+  c: Colors;
+  visible: boolean;
+  onCancel: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.syncPromptOverlay}>
+        <View style={[styles.syncPromptPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={styles.syncPromptHeaderRow}>
+            <View style={[styles.syncPromptIconButton, { backgroundColor: "#FEE2E2" }]}>
+              <Ionicons name="trash-outline" size={20} color="#DC2626" />
+            </View>
+            <Text style={[styles.syncPromptTitle, styles.syncPromptHeaderTitle, { color: c.text }]}>
+              Delete local data?
+            </Text>
+          </View>
+          <Text style={[styles.syncPromptBody, { color: c.textMuted }]}>
+            This removes subscriptions and resets preferences stored on this device.
+          </Text>
+          <View style={styles.syncPromptActions}>
+            <Pressable
+              onPress={onCancel}
+              style={[styles.syncPromptButton, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}
+            >
+              <Text style={[styles.syncPromptButtonText, { color: c.text }]}>Cancel</Text>
+              <Text style={[styles.syncPromptButtonMeta, { color: c.textMuted }]}>
+                Keep local subscriptions and settings
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={onDelete}
+              style={[styles.syncPromptButton, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}
+            >
+              <Text style={[styles.syncPromptDangerText, { color: "#DC2626" }]}>Delete local data</Text>
+              <Text style={[styles.syncPromptButtonMeta, { color: "#991B1B" }]}>
+                Remove the local copy on this device
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 function LoginEncryptionPrompt({
