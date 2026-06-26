@@ -510,11 +510,11 @@ export default function App() {
     [activeSubscriptions, currencyRates, settings.currency],
   );
   const convertedRenewalPrices = useMemo(
-    () => activeSubscriptions.reduce<Record<string, number | null>>((amounts, item) => {
+    () => subscriptions.reduce<Record<string, number | null>>((amounts, item) => {
       amounts[item.id] = convertSubscriptionAmount(item.price, item.currency, settings.currency, currencyRates);
       return amounts;
     }, {}),
-    [activeSubscriptions, currencyRates, settings.currency],
+    [currencyRates, settings.currency, subscriptions],
   );
   const monthlyTotals = useMemo(
     () => currencyDisplayTotals(
@@ -884,6 +884,9 @@ export default function App() {
                   refreshing={refreshingDashboard}
                   colorPresets={settings.colorPresets}
                   enabledCurrencies={settings.enabledCurrencies}
+                  convertedPrices={convertedRenewalPrices}
+                  displayCurrency={settings.currency}
+                  showOriginalCurrency={settings.showOriginalCurrency && settings.convertToPrimaryCurrency}
                   onAdd={() => setShowAdd(true)}
                   onRefresh={() => void refreshDashboard()}
                   onUpdate={updateSubscription}

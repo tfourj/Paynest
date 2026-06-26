@@ -53,10 +53,21 @@ type SubscriptionRowProps = {
   c: Colors;
   item: Subscription;
   last: boolean;
+  convertedPrice?: number | null;
+  displayCurrency?: string;
+  showOriginalCurrency?: boolean;
   onPress?: () => void;
 };
 
-export function SubscriptionRow({ c, item, last, onPress }: SubscriptionRowProps) {
+export function SubscriptionRow({
+  c,
+  item,
+  last,
+  convertedPrice,
+  displayCurrency,
+  showOriginalCurrency,
+  onPress,
+}: SubscriptionRowProps) {
   const rowBackground = item.backgroundColor ?? item.iconColor ?? colorFor(item.category);
   const rowTextColor = readableTextColor(rowBackground);
   const rowMutedColor = mutedTextColor(rowTextColor);
@@ -82,7 +93,9 @@ export function SubscriptionRow({ c, item, last, onPress }: SubscriptionRowProps
         <Text style={[styles.rowMeta, { color: rowMutedColor }]}>{rowMeta}</Text>
       </View>
       <View style={styles.priceStack}>
-        <Text style={[styles.rowPrice, { color: rowTextColor }]}>{formatMoney(item.price, item.currency)}</Text>
+        <Text style={[styles.rowPrice, { color: rowTextColor }]}>
+          {formatDisplayPrice(item, convertedPrice, displayCurrency, showOriginalCurrency)}
+        </Text>
         <Text
           style={[
             styles.renewalStatus,

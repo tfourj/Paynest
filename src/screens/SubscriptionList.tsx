@@ -16,6 +16,9 @@ type SubscriptionListProps = {
   refreshing: boolean;
   colorPresets: string[];
   enabledCurrencies: string[];
+  convertedPrices: Record<string, number | null>;
+  displayCurrency: string;
+  showOriginalCurrency: boolean;
   onAdd: () => void;
   onRefresh: () => void;
   onUpdate: (item: Subscription, input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) => void;
@@ -40,6 +43,9 @@ export function SubscriptionList({
   refreshing,
   colorPresets,
   enabledCurrencies,
+  convertedPrices,
+  displayCurrency,
+  showOriginalCurrency,
   onAdd,
   onRefresh,
   onUpdate,
@@ -108,6 +114,9 @@ export function SubscriptionList({
                 c={c}
                 item={item}
                 last={index === visible.length - 1}
+                convertedPrice={convertedPrices[item.id]}
+                displayCurrency={displayCurrency}
+                showOriginalCurrency={showOriginalCurrency}
                 onPress={() => setEditing(item)}
               />
             ))}
