@@ -303,11 +303,13 @@ function CurrencySettings({
   }
 
   function setDisplayCurrency(code: string) {
-    const enabledCurrencies = settings.enabledCurrencies.includes(code)
-      ? settings.enabledCurrencies
-      : [...settings.enabledCurrencies, code];
-    onUpdate({ ...settings, currency: code, enabledCurrencies });
+    if (!settings.enabledCurrencies.includes(code)) return;
+    onUpdate({ ...settings, currency: code });
   }
+
+  const enabledCurrencyOptions = currencies.filter((currency) => (
+    settings.enabledCurrencies.includes(currency.code)
+  ));
 
   return (
     <CollapsibleSettingsSection c={c} title="Currencies" icon="cash-outline" defaultOpen>
@@ -340,9 +342,9 @@ function CurrencySettings({
         />
       </View>
       <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
-        <Text style={[styles.rowName, { color: c.text }]}>Display currency</Text>
+        <Text style={[styles.rowName, { color: c.text }]}>Default display currency</Text>
         <View style={styles.currencyGrid}>
-          {currencies.map((currency) => (
+          {enabledCurrencyOptions.map((currency) => (
             <Pressable
               key={currency.code}
               onPress={() => setDisplayCurrency(currency.code)}
