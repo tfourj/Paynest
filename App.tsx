@@ -320,6 +320,11 @@ type WebRuntime = {
   location?: { pathname?: string };
 };
 
+type EncryptionOperationStatus = {
+  visible: boolean;
+  message: string;
+};
+
 function webRuntime() {
   return Platform.OS === "web" ? globalThis as WebRuntime : undefined;
 }
@@ -380,6 +385,10 @@ export default function App() {
   const [deleteLocalDataPromptVisible, setDeleteLocalDataPromptVisible] = useState(false);
   const [cloudEncryptionState, setCloudEncryptionState] = useState<CloudEncryptionState>("off");
   const [encryptionPassword, setEncryptionPassword] = useState<string | null>(null);
+  const [encryptionOperationStatus, setEncryptionOperationStatus] = useState<EncryptionOperationStatus>({
+    visible: false,
+    message: "",
+  });
   const [pendingSyncPrompt, setPendingSyncPrompt] = useState<{
     userId: string;
     cloudSubscriptions: Subscription[];
@@ -392,6 +401,7 @@ export default function App() {
   const pendingSyncPassword = useRef<string | null>(null);
   const savedEncryptionPassword = useRef<string | null>(null);
   const cloudEncryptionSession = useRef<CloudEncryptionSession | null>(null);
+  const encryptionOperationId = useRef(0);
   const pocketBaseConfig = useMemo(
     () => resolvePocketBaseConfig(pocketBaseConnection),
     [pocketBaseConnection],
@@ -1025,65 +1035,96 @@ export default function App() {
     await syncUserData(userId, "cloud");
   }
 
+  function showEncryptionOperation(message: string) {
+    encryptionOperationId.current += 1;
+    const operationId = encryptionOperationId.current;
+    setEncryptionOperationStatus({ visible: true, message });
+    return operationId;
+  }
+
+  function hideEncryptionOperation(operationId?: number) {
+    if (operationId && encryptionOperationId.current !== operationId) return;
+    setEncryptionOperationStatus({ visible: false, message: "" });
+  }
+
+  // Wraps the slow, password-based operations (key derivation runs PBKDF2 and
+  // briefly blocks the JS thread) so a native spinner stays visible. The fast
+  // cached-key launch path does not use this and stays silent.
+  async function withEncryptionOverlay<T>(message: string, run: () => Promise<T>) {
+    const operationId = showEncryptionOperation(message);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    try {
+      return await run();
+    } finally {
+      hideEncryptionOperation(operationId);
+    }
+  }
+
   async function enableCloudEncryption(password: string, rememberPassword: boolean) {
     const userId = session?.user.id;
     if (!session || !userId) throw new Error("Log in to enable encryption.");
+    const token = session.token;
     const normalizedPassword = password.trim();
     if (normalizedPassword.length < 8) throw new Error("Use an encryption password with at least 8 characters.");
 
-    await rememberEncryptionPassword(userId, normalizedPassword, rememberPassword);
-    const cloud = await loadCloudAppData(pocketBase, session.token, userId, normalizedPassword);
-    const synced = await syncAppData(
-      pocketBase,
-      session.token,
-      userId,
-      subscriptions,
-      settings,
-      "merge",
-      cloud,
-      { enabled: true, password: normalizedPassword },
-    );
-    const encryptedSession = synced.encryptionSession ?? cloud.encryptionSession;
-    setEncryptionPassword(normalizedPassword);
-    cloudEncryptionSession.current = encryptedSession;
-    setCloudEncryptionState("unlocked");
-    setSubscriptions(synced.subscriptions);
-    setSettings(synced.settings);
-    await Promise.all([
-      saveSubscriptions(synced.subscriptions),
-      saveSettings(synced.settings),
-    ]);
-    await rememberMasterKey(userId, encryptedSession, rememberPassword);
+    await withEncryptionOverlay("Encrypting cloud data", async () => {
+      await rememberEncryptionPassword(userId, normalizedPassword, rememberPassword);
+      const cloud = await loadCloudAppData(pocketBase, token, userId, normalizedPassword);
+      const synced = await syncAppData(
+        pocketBase,
+        token,
+        userId,
+        subscriptions,
+        settings,
+        "merge",
+        cloud,
+        { enabled: true, password: normalizedPassword },
+      );
+      const encryptedSession = synced.encryptionSession ?? cloud.encryptionSession;
+      setEncryptionPassword(normalizedPassword);
+      cloudEncryptionSession.current = encryptedSession;
+      setCloudEncryptionState("unlocked");
+      setSubscriptions(synced.subscriptions);
+      setSettings(synced.settings);
+      await Promise.all([
+        saveSubscriptions(synced.subscriptions),
+        saveSettings(synced.settings),
+      ]);
+      await rememberMasterKey(userId, encryptedSession, rememberPassword);
+    });
   }
 
   async function unlockCloudEncryption(password: string, rememberPassword: boolean) {
     const userId = session?.user.id;
     if (!session || !userId) throw new Error("Log in to unlock encrypted data.");
+    const token = session.token;
     const normalizedPassword = password.trim();
 
-    const cloud = await loadCloudAppData(pocketBase, session.token, userId, {
-      password: normalizedPassword,
+    await withEncryptionOverlay("Decrypting cloud data", async () => {
+      const cloud = await loadCloudAppData(pocketBase, token, userId, {
+        password: normalizedPassword,
+      });
+      if (!cloud.encrypted || cloud.locked) throw new Error("Could not unlock encrypted cloud data.");
+      await rememberEncryptionPassword(userId, normalizedPassword, rememberPassword);
+      setEncryptionPassword(normalizedPassword);
+      cloudEncryptionSession.current = cloud.encryptionSession;
+      setCloudEncryptionState("unlocked");
+      await rememberMasterKey(userId, cloud.encryptionSession, rememberPassword);
+
+      const canAskForChoice = loginPromptUserId.current === userId;
+      const needsChoice = canAskForChoice
+        && subscriptions.length > 0
+        && cloud.subscriptions.length > 0
+        && !subscriptionListsMatch(subscriptions, cloud.subscriptions);
+      if (needsChoice) {
+        pendingSyncCloud.current = cloud;
+        pendingSyncPassword.current = normalizedPassword;
+        setPendingSyncPrompt({ userId, cloudSubscriptions: cloud.subscriptions });
+        return;
+      }
+
+      await syncUserData(userId, canAskForChoice ? "merge" : "cloud", cloud, normalizedPassword);
     });
-    if (!cloud.encrypted || cloud.locked) throw new Error("Could not unlock encrypted cloud data.");
-    await rememberEncryptionPassword(userId, normalizedPassword, rememberPassword);
-    setEncryptionPassword(normalizedPassword);
-    cloudEncryptionSession.current = cloud.encryptionSession;
-    setCloudEncryptionState("unlocked");
-    await rememberMasterKey(userId, cloud.encryptionSession, rememberPassword);
-
-    const canAskForChoice = loginPromptUserId.current === userId;
-    const needsChoice = canAskForChoice
-      && subscriptions.length > 0
-      && cloud.subscriptions.length > 0
-      && !subscriptionListsMatch(subscriptions, cloud.subscriptions);
-    if (needsChoice) {
-      pendingSyncCloud.current = cloud;
-      pendingSyncPassword.current = normalizedPassword;
-      setPendingSyncPrompt({ userId, cloudSubscriptions: cloud.subscriptions });
-      return;
-    }
-
-    await syncUserData(userId, canAskForChoice ? "merge" : "cloud", cloud, normalizedPassword);
   }
 
   async function forgetCloudEncryptionPassword() {
@@ -1103,21 +1144,24 @@ export default function App() {
   ) {
     const userId = session?.user.id;
     if (!session || !userId) throw new Error("Log in to change the encryption password.");
+    const token = session.token;
     const normalizedCurrent = currentPassword.trim();
     const normalizedNext = nextPassword.trim();
     if (normalizedNext.length < 8) throw new Error("Use an encryption password with at least 8 characters.");
 
-    const cloud = await loadCloudAppData(pocketBase, session.token, userId, {
-      password: normalizedCurrent,
+    await withEncryptionOverlay("Updating encryption password", async () => {
+      const cloud = await loadCloudAppData(pocketBase, token, userId, {
+        password: normalizedCurrent,
+      });
+      const encryptedSession = cloudEncryptionSession.current ?? cloud.encryptionSession;
+      if (!encryptedSession) throw new Error("Unlock encrypted data before changing the encryption password.");
+      await rememberEncryptionPassword(userId, normalizedNext, rememberPassword);
+      await upsertUserKey(pocketBase, token, userId, normalizedNext, encryptedSession.masterKey);
+      cloudEncryptionSession.current = encryptedSession;
+      setEncryptionPassword(normalizedNext);
+      setCloudEncryptionState("unlocked");
+      await rememberMasterKey(userId, encryptedSession, rememberPassword);
     });
-    const encryptedSession = cloudEncryptionSession.current ?? cloud.encryptionSession;
-    if (!encryptedSession) throw new Error("Unlock encrypted data before changing the encryption password.");
-    await rememberEncryptionPassword(userId, normalizedNext, rememberPassword);
-    await upsertUserKey(pocketBase, session.token, userId, normalizedNext, encryptedSession.masterKey);
-    cloudEncryptionSession.current = encryptedSession;
-    setEncryptionPassword(normalizedNext);
-    setCloudEncryptionState("unlocked");
-    await rememberMasterKey(userId, encryptedSession, rememberPassword);
   }
 
   async function disableCloudEncryption() {
@@ -1354,6 +1398,7 @@ export default function App() {
             onCancel={() => setDeleteLocalDataPromptVisible(false)}
             onDelete={deleteLocalData}
           />
+          <EncryptionOperationOverlay c={c} status={encryptionOperationStatus} />
         </SafeAreaView>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -1362,6 +1407,28 @@ export default function App() {
 
 function savedEncryptionFailed(error: unknown) {
   return error instanceof Error && /decrypt|encrypted|password|corrupted/i.test(error.message);
+}
+
+function EncryptionOperationOverlay({
+  c,
+  status,
+}: {
+  c: Colors;
+  status: EncryptionOperationStatus;
+}) {
+  return (
+    <Modal visible={status.visible} transparent animationType="fade">
+      <View style={styles.encryptionModalOverlay}>
+        <View style={[styles.encryptionStatusPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <ActivityIndicator size="large" color={c.primary} />
+          <Text style={[styles.encryptionStatusTitle, { color: c.text }]}>{status.message}</Text>
+          <Text style={[styles.encryptionStatusText, { color: c.textMuted }]}>
+            Keep Paynest open while this finishes.
+          </Text>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 function DeleteLocalDataPrompt({
