@@ -81,10 +81,15 @@ function normalizeSettings(settings: Partial<Settings>): Settings {
     currency,
     enabledCurrencies,
     theme: merged.theme === "system" ? "light" : merged.theme,
+    reminderTime: normalizeReminderTime(merged.reminderTime),
     convertToPrimaryCurrency: merged.convertToPrimaryCurrency ?? defaultSettings.convertToPrimaryCurrency,
     showOriginalCurrency: merged.showOriginalCurrency ?? defaultSettings.showOriginalCurrency,
     colorPresets: normalizeColorPresets(merged.colorPresets),
   };
+}
+
+function normalizeReminderTime(value?: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value ?? "") ? value as string : defaultSettings.reminderTime;
 }
 
 function normalizeEnabledCurrencies(currencies: string[] | undefined, displayCurrency: string) {

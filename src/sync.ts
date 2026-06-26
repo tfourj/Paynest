@@ -35,6 +35,7 @@ type SettingsRecord = {
   theme?: ThemePreference | null;
   reminders_enabled: boolean;
   reminder_days: number;
+  reminder_time?: string | null;
   currency: string;
   enabled_currencies?: string | null;
   convert_to_primary_currency?: boolean | null;
@@ -111,6 +112,7 @@ function toSettings(row: SettingsRecord): Settings {
     theme: defaultSettings.theme,
     remindersEnabled: row.reminders_enabled,
     reminderDays: row.reminder_days,
+    reminderTime: row.reminder_time ?? defaultSettings.reminderTime,
     currency: row.currency,
     enabledCurrencies: parseEnabledCurrencies(row.enabled_currencies, row.currency),
     convertToPrimaryCurrency: row.convert_to_primary_currency ?? defaultSettings.convertToPrimaryCurrency,
@@ -126,6 +128,7 @@ function toSettingsRecord(userId: string, settings: Settings) {
     user: userId,
     reminders_enabled: settings.remindersEnabled,
     reminder_days: settings.reminderDays,
+    reminder_time: settings.reminderTime,
     currency: settings.currency,
     enabled_currencies: JSON.stringify(settings.enabledCurrencies),
     convert_to_primary_currency: settings.convertToPrimaryCurrency,

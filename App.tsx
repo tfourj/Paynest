@@ -426,6 +426,7 @@ export default function App() {
   function updateSettings(next: Settings) {
     const shouldSyncSettings = settings.remindersEnabled !== next.remindersEnabled
       || settings.reminderDays !== next.reminderDays
+      || settings.reminderTime !== next.reminderTime
       || settings.currency !== next.currency
       || JSON.stringify(settings.enabledCurrencies) !== JSON.stringify(next.enabledCurrencies)
       || settings.convertToPrimaryCurrency !== next.convertToPrimaryCurrency
@@ -439,6 +440,25 @@ export default function App() {
     if (session?.user.id && shouldSyncSettings) {
       void upsertSettings(pocketBase, session.token, session.user.id, next).catch((error) => {
         console.warn("PocketBase settings sync failed", error);
+      });
+    }
+  }
+
+  function applyGlobalReminderSettings() {
+    const now = new Date().toISOString();
+    const next = subscriptions.map((subscription) => ({
+      ...subscription,
+      reminderEnabled: settings.remindersEnabled,
+      reminderDays: settings.reminderDays,
+      reminderTime: settings.reminderTime,
+      updatedAt: now,
+    }));
+
+    setSubscriptions(next);
+    void saveSubscriptions(next);
+    if (session?.user.id) {
+      void upsertSubscriptions(pocketBase, session.token, session.user.id, next).catch((error) => {
+        console.warn("PocketBase subscription sync failed", error);
       });
     }
   }
@@ -672,6 +692,8 @@ export default function App() {
                   onSignOut={signOutPocketBase}
                   onForceSync={forceSync}
                   onReset={resetData}
+                  onApplyGlobalReminderSettings={applyGlobalReminderSettings}
+                  onRequestNotificationPermission={requestNotificationPermission}
                 />
               )}
             </View>

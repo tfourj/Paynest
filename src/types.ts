@@ -45,6 +45,7 @@ export type Settings = {
   theme: ThemePreference;
   remindersEnabled: boolean;
   reminderDays: number;
+  reminderTime: string;
   currency: string;
   enabledCurrencies: string[];
   convertToPrimaryCurrency: boolean;
@@ -58,6 +59,7 @@ export const defaultSettings: Settings = {
   theme: "light",
   remindersEnabled: false,
   reminderDays: 0,
+  reminderTime: "09:00",
   currency: "EUR",
   enabledCurrencies: ["EUR"],
   convertToPrimaryCurrency: true,

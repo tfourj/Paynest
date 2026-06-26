@@ -45,6 +45,8 @@ type SettingsScreenProps = {
   onSignOut: () => void;
   onForceSync: () => Promise<void>;
   onReset: () => void;
+  onApplyGlobalReminderSettings: () => void;
+  onRequestNotificationPermission: () => Promise<boolean>;
 };
 
 type SettingsSectionId =
@@ -69,6 +71,8 @@ export function SettingsScreen({
   onSignOut,
   onForceSync,
   onReset,
+  onApplyGlobalReminderSettings,
+  onRequestNotificationPermission,
 }: SettingsScreenProps) {
   const [toastMessage, setToastMessage] = useState("");
   const [openSection, setOpenSection] = useState<SettingsSectionId | null>(null);
@@ -100,7 +104,11 @@ export function SettingsScreen({
           <NotificationSettings
             c={c}
             openSection={openSection}
+            settings={settings}
+            onApplyGlobalReminderSettings={onApplyGlobalReminderSettings}
+            onRequestNotificationPermission={onRequestNotificationPermission}
             onToggleSection={toggleSection}
+            onUpdate={onUpdate}
             onToast={setToastMessage}
           />
         )}
@@ -158,6 +166,17 @@ export function SettingsScreen({
 const websiteUrl = "https://usepaynest.com";
 const privacyUrl = "https://usepaynest.com/privacy";
 const githubUrl = "https://github.com/tfourj/Paynest";
+const reminderDayOptions = [0, 1, 3];
+
+function normalizeTimeInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function isValidReminderTime(value: string) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
 
 function AboutSettings({
   c,
@@ -383,14 +402,52 @@ function AccountSettings({
 function NotificationSettings({
   c,
   openSection,
+  settings,
+  onApplyGlobalReminderSettings,
+  onRequestNotificationPermission,
   onToggleSection,
+  onUpdate,
   onToast,
 }: {
   c: Colors;
   openSection: SettingsSectionId | null;
+  settings: Settings;
+  onApplyGlobalReminderSettings: () => void;
+  onRequestNotificationPermission: () => Promise<boolean>;
   onToggleSection: (section: SettingsSectionId) => void;
+  onUpdate: (settings: Settings) => void;
   onToast: (message: string) => void;
 }) {
+  async function updateRemindersEnabled(enabled: boolean) {
+    if (!enabled) {
+      onUpdate({ ...settings, remindersEnabled: false });
+      return;
+    }
+
+    const hasPermission = await onRequestNotificationPermission();
+    if (!hasPermission) {
+      onToast("Notification permission not granted");
+      return;
+    }
+
+    onUpdate({ ...settings, remindersEnabled: true });
+  }
+
+  function updateReminderTime(value: string) {
+    const nextTime = normalizeTimeInput(value);
+    onUpdate({ ...settings, reminderTime: nextTime });
+  }
+
+  function applyReminderDefaults() {
+    if (settings.remindersEnabled && !isValidReminderTime(settings.reminderTime)) {
+      onToast("Enter a reminder time between 00:00 and 23:59");
+      return;
+    }
+
+    onApplyGlobalReminderSettings();
+    onToast("Reminder defaults applied to all subscriptions");
+  }
+
   async function testNotifications() {
     onToast("Requesting notification permission");
     try {
@@ -410,6 +467,58 @@ function NotificationSettings({
       title="Notifications"
       onToggleSection={onToggleSection}
     >
+      <View style={styles.settingRow}>
+        <Ionicons name="notifications-circle-outline" size={21} color={c.primary} />
+        <View style={styles.rowText}>
+          <Text style={[styles.rowName, { color: c.text }]}>Global reminder defaults</Text>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+            Keep off until you want one reminder setup for subscriptions
+          </Text>
+        </View>
+        <Switch
+          value={settings.remindersEnabled}
+          onValueChange={(enabled) => void updateRemindersEnabled(enabled)}
+          trackColor={{ false: "#9CA3AF", true: c.primary }}
+        />
+      </View>
+      {settings.remindersEnabled ? (
+        <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>When to remind</Text>
+          <View style={styles.chips}>
+            {reminderDayOptions.map((days) => (
+              <Chip
+                key={days}
+                c={c}
+                label={days === 0 ? "Same day" : `${days} day${days > 1 ? "s" : ""} before`}
+                selected={settings.reminderDays === days}
+                onPress={() => onUpdate({ ...settings, reminderDays: days })}
+              />
+            ))}
+          </View>
+          <Text style={[styles.rowMeta, { color: c.textMuted }]}>Time</Text>
+          <View style={[styles.reminderTimeRow, { backgroundColor: c.surfaceMuted }]}>
+            <Ionicons name="time-outline" size={18} color={c.textMuted} />
+            <TextInput
+              value={settings.reminderTime}
+              onChangeText={updateReminderTime}
+              placeholder="09:00"
+              placeholderTextColor={c.textSoft}
+              keyboardType={Platform.select({ ios: "number-pad", default: "numeric" })}
+              maxLength={5}
+              style={[styles.reminderTimeInput, { color: c.text }]}
+            />
+          </View>
+        </View>
+      ) : null}
+      <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
+        <Pressable onPress={applyReminderDefaults} style={[styles.syncButton, { backgroundColor: c.primary }]}>
+          <Ionicons name="copy-outline" size={18} color="#FFFFFF" />
+          <Text style={[styles.syncButtonText, { color: "#FFFFFF" }]}>Apply to all subscriptions</Text>
+        </Pressable>
+        <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+          Replaces each subscription reminder setting with these global defaults.
+        </Text>
+      </View>
       <Pressable onPress={() => void testNotifications()} style={styles.settingRow}>
         <Ionicons name="notifications-outline" size={21} color={c.primary} />
         <View style={styles.rowText}>
