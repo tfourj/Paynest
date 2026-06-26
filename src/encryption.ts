@@ -93,6 +93,17 @@ export function createMasterKey() {
   return randomBytes(keyLength);
 }
 
+export function exportMasterKey(masterKey: Uint8Array) {
+  assertMasterKey(masterKey);
+  return bytesToHex(masterKey);
+}
+
+export function importMasterKey(value: string) {
+  const masterKey = hexToBytes(value);
+  assertMasterKey(masterKey);
+  return masterKey;
+}
+
 export async function wrapMasterKey(masterKey: Uint8Array, password: string): Promise<WrappedMasterKey> {
   assertMasterKey(masterKey);
 
