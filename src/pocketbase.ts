@@ -230,6 +230,23 @@ function queryStringValues(values: Record<string, string | number | boolean>) {
 
 function pocketBaseErrorMessage(data: unknown) {
   if (!data || typeof data !== "object") return null;
+  const fieldErrors = pocketBaseFieldErrors(data);
+  if (fieldErrors.length > 0) return fieldErrors.join(" ");
   if ("message" in data && typeof data.message === "string") return data.message;
   return null;
+}
+
+function pocketBaseFieldErrors(data: object) {
+  if (!("data" in data) || !data.data || typeof data.data !== "object") return [];
+
+  return Object.entries(data.data).flatMap(([field, value]) => {
+    if (!value || typeof value !== "object") return [];
+    if ("message" in value && typeof value.message === "string") {
+      return [`${field}: ${value.message}`];
+    }
+    if ("code" in value && typeof value.code === "string") {
+      return [`${field}: ${value.code}`];
+    }
+    return [];
+  });
 }

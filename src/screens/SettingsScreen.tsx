@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  Alert,
   Animated,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -39,11 +41,21 @@ type SettingsScreenProps = {
   pocketBase: PocketBaseClient | null;
   pocketBaseConfig: PocketBaseResolvedConfig;
   pocketBaseConnection: PocketBaseConnectionSettings;
+  cloudEncryptionState: "off" | "locked" | "unlocked";
   onUpdate: (settings: Settings) => void;
   onUpdatePocketBaseConnection: (settings: PocketBaseConnectionSettings) => void;
   onAuthSuccess: (settings: PocketBaseConnectionSettings, session: PocketBaseSession) => void;
   onSignOut: () => void;
   onForceSync: () => Promise<void>;
+  onEnableCloudEncryption: (password: string, rememberPassword: boolean) => Promise<void>;
+  onUnlockCloudEncryption: (password: string, rememberPassword: boolean) => Promise<void>;
+  onForgetCloudEncryptionPassword: () => Promise<void>;
+  onChangeCloudEncryptionPassword: (
+    currentPassword: string,
+    nextPassword: string,
+    rememberPassword: boolean,
+  ) => Promise<void>;
+  onDisableCloudEncryption: () => Promise<void>;
   onReset: () => void;
   onApplyGlobalReminderSettings: () => void;
   onRequestNotificationPermission: () => Promise<boolean>;
@@ -65,11 +77,17 @@ export function SettingsScreen({
   pocketBase,
   pocketBaseConfig,
   pocketBaseConnection,
+  cloudEncryptionState,
   onUpdate,
   onUpdatePocketBaseConnection,
   onAuthSuccess,
   onSignOut,
   onForceSync,
+  onEnableCloudEncryption,
+  onUnlockCloudEncryption,
+  onForgetCloudEncryptionPassword,
+  onChangeCloudEncryptionPassword,
+  onDisableCloudEncryption,
   onReset,
   onApplyGlobalReminderSettings,
   onRequestNotificationPermission,
@@ -139,10 +157,16 @@ export function SettingsScreen({
           session={session}
           pocketBaseConfig={pocketBaseConfig}
           syncStatus={syncStatus}
+          cloudEncryptionState={cloudEncryptionState}
           openSection={openSection}
+          onChangeCloudEncryptionPassword={onChangeCloudEncryptionPassword}
+          onDisableCloudEncryption={onDisableCloudEncryption}
+          onEnableCloudEncryption={onEnableCloudEncryption}
+          onForgetCloudEncryptionPassword={onForgetCloudEncryptionPassword}
           onForceSync={onForceSync}
           onToggleSection={toggleSection}
           onToast={setToastMessage}
+          onUnlockCloudEncryption={onUnlockCloudEncryption}
         />
         <DataSettings
           c={c}
@@ -919,22 +943,47 @@ function SyncSettings({
   session,
   pocketBaseConfig,
   syncStatus,
+  cloudEncryptionState,
   openSection,
+  onChangeCloudEncryptionPassword,
+  onDisableCloudEncryption,
+  onEnableCloudEncryption,
+  onForgetCloudEncryptionPassword,
   onForceSync,
   onToggleSection,
   onToast,
+  onUnlockCloudEncryption,
 }: {
   c: Colors;
   session: PocketBaseSession | null;
   pocketBaseConfig: PocketBaseResolvedConfig;
   syncStatus: string;
+  cloudEncryptionState: "off" | "locked" | "unlocked";
   openSection: SettingsSectionId | null;
+  onChangeCloudEncryptionPassword: (
+    currentPassword: string,
+    nextPassword: string,
+    rememberPassword: boolean,
+  ) => Promise<void>;
+  onDisableCloudEncryption: () => Promise<void>;
+  onEnableCloudEncryption: (password: string, rememberPassword: boolean) => Promise<void>;
+  onForgetCloudEncryptionPassword: () => Promise<void>;
   onForceSync: () => Promise<void>;
   onToggleSection: (section: SettingsSectionId) => void;
   onToast: (message: string) => void;
+  onUnlockCloudEncryption: (password: string, rememberPassword: boolean) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
-  const canSync = pocketBaseConfig.isConfigured && Boolean(session) && !busy;
+  const [encryptionMode, setEncryptionMode] = useState<EncryptionModalMode | null>(null);
+  const canSync = pocketBaseConfig.isConfigured
+    && Boolean(session)
+    && cloudEncryptionState !== "locked"
+    && !busy;
+  const encryptionStatus = cloudEncryptionState === "unlocked"
+    ? "Cloud encrypted"
+    : cloudEncryptionState === "locked"
+      ? "Needs encryption password"
+      : "Server can read synced data";
 
   async function forceSync() {
     if (!canSync) return;
@@ -949,6 +998,27 @@ function SyncSettings({
     } finally {
       setBusy(false);
     }
+  }
+
+  function disableEncryption() {
+    Alert.alert(
+      "Disable cloud encryption?",
+      "Future synced subscription data and settings will be readable by the PocketBase server you use.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Disable encryption",
+          style: "destructive",
+          onPress: () => {
+            setBusy(true);
+            onDisableCloudEncryption()
+              .then(() => onToast("Cloud encryption disabled"))
+              .catch((error) => onToast(error instanceof Error ? error.message : "Could not disable encryption"))
+              .finally(() => setBusy(false));
+          },
+        },
+      ],
+    );
   }
 
   return (
@@ -969,6 +1039,86 @@ function SyncSettings({
         </View>
       </View>
       <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
+        <View style={[styles.encryptionCard, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}>
+          <View style={styles.encryptionHeader}>
+            <View style={[styles.encryptionIcon, { backgroundColor: c.primarySoft }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={c.primary} />
+            </View>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowName, { color: c.text }]}>Cloud encryption</Text>
+              <Text style={[styles.rowMeta, { color: c.textMuted }]}>{encryptionStatus}</Text>
+              <StatusPill
+                c={c}
+                label={cloudEncryptionState === "unlocked"
+                  ? "Encrypted"
+                  : cloudEncryptionState === "locked" ? "Locked" : "Off"}
+              />
+            </View>
+          </View>
+          {cloudEncryptionState === "off" ? (
+            <Pressable
+              disabled={!session || busy}
+              onPress={() => setEncryptionMode("enable")}
+              style={[
+                styles.encryptionButton,
+                {
+                  backgroundColor: session && !busy ? c.primary : c.surface,
+                  borderColor: session && !busy ? c.primary : c.border,
+                },
+              ]}
+            >
+              <Text style={[styles.encryptionButtonText, { color: session && !busy ? "#FFFFFF" : c.textSoft }]}>
+                Enable encryption
+              </Text>
+            </Pressable>
+          ) : cloudEncryptionState === "locked" ? (
+            <Pressable
+              disabled={!session || busy}
+              onPress={() => setEncryptionMode("unlock")}
+              style={[
+                styles.encryptionButton,
+                {
+                  backgroundColor: session && !busy ? c.primary : c.surface,
+                  borderColor: session && !busy ? c.primary : c.border,
+                },
+              ]}
+            >
+              <Text style={[styles.encryptionButtonText, { color: session && !busy ? "#FFFFFF" : c.textSoft }]}>
+                Unlock encrypted data
+              </Text>
+            </Pressable>
+          ) : (
+            <>
+              <View style={styles.encryptionActions}>
+                <Pressable
+                  disabled={busy}
+                  onPress={() => setEncryptionMode("change")}
+                  style={[styles.encryptionButton, { backgroundColor: c.surface, borderColor: c.border }]}
+                >
+                  <Text style={[styles.encryptionButtonText, { color: c.text }]}>Change password</Text>
+                </Pressable>
+                <Pressable
+                  disabled={busy}
+                  onPress={() => {
+                    void onForgetCloudEncryptionPassword().then(() => onToast("Saved encryption password forgotten"));
+                  }}
+                  style={[styles.encryptionButton, { backgroundColor: c.surface, borderColor: c.border }]}
+                >
+                  <Text style={[styles.encryptionButtonText, { color: c.text }]}>Forget device</Text>
+                </Pressable>
+              </View>
+              <Pressable
+                disabled={busy}
+                onPress={disableEncryption}
+                style={[styles.encryptionButton, { backgroundColor: c.surface, borderColor: "#DC2626" }]}
+              >
+                <Text style={[styles.encryptionButtonText, { color: "#DC2626" }]}>Disable encryption</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      </View>
+      <View style={[styles.settingOption, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border }]}>
         <Pressable
           disabled={!canSync}
           onPress={() => void forceSync()}
@@ -985,7 +1135,191 @@ function SyncSettings({
           </Text>
         </Pressable>
       </View>
+      <EncryptionPasswordModal
+        c={c}
+        mode={encryptionMode}
+        onClose={() => setEncryptionMode(null)}
+        onSubmit={async (input) => {
+          setBusy(true);
+          try {
+            if (encryptionMode === "enable") {
+              await onEnableCloudEncryption(input.password, input.rememberPassword);
+              onToast("Cloud encryption enabled");
+            } else if (encryptionMode === "unlock") {
+              await onUnlockCloudEncryption(input.password, input.rememberPassword);
+              onToast("Encrypted data unlocked");
+            } else if (encryptionMode === "change") {
+              await onChangeCloudEncryptionPassword(
+                input.currentPassword,
+                input.password,
+                input.rememberPassword,
+              );
+              onToast("Encryption password changed");
+            }
+            setEncryptionMode(null);
+          } catch (error) {
+            onToast(error instanceof Error ? error.message : "Encryption update failed");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
     </CollapsibleSettingsSection>
+  );
+}
+
+type EncryptionModalMode = "enable" | "unlock" | "change";
+
+function EncryptionPasswordModal({
+  c,
+  mode,
+  onClose,
+  onSubmit,
+}: {
+  c: Colors;
+  mode: EncryptionModalMode | null;
+  onClose: () => void;
+  onSubmit: (input: {
+    currentPassword: string;
+    password: string;
+    rememberPassword: boolean;
+  }) => Promise<void>;
+}) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [rememberPassword, setRememberPassword] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const title = mode === "change"
+    ? "Change encryption password"
+    : mode === "unlock"
+      ? "Unlock encrypted data"
+      : "Enable cloud encryption";
+
+  useEffect(() => {
+    if (!mode) {
+      setCurrentPassword("");
+      setPassword("");
+      setConfirmPassword("");
+      setRememberPassword(true);
+      setBusy(false);
+      setMessage("");
+    }
+  }, [mode]);
+
+  async function submit() {
+    if (!mode || busy) return;
+    const nextPassword = password.trim();
+    if (mode === "change" && currentPassword.trim().length === 0) {
+      setMessage("Enter your current encryption password.");
+      return;
+    }
+    if (nextPassword.length < 8) {
+      setMessage("Use an encryption password with at least 8 characters.");
+      return;
+    }
+    if (mode !== "unlock" && nextPassword !== confirmPassword.trim()) {
+      setMessage("Encryption passwords do not match.");
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+    await onSubmit({
+      currentPassword: currentPassword.trim(),
+      password: nextPassword,
+      rememberPassword,
+    });
+    setBusy(false);
+  }
+
+  return (
+    <Modal visible={Boolean(mode)} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.encryptionModalOverlay}>
+        <View style={[styles.encryptionModalPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <View style={styles.encryptionModalTitleRow}>
+            <View style={[styles.encryptionIcon, { backgroundColor: c.primarySoft }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={c.primary} />
+            </View>
+            <Text style={[styles.encryptionModalTitle, { color: c.text }]}>{title}</Text>
+            <Pressable
+              accessibilityLabel="Close encryption dialog"
+              onPress={onClose}
+              style={[styles.encryptionModalClose, { backgroundColor: c.surfaceMuted }]}
+            >
+              <Ionicons name="close" size={20} color={c.text} />
+            </Pressable>
+          </View>
+          <View style={[styles.encryptionWarning, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+            <Ionicons name="warning-outline" size={20} color="#DC2626" />
+            <Text style={[styles.encryptionWarningText, { color: "#991B1B" }]}>
+              Paynest cannot recover encrypted cloud data if this password is lost.
+            </Text>
+          </View>
+          <View style={styles.encryptionFieldStack}>
+          {mode === "change" ? (
+            <TextInput
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholder="Current password"
+              placeholderTextColor={c.textSoft}
+              secureTextEntry
+              autoCapitalize="none"
+              style={[styles.encryptionInput, styles.inputNoOutline, { color: c.text, borderColor: c.border }]}
+            />
+          ) : null}
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder={mode === "unlock" ? "Encryption password" : "New encryption password"}
+            placeholderTextColor={c.textSoft}
+            secureTextEntry
+            autoCapitalize="none"
+            style={[styles.encryptionInput, styles.inputNoOutline, { color: c.text, borderColor: c.border }]}
+          />
+          {mode !== "unlock" ? (
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Confirm encryption password"
+              placeholderTextColor={c.textSoft}
+              secureTextEntry
+              autoCapitalize="none"
+              style={[styles.encryptionInput, styles.inputNoOutline, { color: c.text, borderColor: c.border }]}
+            />
+          ) : null}
+          </View>
+          <View style={[styles.encryptionRememberRow, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowName, { color: c.text }]}>Remember on this device</Text>
+              <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+                Turn off to require the password after restarting or signing in again.
+              </Text>
+            </View>
+            <Switch value={rememberPassword} onValueChange={setRememberPassword} />
+          </View>
+          {message ? <Text style={[styles.statusText, { color: "#DC2626" }]}>{message}</Text> : null}
+          <View style={styles.encryptionModalActions}>
+            <Pressable
+              onPress={onClose}
+              style={[styles.encryptionButton, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}
+            >
+              <Text style={[styles.encryptionButtonText, { color: c.text }]}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              disabled={busy}
+              onPress={() => void submit()}
+              style={[styles.encryptionButton, { backgroundColor: c.primary, borderColor: c.primary }]}
+            >
+              <Text style={[styles.encryptionButtonText, { color: "#FFFFFF" }]}>
+                {busy ? "Working" : "Save"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -1081,7 +1415,8 @@ function Toast({
   if (!displayMessage) return null;
 
   return (
-    <View pointerEvents="none" style={styles.toastOverlay}>
+    <Modal visible transparent animationType="none" statusBarTranslucent>
+      <View pointerEvents="none" style={styles.toastOverlay}>
       <Animated.View
         style={[
           styles.toast,
@@ -1094,6 +1429,7 @@ function Toast({
       >
         <Text style={[styles.toastText, { color: c.background }]}>{displayMessage}</Text>
       </Animated.View>
-    </View>
+      </View>
+    </Modal>
   );
 }

@@ -70,6 +70,9 @@ newer Apple SDKs before running `xcodebuild`.
 ## PocketBase
 
 Paynest works locally without signing in. PocketBase is used for optional authentication and sync.
+Cloud encryption can be enabled from Settings after signing in. When enabled,
+the app uploads one encrypted payload instead of readable subscription and
+settings records. The PocketBase server still stores account/auth data.
 
 Set a default PocketBase URL in `.env` if you want the app to prefill the server URL:
 
@@ -78,5 +81,5 @@ EXPO_PUBLIC_POCKETBASE_URL=https://your-pocketbase-url
 ```
 
 The server URL can also be entered in the app from Settings -> Account.
-Create the required PocketBase collections from the generated import file:
-[pocketbase/README.md](../pocketbase/README.md).
+Use the Paynest PocketBase setup and migrations from:
+[github.com/tfourj/Paynest-DB](https://github.com/tfourj/Paynest-DB).

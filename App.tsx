@@ -16,6 +16,11 @@ import type { Tab } from "./src/constants";
 import { convertToBaseCurrency, loadCurrencyRates } from "./src/currencyConversion";
 import { requestNotificationPermission, scheduleRenewalNotifications } from "./src/notifications";
 import {
+  forgetEncryptionPassword,
+  loadSavedEncryptionPassword,
+  saveEncryptionPassword,
+} from "./src/encryptionStorage";
+import {
   createPocketBaseClient,
   defaultPocketBaseConnection,
   resolvePocketBaseConfig,
@@ -40,9 +45,12 @@ import {
   savePocketBaseConnection,
 } from "./src/storage";
 import {
+  deleteEncryptedCloudData,
+  deletePlaintextCloudData,
   deleteSubscriptionFromCloud,
   loadCloudAppData,
   syncAppData,
+  upsertEncryptedCloudData,
   upsertSettings,
   upsertSubscriptions,
   type CloudAppData,
@@ -64,6 +72,8 @@ import {
 } from "./src/utils/subscriptions";
 
 const iconFonts: Record<string, FontSource> = Ionicons.font;
+
+export type CloudEncryptionState = "off" | "locked" | "unlocked";
 
 function comparableSubscription(item: Subscription) {
   return {
@@ -351,6 +361,8 @@ export default function App() {
   const [localMode, setLocalMode] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(isPrivacyPolicyPath);
+  const [cloudEncryptionState, setCloudEncryptionState] = useState<CloudEncryptionState>("off");
+  const [encryptionPassword, setEncryptionPassword] = useState<string | null>(null);
   const [pendingSyncPrompt, setPendingSyncPrompt] = useState<{
     userId: string;
     cloudSubscriptions: Subscription[];
@@ -401,6 +413,8 @@ export default function App() {
       setSession(null);
       syncedUserId.current = null;
       loginPromptUserId.current = null;
+      setCloudEncryptionState("off");
+      setEncryptionPassword(null);
       setAuthReady(true);
       return;
     }
@@ -446,14 +460,28 @@ export default function App() {
     if (syncedUserId.current === userId) return;
 
     syncedUserId.current = userId;
-    loadCloudAppData(pocketBase, session.token, userId).then((cloud) => {
+    loadSavedEncryptionPassword(pocketBaseConfig.url, userId).then((savedPassword) => (
+      loadCloudAppData(pocketBase, session.token, userId, savedPassword).then((cloud) => ({ cloud, savedPassword }))
+    )).then(({ cloud, savedPassword }) => {
+      if (cloud.encrypted && cloud.locked) {
+        setCloudEncryptionState("locked");
+        setEncryptionPassword(null);
+        return;
+      }
+      if (cloud.encrypted) {
+        setCloudEncryptionState("unlocked");
+        setEncryptionPassword(savedPassword);
+      } else {
+        setCloudEncryptionState("off");
+        setEncryptionPassword(null);
+      }
       const canAskForChoice = loginPromptUserId.current === userId;
       const needsChoice = canAskForChoice
         && subscriptions.length > 0
         && cloud.subscriptions.length > 0
         && !subscriptionListsMatch(subscriptions, cloud.subscriptions);
       if (!needsChoice) {
-        void syncUserData(userId, canAskForChoice ? "merge" : "cloud", cloud);
+        void syncUserData(userId, canAskForChoice ? "merge" : "cloud", cloud, savedPassword);
         return;
       }
 
@@ -463,7 +491,7 @@ export default function App() {
       syncedUserId.current = null;
       console.warn("PocketBase sync failed", error);
     });
-  }, [ready, session?.token, session?.user.id, pocketBase]);
+  }, [ready, session?.token, session?.user.id, pocketBase, pocketBaseConfig.url]);
 
   const dark = settings.theme === "dark";
   const c = dark ? darkColors : lightColors;
@@ -598,7 +626,7 @@ export default function App() {
     setSubscriptions(next);
     await saveSubscriptions(next);
     if (session?.user.id) {
-      void upsertSubscriptions(pocketBase, session.token, session.user.id, [subscription]).catch((error) => {
+      void syncSubscriptionsAfterChange(next, settings, [subscription]).catch((error) => {
         console.warn("PocketBase subscription sync failed", error);
       });
     }
@@ -610,13 +638,13 @@ export default function App() {
     setSubscriptions((current) => {
       const next = current.filter((subscription) => subscription.id !== item.id);
       void saveSubscriptions(next);
+      if (session?.user.id) {
+        void syncSubscriptionDeleteAfterChange(next, settings, item.id).catch((error) => {
+          console.warn("PocketBase delete failed", error);
+        });
+      }
       return next;
     });
-    if (session?.user.id) {
-      void deleteSubscriptionFromCloud(pocketBase, session.token, session.user.id, item.id).catch((error) => {
-        console.warn("PocketBase delete failed", error);
-      });
-    }
   }
 
   function updateSubscription(item: Subscription, input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) {
@@ -629,13 +657,13 @@ export default function App() {
     setSubscriptions((current) => {
       const next = current.map((subscription) => subscription.id === item.id ? updated : subscription);
       void saveSubscriptions(next);
+      if (session?.user.id) {
+        void syncSubscriptionsAfterChange(next, settings, [updated]).catch((error) => {
+          console.warn("PocketBase subscription sync failed", error);
+        });
+      }
       return next;
     });
-    if (session?.user.id) {
-      void upsertSubscriptions(pocketBase, session.token, session.user.id, [updated]).catch((error) => {
-        console.warn("PocketBase subscription sync failed", error);
-      });
-    }
   }
 
   function updateSettings(next: Settings) {
@@ -654,7 +682,7 @@ export default function App() {
     setSettings(next);
     void saveSettings(next);
     if (session?.user.id && shouldSyncSettings) {
-      void upsertSettings(pocketBase, session.token, session.user.id, next).catch((error) => {
+      void syncSettingsAfterChange(subscriptions, next).catch((error) => {
         console.warn("PocketBase settings sync failed", error);
       });
     }
@@ -673,10 +701,78 @@ export default function App() {
     setSubscriptions(next);
     void saveSubscriptions(next);
     if (session?.user.id) {
-      void upsertSubscriptions(pocketBase, session.token, session.user.id, next).catch((error) => {
+      void syncSubscriptionsAfterChange(next, settings, next).catch((error) => {
         console.warn("PocketBase subscription sync failed", error);
       });
     }
+  }
+
+  async function syncSubscriptionsAfterChange(
+    nextSubscriptions: Subscription[],
+    nextSettings: Settings,
+    changedSubscriptions: Subscription[],
+  ) {
+    const userId = session?.user.id;
+    if (!userId) return;
+    if (cloudEncryptionState === "locked") return;
+    if (cloudEncryptionState === "unlocked") {
+      if (!encryptionPassword) return;
+      await upsertEncryptedCloudData(
+        pocketBase,
+        session.token,
+        userId,
+        encryptionPassword,
+        nextSubscriptions,
+        nextSettings,
+      );
+      return;
+    }
+
+    await upsertSubscriptions(pocketBase, session.token, userId, changedSubscriptions);
+  }
+
+  async function syncSubscriptionDeleteAfterChange(
+    nextSubscriptions: Subscription[],
+    nextSettings: Settings,
+    localId: string,
+  ) {
+    const userId = session?.user.id;
+    if (!userId) return;
+    if (cloudEncryptionState === "locked") return;
+    if (cloudEncryptionState === "unlocked") {
+      if (!encryptionPassword) return;
+      await upsertEncryptedCloudData(
+        pocketBase,
+        session.token,
+        userId,
+        encryptionPassword,
+        nextSubscriptions,
+        nextSettings,
+      );
+      return;
+    }
+
+    await deleteSubscriptionFromCloud(pocketBase, session.token, userId, localId);
+  }
+
+  async function syncSettingsAfterChange(nextSubscriptions: Subscription[], nextSettings: Settings) {
+    const userId = session?.user.id;
+    if (!userId) return;
+    if (cloudEncryptionState === "locked") return;
+    if (cloudEncryptionState === "unlocked") {
+      if (!encryptionPassword) return;
+      await upsertEncryptedCloudData(
+        pocketBase,
+        session.token,
+        userId,
+        encryptionPassword,
+        nextSubscriptions,
+        nextSettings,
+      );
+      return;
+    }
+
+    await upsertSettings(pocketBase, session.token, userId, nextSettings);
   }
 
   function updatePocketBaseConnection(next: PocketBaseConnectionSettings) {
@@ -686,6 +782,8 @@ export default function App() {
     loginPromptUserId.current = null;
     pendingSyncCloud.current = null;
     setPendingSyncPrompt(null);
+    setCloudEncryptionState("off");
+    setEncryptionPassword(null);
     void savePocketBaseConnection(next);
   }
 
@@ -697,6 +795,8 @@ export default function App() {
     loginPromptUserId.current = nextSession.user.id;
     pendingSyncCloud.current = null;
     setPendingSyncPrompt(null);
+    setCloudEncryptionState("off");
+    setEncryptionPassword(null);
     void savePocketBaseConnection(next);
   }
 
@@ -706,6 +806,8 @@ export default function App() {
     loginPromptUserId.current = null;
     pendingSyncCloud.current = null;
     setPendingSyncPrompt(null);
+    setCloudEncryptionState("off");
+    setEncryptionPassword(null);
   }
 
   function useLocally() {
@@ -713,8 +815,16 @@ export default function App() {
     void saveLocalModePreference(true);
   }
 
-  async function syncUserData(userId: string, strategy: SyncStrategy, initialCloud?: CloudAppData) {
+  async function syncUserData(
+    userId: string,
+    strategy: SyncStrategy,
+    initialCloud?: CloudAppData,
+    passwordOverride?: string | null,
+    forceEncryption = false,
+  ) {
     if (!session) throw new Error("Log in to sync your data.");
+    const password = passwordOverride ?? encryptionPassword;
+    const encrypted = forceEncryption || cloudEncryptionState === "unlocked" || Boolean(initialCloud?.encrypted);
 
     const synced = await syncAppData(
       pocketBase,
@@ -724,9 +834,11 @@ export default function App() {
       settings,
       strategy,
       initialCloud,
+      { enabled: encrypted, password },
     );
     syncedUserId.current = userId;
     if (loginPromptUserId.current === userId) loginPromptUserId.current = null;
+    if (encrypted) setCloudEncryptionState("unlocked");
     setSubscriptions(synced.subscriptions);
     setSettings(synced.settings);
     await Promise.all([
@@ -753,6 +865,102 @@ export default function App() {
     if (!userId) throw new Error("Log in to sync your data.");
 
     await syncUserData(userId, "cloud");
+  }
+
+  async function enableCloudEncryption(password: string, rememberPassword: boolean) {
+    const userId = session?.user.id;
+    if (!session || !userId) throw new Error("Log in to enable encryption.");
+    const normalizedPassword = password.trim();
+    if (normalizedPassword.length < 8) throw new Error("Use an encryption password with at least 8 characters.");
+
+    if (rememberPassword) {
+      const saved = await saveEncryptionPassword(pocketBaseConfig.url, userId, normalizedPassword);
+      if (!saved) throw new Error("This device cannot securely remember the encryption password.");
+    } else {
+      await forgetEncryptionPassword(pocketBaseConfig.url, userId);
+    }
+    const cloud = await loadCloudAppData(pocketBase, session.token, userId, normalizedPassword);
+    const synced = await syncAppData(
+      pocketBase,
+      session.token,
+      userId,
+      subscriptions,
+      settings,
+      "merge",
+      cloud,
+      { enabled: true, password: normalizedPassword },
+    );
+    setEncryptionPassword(normalizedPassword);
+    setCloudEncryptionState("unlocked");
+    setSubscriptions(synced.subscriptions);
+    setSettings(synced.settings);
+    await Promise.all([
+      saveSubscriptions(synced.subscriptions),
+      saveSettings(synced.settings),
+    ]);
+  }
+
+  async function unlockCloudEncryption(password: string, rememberPassword: boolean) {
+    const userId = session?.user.id;
+    if (!session || !userId) throw new Error("Log in to unlock encrypted data.");
+    const normalizedPassword = password.trim();
+    const cloud = await loadCloudAppData(pocketBase, session.token, userId, normalizedPassword);
+    if (!cloud.encrypted || cloud.locked) throw new Error("Could not unlock encrypted cloud data.");
+    if (rememberPassword) {
+      const saved = await saveEncryptionPassword(pocketBaseConfig.url, userId, normalizedPassword);
+      if (!saved) throw new Error("This device cannot securely remember the encryption password.");
+    } else {
+      await forgetEncryptionPassword(pocketBaseConfig.url, userId);
+    }
+    setEncryptionPassword(normalizedPassword);
+    setCloudEncryptionState("unlocked");
+    await syncUserData(userId, "cloud", cloud, normalizedPassword);
+  }
+
+  async function forgetCloudEncryptionPassword() {
+    const userId = session?.user.id;
+    if (!userId) return;
+    await forgetEncryptionPassword(pocketBaseConfig.url, userId);
+  }
+
+  async function changeCloudEncryptionPassword(
+    currentPassword: string,
+    nextPassword: string,
+    rememberPassword: boolean,
+  ) {
+    const userId = session?.user.id;
+    if (!session || !userId) throw new Error("Log in to change the encryption password.");
+    const normalizedCurrent = currentPassword.trim();
+    const normalizedNext = nextPassword.trim();
+    if (normalizedNext.length < 8) throw new Error("Use an encryption password with at least 8 characters.");
+    await loadCloudAppData(pocketBase, session.token, userId, normalizedCurrent);
+    if (rememberPassword) {
+      const saved = await saveEncryptionPassword(pocketBaseConfig.url, userId, normalizedNext);
+      if (!saved) throw new Error("This device cannot securely remember the encryption password.");
+    } else {
+      await forgetEncryptionPassword(pocketBaseConfig.url, userId);
+    }
+    await upsertEncryptedCloudData(pocketBase, session.token, userId, normalizedNext, subscriptions, settings);
+    setEncryptionPassword(normalizedNext);
+    setCloudEncryptionState("unlocked");
+  }
+
+  async function disableCloudEncryption() {
+    const userId = session?.user.id;
+    if (!session || !userId) throw new Error("Log in to disable encryption.");
+    if (cloudEncryptionState !== "unlocked" || !encryptionPassword) {
+      throw new Error("Unlock encrypted data before disabling encryption.");
+    }
+
+    await deletePlaintextCloudData(pocketBase, session.token, userId);
+    await Promise.all([
+      upsertSubscriptions(pocketBase, session.token, userId, subscriptions),
+      upsertSettings(pocketBase, session.token, userId, settings),
+    ]);
+    await deleteEncryptedCloudData(pocketBase, session.token, userId);
+    await forgetEncryptionPassword(pocketBaseConfig.url, userId);
+    setEncryptionPassword(null);
+    setCloudEncryptionState("off");
   }
 
   async function refreshDashboard() {
@@ -915,11 +1123,17 @@ export default function App() {
                   pocketBase={pocketBase}
                   pocketBaseConfig={pocketBaseConfig}
                   pocketBaseConnection={pocketBaseConnection}
+                  cloudEncryptionState={cloudEncryptionState}
                   onUpdate={updateSettings}
                   onUpdatePocketBaseConnection={updatePocketBaseConnection}
                   onAuthSuccess={completePocketBaseAuth}
                   onSignOut={signOutPocketBase}
                   onForceSync={forceSync}
+                  onEnableCloudEncryption={enableCloudEncryption}
+                  onUnlockCloudEncryption={unlockCloudEncryption}
+                  onForgetCloudEncryptionPassword={forgetCloudEncryptionPassword}
+                  onChangeCloudEncryptionPassword={changeCloudEncryptionPassword}
+                  onDisableCloudEncryption={disableCloudEncryption}
                   onReset={resetData}
                   onApplyGlobalReminderSettings={applyGlobalReminderSettings}
                   onRequestNotificationPermission={requestNotificationPermission}
@@ -945,7 +1159,11 @@ export default function App() {
             cloudSubscriptions={pendingSyncPrompt?.cloudSubscriptions ?? []}
             onChoose={(strategy) => {
               if (!pendingSyncPrompt) return;
-              void runInitialSync(pendingSyncPrompt.userId, strategy, pendingSyncCloud.current ?? undefined);
+              void runInitialSync(
+                pendingSyncPrompt.userId,
+                strategy,
+                pendingSyncCloud.current ?? undefined,
+              );
             }}
           />
         </SafeAreaView>

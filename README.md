@@ -22,6 +22,7 @@ App supports optional login to Pockebase backend (our or selfhosted) for cross-d
 - Set a payday to track costs until your next pay date.
 - Store data locally without an account.
 - Sync across devices with PocketBase.
+- Optionally encrypt synced subscription data before it reaches PocketBase.
 - Use your own PocketBase server.
 - Enable renewal reminders on iOS and Android.
 - Search subscription icons from multiple icon sources.
@@ -44,6 +45,8 @@ Project structure notes live in [docs/STRUCTURE.md](./docs/STRUCTURE.md).
   [React Native](https://reactnative.dev/).
 - Authentication and cloud sync use
   [PocketBase](https://pocketbase.io/).
+- PocketBase setup and migrations live in
+  [Paynest-DB](https://github.com/tfourj/Paynest-DB).
 - Subscription icon search supports
   [Simple Icons](https://simpleicons.org/),
   [SVGL](https://svgl.app/), and

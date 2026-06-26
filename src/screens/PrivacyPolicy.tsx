@@ -24,6 +24,10 @@ const sections = [
     body: [
       "If you connect a PocketBase account, Paynest sends your account email, subscriptions, and synced settings " +
         "to the PocketBase server you configure.",
+      "If you enable cloud encryption, Paynest encrypts subscriptions and synced settings on your device before " +
+        "uploading them. The server stores an encrypted payload and cannot recover the contents without your " +
+        "encryption password.",
+      "Paynest cannot recover encrypted cloud data if you lose the encryption password.",
       "Paynest uses that server to keep your data available across devices. The operator of that PocketBase server " +
         "is responsible for how server-side data is hosted and protected.",
     ],
@@ -31,7 +35,8 @@ const sections = [
   {
     title: "Notifications",
     body: [
-      "Paynest can schedule local renewal reminders on your device. Notification permissions are handled by your operating system.",
+      "Paynest can schedule local renewal reminders on your device. Notification permissions are handled by " +
+        "your operating system.",
       "Reminder content is generated from subscription data you saved in the app.",
     ],
   },
