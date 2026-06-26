@@ -385,6 +385,7 @@ export default function App() {
   const syncedUserId = useRef<string | null>(null);
   const loginPromptUserId = useRef<string | null>(null);
   const pendingSyncCloud = useRef<CloudAppData | null>(null);
+  const pendingSyncPassword = useRef<string | null>(null);
   const savedEncryptionPassword = useRef<string | null>(null);
   const pocketBaseConfig = useMemo(
     () => resolvePocketBaseConfig(pocketBaseConnection),
@@ -427,6 +428,7 @@ export default function App() {
       setSession(null);
       syncedUserId.current = null;
       loginPromptUserId.current = null;
+      pendingSyncPassword.current = null;
       setCloudEncryptionState("off");
       setEncryptionPassword(null);
       savedEncryptionPassword.current = null;
@@ -511,6 +513,7 @@ export default function App() {
       }
 
       pendingSyncCloud.current = cloud;
+      pendingSyncPassword.current = null;
       setPendingSyncPrompt({ userId, cloudSubscriptions: cloud.subscriptions });
     }).catch((error) => {
       syncedUserId.current = null;
@@ -811,6 +814,7 @@ export default function App() {
     syncedUserId.current = null;
     loginPromptUserId.current = null;
     pendingSyncCloud.current = null;
+    pendingSyncPassword.current = null;
     setPendingSyncPrompt(null);
     setCloudEncryptionState("off");
     setEncryptionPassword(null);
@@ -827,6 +831,7 @@ export default function App() {
     syncedUserId.current = null;
     loginPromptUserId.current = nextSession.user.id;
     pendingSyncCloud.current = null;
+    pendingSyncPassword.current = null;
     setPendingSyncPrompt(null);
     setCloudEncryptionState("off");
     setEncryptionPassword(null);
@@ -841,6 +846,7 @@ export default function App() {
     syncedUserId.current = null;
     loginPromptUserId.current = null;
     pendingSyncCloud.current = null;
+    pendingSyncPassword.current = null;
     setPendingSyncPrompt(null);
     setCloudEncryptionState("off");
     setEncryptionPassword(null);
@@ -886,13 +892,20 @@ export default function App() {
     ]);
   }
 
-  async function runInitialSync(userId: string, strategy: SyncStrategy, initialCloud?: CloudAppData) {
+  async function runInitialSync(
+    userId: string,
+    strategy: SyncStrategy,
+    initialCloud?: CloudAppData,
+    passwordOverride?: string | null,
+  ) {
     setPendingSyncPrompt(null);
     try {
-      await syncUserData(userId, strategy, initialCloud);
+      await syncUserData(userId, strategy, initialCloud, passwordOverride);
       pendingSyncCloud.current = null;
+      pendingSyncPassword.current = null;
     } catch (error) {
       pendingSyncCloud.current = null;
+      pendingSyncPassword.current = null;
       if (loginPromptUserId.current === userId) loginPromptUserId.current = null;
       syncedUserId.current = null;
       console.warn("PocketBase sync failed", error);
@@ -959,7 +972,20 @@ export default function App() {
     setCloudEncryptionState("unlocked");
     setLoginEncryptionPromptVisible(false);
     setBackgroundUnlocking(false);
-    await syncUserData(userId, "cloud", cloud, normalizedPassword);
+
+    const canAskForChoice = loginPromptUserId.current === userId;
+    const needsChoice = canAskForChoice
+      && subscriptions.length > 0
+      && cloud.subscriptions.length > 0
+      && !subscriptionListsMatch(subscriptions, cloud.subscriptions);
+    if (needsChoice) {
+      pendingSyncCloud.current = cloud;
+      pendingSyncPassword.current = normalizedPassword;
+      setPendingSyncPrompt({ userId, cloudSubscriptions: cloud.subscriptions });
+      return;
+    }
+
+    await syncUserData(userId, canAskForChoice ? "merge" : "cloud", cloud, normalizedPassword);
   }
 
   async function forgetCloudEncryptionPassword() {
@@ -1212,6 +1238,7 @@ export default function App() {
                 pendingSyncPrompt.userId,
                 strategy,
                 pendingSyncCloud.current ?? undefined,
+                pendingSyncPassword.current,
               );
             }}
           />
