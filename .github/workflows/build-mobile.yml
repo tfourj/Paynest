@@ -1,5 +1,5 @@
 name: Build Mobile Artifacts
-run-name: ${{ github.event.head_commit.message || github.ref_name }}
+run-name: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
 
 on:
   push:
@@ -35,9 +35,16 @@ jobs:
       - name: Set artifact name
         run: |
           set -euo pipefail
-          SUBJECT="$(git log -1 --pretty=%s)"
-          SAFE_SUBJECT="$(printf "%s" "$SUBJECT" | tr '/\\":<>|*?' '-' | tr -s '[:space:]' ' ' | cut -c 1-80)"
-          echo "ARTIFACT_NAME=Paynest-${SAFE_SUBJECT}-unsigned-APK" >> "$GITHUB_ENV"
+          REF_NAME="${GITHUB_REF_NAME:-}"
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ] && [ -n "$REF_NAME" ]; then
+            BUILD_ID="$REF_NAME"
+          else
+            BUILD_ID="$(git rev-parse --short HEAD)"
+          fi
+
+          SAFE_BUILD_ID="$(printf "%s" "$BUILD_ID" | tr '/\\":<>|*?' '-' | tr -s '[:space:]' '-')"
+          echo "ARTIFACT_NAME=Paynest-${SAFE_BUILD_ID}-unsigned-APK" >> "$GITHUB_ENV"
 
       - name: Build unsigned APK
         run: ./scripts/build-unsigned-apk.sh
@@ -79,9 +86,16 @@ jobs:
       - name: Set artifact name
         run: |
           set -euo pipefail
-          SUBJECT="$(git log -1 --pretty=%s)"
-          SAFE_SUBJECT="$(printf "%s" "$SUBJECT" | tr '/\\":<>|*?' '-' | tr -s '[:space:]' ' ' | cut -c 1-80)"
-          echo "ARTIFACT_NAME=Paynest-${SAFE_SUBJECT}-unsigned-IPA" >> "$GITHUB_ENV"
+          REF_NAME="${GITHUB_REF_NAME:-}"
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ] && [ -n "$REF_NAME" ]; then
+            BUILD_ID="$REF_NAME"
+          else
+            BUILD_ID="$(git rev-parse --short HEAD)"
+          fi
+
+          SAFE_BUILD_ID="$(printf "%s" "$BUILD_ID" | tr '/\\":<>|*?' '-' | tr -s '[:space:]' '-')"
+          echo "ARTIFACT_NAME=Paynest-${SAFE_BUILD_ID}-unsigned-IPA" >> "$GITHUB_ENV"
 
       - name: Build unsigned IPA
         run: ./scripts/build-unsigned-ipa.sh
