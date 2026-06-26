@@ -101,6 +101,12 @@ function normalizeTimeInput(value: string) {
   return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
 
+function parsePriceInput(value: string) {
+  const normalized = value.trim().replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return Number.NaN;
+  return Number(normalized);
+}
+
 function isValidReminderTime(value: string) {
   const match = /^(\d{2}):(\d{2})$/.exec(value);
   if (!match) return false;
@@ -371,7 +377,7 @@ export function AddSubscription({
   }
 
   function save() {
-    const parsed = Number.parseFloat(price.replace(",", "."));
+    const parsed = parsePriceInput(price);
     if (!name.trim() || Number.isNaN(parsed) || parsed <= 0) {
       return setError("Enter a subscription name and a price greater than zero.");
     }
@@ -493,7 +499,8 @@ export function AddSubscription({
                 style={[styles.input, styles.inputNoOutline, { color: c.text }]}
                 onFocus={() => setBasicInfoFocused(true)}
                 onBlur={() => setBasicInfoFocused(false)}
-                keyboardType={Platform.select({ ios: "decimal-pad", default: "numeric" })}
+                keyboardType={Platform.select({ ios: "decimal-pad", android: "decimal-pad", default: "default" })}
+                inputMode="decimal"
               />
             </View>
           </View>
