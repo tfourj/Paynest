@@ -5,7 +5,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 
 const envelopeVersion = 1;
 const kdfName = "pbkdf2-sha256";
-const kdfIterations = 310_000;
+const kdfIterations = 120_000;
 const keyLength = 32;
 const saltLength = 16;
 const nonceLength = 12;

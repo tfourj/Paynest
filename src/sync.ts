@@ -197,6 +197,17 @@ export async function loadCloudAppData(
       locked: false,
     };
   }
+
+  if (!encryptionPassword && await hasEncryptedRecordDataIfAvailable(client, token, userId)) {
+    return {
+      subscriptions: [],
+      settings: null,
+      settingsHasCurrencySettings: false,
+      encrypted: true,
+      locked: true,
+    };
+  }
+
   const encryptedRows = await listEncryptedRecordDataIfAvailable(client, token, userId);
   if (encryptedRows.settings.length > 0 || encryptedRows.subscriptions.length > 0) {
     if (!encryptionPassword) {
@@ -464,10 +475,15 @@ function listUserSettings(client: PocketBaseClient, token: string, userId: strin
   });
 }
 
-function listEncryptedSubscriptions(client: PocketBaseClient, token: string, userId: string) {
+function listEncryptedSubscriptions(
+  client: PocketBaseClient,
+  token: string,
+  userId: string,
+  perPage = 500,
+) {
   return client.listRecords<EncryptedSubscriptionRecord>("encrypted_subscriptions", token, {
     filter: `user="${escapeFilterValue(userId)}"`,
-    perPage: 500,
+    perPage,
     sort: "local_id",
   });
 }
@@ -488,9 +504,22 @@ async function listEncryptedRecordDataIfAvailable(client: PocketBaseClient, toke
   return { subscriptions, settings };
 }
 
-async function listEncryptedSubscriptionsIfAvailable(client: PocketBaseClient, token: string, userId: string) {
+async function hasEncryptedRecordDataIfAvailable(client: PocketBaseClient, token: string, userId: string) {
+  const settings = await listEncryptedSettingsIfAvailable(client, token, userId);
+  if (settings.length > 0) return true;
+
+  const subscriptions = await listEncryptedSubscriptionsIfAvailable(client, token, userId, 1);
+  return subscriptions.length > 0;
+}
+
+async function listEncryptedSubscriptionsIfAvailable(
+  client: PocketBaseClient,
+  token: string,
+  userId: string,
+  perPage?: number,
+) {
   try {
-    return await listEncryptedSubscriptions(client, token, userId);
+    return await listEncryptedSubscriptions(client, token, userId, perPage);
   } catch (error) {
     if (isMissingEncryptedCollectionError(error)) return [];
     throw error;
