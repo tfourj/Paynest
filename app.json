@@ -23,15 +23,6 @@
         {
           "buildReactNativeFromSource": false
         }
-      ],
-      [
-        "react-native-edge-to-edge",
-        {
-          "android": {
-            "parentTheme": "Light",
-            "enforceNavigationBarContrast": false
-          }
-        }
       ]
     ],
     "ios": {

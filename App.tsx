@@ -3,10 +3,11 @@ import "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
 import type { FontSource } from "expo-font";
+import { NavigationBar } from "expo-navigation-bar";
+import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Platform, Pressable, Text, View } from "react-native";
-import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
@@ -609,7 +610,7 @@ export default function App() {
   if (!ready || !authReady || (!iconsLoaded && !iconsError)) {
     return (
       <GestureHandlerRootView style={styles.safe}>
-        <SystemBars style={dark ? "light" : "dark"} />
+        <SystemBars dark={dark} />
         <SafeAreaProvider>
           <SafeAreaView style={[styles.loading, { backgroundColor: c.background }]}>
             <ActivityIndicator size="large" color={c.primary} />
@@ -623,7 +624,7 @@ export default function App() {
   if (showPrivacyPolicy) {
     return (
       <GestureHandlerRootView style={styles.safe}>
-        <SystemBars style={dark ? "light" : "dark"} />
+        <SystemBars dark={dark} />
         <SafeAreaProvider>
           <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
             <View style={styles.shell}>
@@ -638,7 +639,7 @@ export default function App() {
   if (!session && !localMode) {
     return (
       <GestureHandlerRootView style={styles.safe}>
-        <SystemBars style={dark ? "light" : "dark"} />
+        <SystemBars dark={dark} />
         <SafeAreaProvider>
           <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
             <LoginScreen
@@ -656,7 +657,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={styles.safe}>
-      <SystemBars style={dark ? "light" : "dark"} />
+      <SystemBars dark={dark} />
       <SafeAreaProvider>
         <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
           <View style={styles.shell}>
@@ -749,6 +750,17 @@ export default function App() {
         </SafeAreaView>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function SystemBars({ dark }: { dark: boolean }) {
+  const style = dark ? "light" : "dark";
+
+  return (
+    <>
+      <StatusBar style={style} />
+      <NavigationBar style={style} />
+    </>
   );
 }
 
