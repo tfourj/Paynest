@@ -354,11 +354,14 @@ export async function syncAppData(
   });
   const shouldEncrypt = Boolean(encryption?.enabled || cloud.encrypted);
   if (shouldEncrypt) {
-    if (!encryption?.password) throw new Error("Enter your encryption password to sync encrypted data.");
     if (cloud.locked) throw new Error("Unlock encrypted cloud data before syncing.");
-    const session = encryption.session ?? cloud.encryptionSession ?? { masterKey: createMasterKey() };
+    const session = encryption?.session
+      ?? cloud.encryptionSession
+      ?? (encryption?.password ? { masterKey: createMasterKey() } : null);
+    if (!session) throw new Error("Enter your encryption password to sync encrypted data.");
     const shouldWriteUserKey = !cloud.encrypted || session.needsMigration || !cloud.encryptionSession;
     if (shouldWriteUserKey) {
+      if (!encryption?.password) throw new Error("Enter your encryption password to sync encrypted data.");
       try {
         await upsertUserKey(client, token, userId, encryption.password, session.masterKey);
       } catch (error) {
@@ -740,14 +743,6 @@ async function listEncryptedRecordDataIfAvailable(client: PocketBaseClient, toke
     listEncryptedSettingsIfAvailable(client, token, userId),
   ]);
   return { subscriptions, settings };
-}
-
-async function hasEncryptedRecordDataIfAvailable(client: PocketBaseClient, token: string, userId: string) {
-  const settings = await listEncryptedSettingsIfAvailable(client, token, userId);
-  if (settings.length > 0) return true;
-
-  const subscriptions = await listEncryptedSubscriptionsIfAvailable(client, token, userId, 1);
-  return subscriptions.length > 0;
 }
 
 async function listEncryptedSubscriptionsIfAvailable(
