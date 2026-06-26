@@ -335,6 +335,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 12,
   },
+  encryptionButtonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   encryptionButtonText: { fontSize: 14, fontWeight: "800", textAlign: "center" },
   encryptionModalOverlay: {
     flex: 1,
@@ -868,6 +869,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
     justifyContent: "center",
   },
+  syncPromptButtonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   syncPromptButtonText: { fontSize: 16, fontWeight: "800" },
   syncPromptDangerText: { fontSize: 16, fontWeight: "800" },
   syncPromptButtonMeta: { fontSize: 13, fontWeight: "600", marginTop: 3 },

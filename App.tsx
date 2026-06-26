@@ -1559,9 +1559,12 @@ function UnlockEncryptionPrompt({
               onPress={() => void submit()}
               style={[styles.syncPromptButton, { backgroundColor: c.primary, borderColor: c.primary }]}
             >
-              <Text style={[styles.syncPromptButtonText, { color: "#FFFFFF" }]}>
-                {busy ? "Unlocking" : "Unlock"}
-              </Text>
+              <View style={styles.syncPromptButtonContent}>
+                {busy ? <ActivityIndicator size="small" color="#FFFFFF" /> : null}
+                <Text style={[styles.syncPromptButtonText, { color: "#FFFFFF" }]}>
+                  {busy ? "Unlocking" : "Unlock"}
+                </Text>
+              </View>
             </Pressable>
           </View>
         </View>

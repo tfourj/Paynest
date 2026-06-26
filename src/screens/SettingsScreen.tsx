@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObjec
 import * as FileSystem from "expo-file-system/legacy";
 import type { DocumentPickerAsset } from "expo-document-picker";
 import {
+  ActivityIndicator,
   Animated,
   Linking,
   type LayoutChangeEvent,
@@ -1753,9 +1754,12 @@ function EncryptionPasswordModal({
               onPress={() => void submit()}
               style={[styles.encryptionButton, { backgroundColor: c.primary, borderColor: c.primary }]}
             >
-              <Text style={[styles.encryptionButtonText, { color: "#FFFFFF" }]}>
-                {busy ? "Working" : "Save"}
-              </Text>
+              <View style={styles.encryptionButtonContent}>
+                {busy ? <ActivityIndicator size="small" color="#FFFFFF" /> : null}
+                <Text style={[styles.encryptionButtonText, { color: "#FFFFFF" }]}>
+                  {busy ? "Working" : "Save"}
+                </Text>
+              </View>
             </Pressable>
           </View>
         </View>
