@@ -375,6 +375,7 @@ export default function App() {
   const [cloudEncryptionState, setCloudEncryptionState] = useState<CloudEncryptionState>("off");
   const [encryptionPassword, setEncryptionPassword] = useState<string | null>(null);
   const [loginEncryptionPromptVisible, setLoginEncryptionPromptVisible] = useState(false);
+  const [backgroundUnlocking, setBackgroundUnlocking] = useState(false);
   const [pendingSyncPrompt, setPendingSyncPrompt] = useState<{
     userId: string;
     cloudSubscriptions: Subscription[];
@@ -430,6 +431,7 @@ export default function App() {
       setEncryptionPassword(null);
       savedEncryptionPassword.current = null;
       setLoginEncryptionPromptVisible(false);
+      setBackgroundUnlocking(false);
       setAuthReady(true);
       return;
     }
@@ -482,7 +484,16 @@ export default function App() {
       if (cloud.encrypted) {
         setCloudEncryptionState("locked");
         setEncryptionPassword(null);
-        setLoginEncryptionPromptVisible(true);
+        if (savedEncryptionPassword.current) {
+          setBackgroundUnlocking(true);
+          void unlockCloudEncryption(savedEncryptionPassword.current, true).catch((error) => {
+            savedEncryptionPassword.current = null;
+            setLoginEncryptionPromptVisible(true);
+            console.warn("PocketBase encrypted background unlock failed", error);
+          }).finally(() => setBackgroundUnlocking(false));
+        } else {
+          setLoginEncryptionPromptVisible(true);
+        }
         return;
       }
 
@@ -804,6 +815,7 @@ export default function App() {
     setCloudEncryptionState("off");
     setEncryptionPassword(null);
     setLoginEncryptionPromptVisible(false);
+    setBackgroundUnlocking(false);
     savedEncryptionPassword.current = null;
     void savePocketBaseConnection(next);
   }
@@ -819,6 +831,7 @@ export default function App() {
     setCloudEncryptionState("off");
     setEncryptionPassword(null);
     setLoginEncryptionPromptVisible(false);
+    setBackgroundUnlocking(false);
     savedEncryptionPassword.current = null;
     void savePocketBaseConnection(next);
   }
@@ -832,6 +845,7 @@ export default function App() {
     setCloudEncryptionState("off");
     setEncryptionPassword(null);
     setLoginEncryptionPromptVisible(false);
+    setBackgroundUnlocking(false);
     savedEncryptionPassword.current = null;
   }
 
@@ -944,6 +958,7 @@ export default function App() {
     setEncryptionPassword(normalizedPassword);
     setCloudEncryptionState("unlocked");
     setLoginEncryptionPromptVisible(false);
+    setBackgroundUnlocking(false);
     await syncUserData(userId, "cloud", cloud, normalizedPassword);
   }
 
@@ -1208,7 +1223,10 @@ export default function App() {
           />
           <LoginEncryptionPrompt
             c={c}
-            visible={Boolean(session) && cloudEncryptionState === "locked" && loginEncryptionPromptVisible}
+            visible={Boolean(session)
+              && cloudEncryptionState === "locked"
+              && loginEncryptionPromptVisible
+              && !backgroundUnlocking}
             savedPassword={savedEncryptionPassword.current}
             onClose={() => setLoginEncryptionPromptVisible(false)}
             onSubmit={async (password, rememberPassword) => {
