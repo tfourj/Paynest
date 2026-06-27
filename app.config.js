@@ -5,8 +5,8 @@ const { buildInfo } = require("./scripts/build-info.cjs");
 module.exports = ({ config }) => {
   const { version, suffix } = buildInfo();
 
-  process.env.EXPO_PUBLIC_BUILD_VERSION = process.env.EXPO_PUBLIC_BUILD_VERSION || version;
-  process.env.EXPO_PUBLIC_BUILD_SUFFIX = process.env.EXPO_PUBLIC_BUILD_SUFFIX ?? suffix;
+  process.env.EXPO_PUBLIC_BUILD_VERSION = version;
+  process.env.EXPO_PUBLIC_BUILD_SUFFIX = suffix;
 
   return {
     ...config,

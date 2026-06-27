@@ -19,11 +19,11 @@ function git(args) {
 }
 
 function buildInfo() {
-  const overrideVersion = normalizeVersion(process.env.EXPO_PUBLIC_BUILD_VERSION);
+  const overrideVersion = normalizeVersion(process.env.PAYNEST_BUILD_VERSION);
   if (overrideVersion) {
     return {
       version: overrideVersion,
-      suffix: process.env.EXPO_PUBLIC_BUILD_SUFFIX ?? "",
+      suffix: process.env.PAYNEST_BUILD_SUFFIX ?? "",
     };
   }
 

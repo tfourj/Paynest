@@ -43,6 +43,8 @@ if [ -n "$VERSION_OVERRIDE" ]; then
     echo "Expected a semantic version like v1.0.0 or 1.0.0"
     exit 1
   fi
+  export PAYNEST_BUILD_VERSION="$VERSION"
+  export PAYNEST_BUILD_SUFFIX=""
   export EXPO_PUBLIC_BUILD_VERSION="$VERSION"
   export EXPO_PUBLIC_BUILD_SUFFIX=""
 fi
