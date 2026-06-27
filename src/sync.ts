@@ -1,4 +1,8 @@
-import type { PocketBaseClient } from "./pocketbase";
+import {
+  PocketBaseError,
+  type PocketBaseBatchRequest,
+  type PocketBaseClient,
+} from "./pocketbase";
 import {
   createMasterKey,
   decryptJsonPayload,
@@ -94,6 +98,11 @@ type UserKeyRecord = {
   updated_at: string;
 };
 
+type RecordOperation = {
+  request: PocketBaseBatchRequest;
+  fallback: () => Promise<unknown>;
+};
+
 export type SyncStrategy = "merge" | "cloud" | "local";
 export type CloudAppData = Awaited<ReturnType<typeof loadCloudAppData>>;
 export type CloudEncryptionSession = {
@@ -111,6 +120,10 @@ type LoadCloudEncryptionOptions = string | null | {
   password?: string | null;
   session?: CloudEncryptionSession | null;
 };
+
+const batchWriteChunkSize = 25;
+const batchWritePauseMs = 400;
+const fallbackWritePauseMs = 275;
 
 function toSubscription(row: SubscriptionRecord): Subscription {
   return {
@@ -367,7 +380,8 @@ export async function syncAppData(
       } catch (error) {
         if (isMissingEncryptedCollectionError(error)) {
           throw new Error(
-            "Update your PocketBase server. The user_keys, encrypted_subscriptions, and encrypted_settings collections are missing.",
+            "Update your PocketBase server. The user_keys, encrypted_subscriptions, " +
+              "and encrypted_settings collections are missing.",
           );
         }
         throw error;
@@ -422,6 +436,112 @@ export async function syncAppData(
   return { subscriptions, settings, encryptionSession: null };
 }
 
+async function sendRecordOperations(
+  client: PocketBaseClient,
+  token: string,
+  operations: RecordOperation[],
+) {
+  if (operations.length === 0) return;
+  if (operations.length === 1) {
+    await operations[0].fallback();
+    return;
+  }
+
+  let completedBatchChunks = 0;
+  try {
+    const chunks = chunkArray(operations, batchWriteChunkSize);
+    for (let index = 0; index < chunks.length; index += 1) {
+      await client.sendBatch(token, chunks[index].map((operation) => operation.request));
+      completedBatchChunks += 1;
+      if (index < chunks.length - 1) await delay(batchWritePauseMs);
+    }
+  } catch (error) {
+    if (completedBatchChunks > 0 || !isBatchUnavailableError(error)) throw error;
+    await runFallbackOperations(operations);
+  }
+}
+
+async function runFallbackOperations(operations: RecordOperation[]) {
+  for (let index = 0; index < operations.length; index += 1) {
+    await operations[index].fallback();
+    if (index < operations.length - 1) await delay(fallbackWritePauseMs);
+  }
+}
+
+function createRecordOperation(
+  client: PocketBaseClient,
+  collection: string,
+  token: string,
+  body: unknown,
+): RecordOperation {
+  return {
+    request: {
+      method: "POST",
+      url: recordApiPath(collection),
+      body,
+    },
+    fallback: () => client.createRecord(collection, token, body),
+  };
+}
+
+function updateRecordOperation(
+  client: PocketBaseClient,
+  collection: string,
+  recordId: string,
+  token: string,
+  body: unknown,
+): RecordOperation {
+  return {
+    request: {
+      method: "PATCH",
+      url: recordApiPath(collection, recordId),
+      body,
+    },
+    fallback: () => client.updateRecord(collection, recordId, token, body),
+  };
+}
+
+function deleteRecordOperation(
+  client: PocketBaseClient,
+  collection: string,
+  recordId: string,
+  token: string,
+): RecordOperation {
+  return {
+    request: {
+      method: "DELETE",
+      url: recordApiPath(collection, recordId),
+    },
+    fallback: async () => {
+      await client.deleteRecord(collection, recordId, token);
+      return null;
+    },
+  };
+}
+
+function recordApiPath(collection: string, recordId?: string) {
+  const base = `/api/collections/${encodeURIComponent(collection)}/records`;
+  return recordId ? `${base}/${encodeURIComponent(recordId)}` : base;
+}
+
+function isBatchUnavailableError(error: unknown) {
+  if (!(error instanceof PocketBaseError)) return false;
+  if (error.status === 404) return true;
+  return error.status === 403 && /batch requests are not allowed/i.test(error.message);
+}
+
+function chunkArray<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function upsertSubscriptions(
   client: PocketBaseClient | null,
   token: string,
@@ -432,14 +552,14 @@ export async function upsertSubscriptions(
 
   const existingRecords = await listUserSubscriptions(client, token, userId);
   const recordsByLocalId = new Map(existingRecords.map((record) => [record.local_id, record]));
-
-  await Promise.all(subscriptions.map((item) => {
+  const operations = subscriptions.map((item) => {
     const existing = recordsByLocalId.get(item.id);
     const body = toSubscriptionRecord(userId, item);
     return existing
-      ? client.updateRecord("subscriptions", existing.id, token, body)
-      : client.createRecord("subscriptions", token, body);
-  }));
+      ? updateRecordOperation(client, "subscriptions", existing.id, token, body)
+      : createRecordOperation(client, "subscriptions", token, body);
+  });
+  await sendRecordOperations(client, token, operations);
 }
 
 export async function deleteSubscriptionFromCloud(
@@ -451,7 +571,11 @@ export async function deleteSubscriptionFromCloud(
   if (!client) return;
 
   const records = await listUserSubscriptions(client, token, userId, localId);
-  await Promise.all(records.map((record) => client.deleteRecord("subscriptions", record.id, token)));
+  await sendRecordOperations(
+    client,
+    token,
+    records.map((record) => deleteRecordOperation(client, "subscriptions", record.id, token)),
+  );
 }
 
 export async function upsertEncryptedSubscriptionChanges(
@@ -474,7 +598,11 @@ export async function deleteEncryptedSubscriptionFromCloud(
   if (!client) return;
 
   const records = await listEncryptedSubscriptions(client, token, userId, 500, localId);
-  await Promise.all(records.map((record) => client.deleteRecord("encrypted_subscriptions", record.id, token)));
+  await sendRecordOperations(
+    client,
+    token,
+    records.map((record) => deleteRecordOperation(client, "encrypted_subscriptions", record.id, token)),
+  );
 }
 
 export async function upsertSettings(
@@ -524,7 +652,8 @@ export async function upsertEncryptedCloudData(
   } catch (error) {
     if (isMissingEncryptedCollectionError(error)) {
       throw new Error(
-        "Update your PocketBase server. The user_keys, encrypted_subscriptions, and encrypted_settings collections are missing.",
+        "Update your PocketBase server. The user_keys, encrypted_subscriptions, " +
+          "and encrypted_settings collections are missing.",
       );
     }
     throw error;
@@ -538,10 +667,10 @@ export async function deleteEncryptedCloudData(client: PocketBaseClient | null, 
     listEncryptedSettingsIfAvailable(client, token, userId),
     listUserKeysIfAvailable(client, token, userId),
   ]);
-  await Promise.all([
-    ...subscriptions.map((record) => client.deleteRecord("encrypted_subscriptions", record.id, token)),
-    ...settings.map((record) => client.deleteRecord("encrypted_settings", record.id, token)),
-    ...userKeys.map((record) => client.deleteRecord("user_keys", record.id, token)),
+  await sendRecordOperations(client, token, [
+    ...subscriptions.map((record) => deleteRecordOperation(client, "encrypted_subscriptions", record.id, token)),
+    ...settings.map((record) => deleteRecordOperation(client, "encrypted_settings", record.id, token)),
+    ...userKeys.map((record) => deleteRecordOperation(client, "user_keys", record.id, token)),
   ]);
 }
 
@@ -779,8 +908,7 @@ async function upsertEncryptedSubscriptions(
   const existingRecords = await listEncryptedSubscriptions(client, token, userId);
   const recordsByLocalId = new Map(existingRecords.map((record) => [record.local_id, record]));
   const localIds = new Set(subscriptions.map((item) => item.id));
-
-  await Promise.all(subscriptions.map(async (item) => {
+  const operations = subscriptions.map((item) => {
     const existing = recordsByLocalId.get(item.id);
     const envelope = encryptJsonPayloadWithMasterKey(item, session.masterKey);
     const body = {
@@ -791,15 +919,16 @@ async function upsertEncryptedSubscriptions(
       updated_at: item.updatedAt,
     };
     return existing
-      ? client.updateRecord("encrypted_subscriptions", existing.id, token, body)
-      : client.createRecord("encrypted_subscriptions", token, body);
-  }));
+      ? updateRecordOperation(client, "encrypted_subscriptions", existing.id, token, body)
+      : createRecordOperation(client, "encrypted_subscriptions", token, body);
+  });
 
   if (deleteMissing) {
-    await Promise.all(existingRecords
+    operations.push(...existingRecords
       .filter((record) => !localIds.has(record.local_id))
-      .map((record) => client.deleteRecord("encrypted_subscriptions", record.id, token)));
+      .map((record) => deleteRecordOperation(client, "encrypted_subscriptions", record.id, token)));
   }
+  await sendRecordOperations(client, token, operations);
 }
 
 async function upsertEncryptedSettings(
@@ -832,7 +961,11 @@ function isMissingEncryptedCollectionError(error: unknown) {
 
 async function deleteUserSubscriptions(client: PocketBaseClient, token: string, userId: string) {
   const records = await listUserSubscriptions(client, token, userId);
-  await Promise.all(records.map((record) => client.deleteRecord("subscriptions", record.id, token)));
+  await sendRecordOperations(
+    client,
+    token,
+    records.map((record) => deleteRecordOperation(client, "subscriptions", record.id, token)),
+  );
 }
 
 async function deleteUserSettings(client: PocketBaseClient, token: string, userId: string) {

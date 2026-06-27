@@ -32,6 +32,13 @@ type PocketBaseListResponse<T> = {
   items: T[];
 };
 
+export type PocketBaseBatchRequest = {
+  method: "POST" | "PATCH" | "PUT" | "DELETE";
+  url: string;
+  body?: unknown;
+  headers?: Record<string, string>;
+};
+
 type RequestOptions = {
   method?: string;
   token?: string;
@@ -40,6 +47,19 @@ type RequestOptions = {
 
 const sessionRefreshes = new Map<string, Promise<PocketBaseSession | null>>();
 const minimumPasswordLength = 8;
+const maxRateLimitRetries = 2;
+const baseRateLimitDelayMs = 750;
+
+export class PocketBaseError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly data: unknown,
+  ) {
+    super(message);
+    this.name = "PocketBaseError";
+  }
+}
 
 export const defaultPocketBaseConnection: PocketBaseConnectionSettings = {
   url: process.env.EXPO_PUBLIC_POCKETBASE_URL?.trim() ?? "",
@@ -152,6 +172,15 @@ export class PocketBaseClient {
     });
   }
 
+  async sendBatch(token: string, requests: PocketBaseBatchRequest[]) {
+    if (requests.length === 0) return [];
+    return this.request<unknown[]>("/api/batch", {
+      method: "POST",
+      token,
+      body: { requests },
+    });
+  }
+
   private async refreshSessionOnce(token: string) {
     const refreshKey = `${this.config.sessionStorageKey}:${token}`;
     const currentRefresh = sessionRefreshes.get(refreshKey);
@@ -197,17 +226,26 @@ export class PocketBaseClient {
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
     if (options.token) headers.Authorization = options.token;
 
-    const response = await fetch(`${this.config.url}${path}`, {
+    const requestInit = {
       method: options.method ?? "GET",
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    };
+    let response = await fetch(`${this.config.url}${path}`, requestInit);
+    for (let attempt = 0; response.status === 429 && attempt < maxRateLimitRetries; attempt += 1) {
+      await delay(rateLimitDelay(response, attempt));
+      response = await fetch(`${this.config.url}${path}`, requestInit);
+    }
 
     if (response.status === 204) return null as T;
 
     const data = await response.json().catch(() => null);
     if (!response.ok) {
-      throw new Error(pocketBaseErrorMessage(data) ?? "PocketBase request failed");
+      throw new PocketBaseError(
+        pocketBaseErrorMessage(data) ?? "PocketBase request failed",
+        response.status,
+        data,
+      );
     }
 
     return data as T;
@@ -233,11 +271,43 @@ function queryStringValues(values: Record<string, string | number | boolean>) {
   );
 }
 
-function pocketBaseErrorMessage(data: unknown) {
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function rateLimitDelay(response: Response, attempt: number) {
+  const retryAfter = response.headers.get("Retry-After");
+  const retryAfterSeconds = retryAfter ? Number(retryAfter) : NaN;
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return retryAfterSeconds * 1000;
+  }
+  return baseRateLimitDelayMs * 2 ** attempt;
+}
+
+function pocketBaseErrorMessage(data: unknown): string | null {
   if (!data || typeof data !== "object") return null;
   const fieldErrors = pocketBaseFieldErrors(data);
   if (fieldErrors.length > 0) return fieldErrors.join(" ");
+  const batchError: string | null = pocketBaseBatchErrorMessage(data);
+  if (batchError) return batchError;
   if ("message" in data && typeof data.message === "string") return data.message;
+  return null;
+}
+
+function pocketBaseBatchErrorMessage(data: object): string | null {
+  if (!("data" in data) || !data.data || typeof data.data !== "object") return null;
+  if (!("requests" in data.data) || !data.data.requests || typeof data.data.requests !== "object") return null;
+
+  const [firstError] = Object.values(data.data.requests);
+  if (!firstError || typeof firstError !== "object") return null;
+
+  if ("response" in firstError && firstError.response && typeof firstError.response === "object") {
+    const responseMessage: string | null = pocketBaseErrorMessage(firstError.response);
+    if (responseMessage) return responseMessage;
+  }
+
+  if ("message" in firstError && typeof firstError.message === "string") return firstError.message;
+  if ("code" in firstError && typeof firstError.code === "string") return firstError.code;
   return null;
 }
 
