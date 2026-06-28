@@ -6,7 +6,9 @@ import {
 } from "./pocketbase";
 import { currencyCodes } from "./constants";
 import {
+  defaultCategories,
   defaultColorPresets,
+  defaultPaymentMethods,
   defaultSettings,
   type Settings,
   type Subscription,
@@ -85,7 +87,19 @@ function normalizeSettings(settings: Partial<Settings>): Settings {
     convertToPrimaryCurrency: merged.convertToPrimaryCurrency ?? defaultSettings.convertToPrimaryCurrency,
     showOriginalCurrency: merged.showOriginalCurrency ?? defaultSettings.showOriginalCurrency,
     colorPresets: normalizeColorPresets(merged.colorPresets),
+    categories: normalizeStringList(merged.categories, defaultCategories),
+    paymentMethods: normalizeStringList(merged.paymentMethods, defaultPaymentMethods),
   };
+}
+
+function normalizeStringList(values: string[] | undefined, fallback: string[]) {
+  if (!Array.isArray(values)) return fallback;
+
+  const normalized = values
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter((value) => value.length > 0);
+  const unique = Array.from(new Set(normalized)).slice(0, 100);
+  return unique.length > 0 ? unique : fallback;
 }
 
 function normalizeReminderTime(value?: string) {

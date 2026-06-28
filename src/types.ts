@@ -1,6 +1,19 @@
+import { categories } from "./constants";
+
 export const billingPeriods = ["Weekly", "Monthly", "3 months", "6 months", "Yearly"] as const;
 export type BillingPeriod = (typeof billingPeriods)[number];
 export type ThemePreference = "system" | "light" | "dark";
+
+export const defaultCategories = [...categories];
+
+export const defaultPaymentMethods = [
+  "Card",
+  "Cash",
+  "PayPal",
+  "Bank Transfer",
+  "Apple Pay",
+  "Google Pay",
+];
 
 export const defaultColorPresets = [
   "#EF4444",
@@ -37,6 +50,7 @@ export type Subscription = {
   iconProvider?: string;
   iconUrl?: string;
   iconSourceTitle?: string;
+  paymentMethod?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -54,6 +68,8 @@ export type Settings = {
   payday: number;
   usesMobile: boolean;
   colorPresets: string[];
+  categories: string[];
+  paymentMethods: string[];
 };
 
 export const defaultSettings: Settings = {
@@ -69,4 +85,6 @@ export const defaultSettings: Settings = {
   payday: 1,
   usesMobile: false,
   colorPresets: defaultColorPresets,
+  categories: defaultCategories,
+  paymentMethods: defaultPaymentMethods,
 };

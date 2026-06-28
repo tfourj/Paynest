@@ -47,6 +47,7 @@ type SubscriptionRecord = {
   icon_provider?: string | null;
   icon_url?: string | null;
   icon_source_title?: string | null;
+  payment_method?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -66,6 +67,8 @@ type SettingsRecord = {
   payday?: number | null;
   uses_mobile?: boolean | null;
   color_presets?: string | null;
+  categories?: string | null;
+  payment_methods?: string | null;
   updated_at: string;
 };
 
@@ -148,6 +151,7 @@ function toSubscription(row: SubscriptionRecord): Subscription {
     iconProvider: row.icon_provider ?? undefined,
     iconUrl: row.icon_url ?? undefined,
     iconSourceTitle: row.icon_source_title ?? undefined,
+    paymentMethod: row.payment_method ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -177,6 +181,7 @@ function toSubscriptionRecord(userId: string, item: Subscription) {
     icon_provider: item.iconProvider,
     icon_url: item.iconUrl,
     icon_source_title: item.iconSourceTitle,
+    payment_method: item.paymentMethod,
     created_at: item.createdAt,
     updated_at: item.updatedAt,
   };
@@ -197,6 +202,8 @@ function toSettings(row: SettingsRecord): Settings {
     payday: row.payday ?? defaultSettings.payday,
     usesMobile: row.uses_mobile ?? defaultSettings.usesMobile,
     colorPresets: parseColorPresets(row.color_presets),
+    categories: parseStringList(row.categories, defaultSettings.categories),
+    paymentMethods: parseStringList(row.payment_methods, defaultSettings.paymentMethods),
   };
 }
 
@@ -214,6 +221,8 @@ function toSettingsRecord(userId: string, settings: Settings) {
     payday: settings.payday,
     uses_mobile: settings.usesMobile,
     color_presets: JSON.stringify(settings.colorPresets),
+    categories: JSON.stringify(settings.categories),
+    payment_methods: JSON.stringify(settings.paymentMethods),
     updated_at: new Date().toISOString(),
   };
 }
@@ -991,6 +1000,22 @@ function parseColorPresets(value?: string | null) {
     return colors.length > 0 ? colors : defaultSettings.colorPresets;
   } catch {
     return defaultSettings.colorPresets;
+  }
+}
+
+function parseStringList(value: string | null | undefined, fallback: string[]) {
+  if (!value) return fallback;
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return fallback;
+    const items = parsed
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item) => item.length > 0);
+    const unique = Array.from(new Set(items));
+    return unique.length > 0 ? unique : fallback;
+  } catch {
+    return fallback;
   }
 }
 
