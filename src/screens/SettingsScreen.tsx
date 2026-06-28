@@ -84,6 +84,8 @@ type SettingsSectionId =
   | "currencies"
   | "payday"
   | "appearance"
+  | "categories"
+  | "paymentMethods"
   | "sync"
   | "data"
   | "about";
@@ -232,6 +234,32 @@ export function SettingsScreen({
           onSectionLayout={handleSectionLayout}
           onToggleSection={toggleSection}
           onUpdate={onUpdate}
+        />
+        <EditableListSettings
+          c={c}
+          id="categories"
+          icon="pricetags-outline"
+          title="Categories"
+          itemNoun="category"
+          placeholder="Add a category"
+          values={settings.categories}
+          openSection={openSection}
+          onSectionLayout={handleSectionLayout}
+          onToggleSection={toggleSection}
+          onChange={(categories) => onUpdate({ ...settings, categories })}
+        />
+        <EditableListSettings
+          c={c}
+          id="paymentMethods"
+          icon="card-outline"
+          title="Payment methods"
+          itemNoun="payment method"
+          placeholder="Add a payment method"
+          values={settings.paymentMethods}
+          openSection={openSection}
+          onSectionLayout={handleSectionLayout}
+          onToggleSection={toggleSection}
+          onChange={(paymentMethods) => onUpdate({ ...settings, paymentMethods })}
         />
         <SyncSettings
           c={c}
@@ -1314,6 +1342,112 @@ function AppearanceSettings({
         onDone={addPickerPreset}
       />
     </>
+  );
+}
+
+function EditableListSettings({
+  c,
+  id,
+  icon,
+  title,
+  itemNoun,
+  placeholder,
+  values,
+  openSection,
+  onSectionLayout,
+  onToggleSection,
+  onChange,
+}: {
+  c: Colors;
+  id: SettingsSectionId;
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  itemNoun: string;
+  placeholder: string;
+  values: string[];
+  openSection: SettingsSectionId | null;
+  onSectionLayout: SettingsSectionLayoutHandler;
+  onToggleSection: (section: SettingsSectionId) => void;
+  onChange: (values: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+  const trimmed = input.trim();
+  const canAdd = trimmed.length > 0
+    && !values.some((value) => value.toLowerCase() === trimmed.toLowerCase());
+
+  function addValue() {
+    if (!canAdd) return;
+    onChange([...values, trimmed]);
+    setInput("");
+  }
+
+  function removeValue(value: string) {
+    const next = values.filter((item) => item !== value);
+    onChange(next.length > 0 ? next : values);
+  }
+
+  return (
+    <CollapsibleSettingsSection
+      c={c}
+      icon={icon}
+      id={id}
+      openSection={openSection}
+      title={title}
+      onSectionLayout={onSectionLayout}
+      onToggleSection={onToggleSection}
+    >
+      <View style={styles.settingOption}>
+        <Text style={[styles.rowName, { color: c.text }]}>{title}</Text>
+        <Text style={[styles.rowMeta, { color: c.textMuted }]}>
+          Tap a {itemNoun} to remove it
+        </Text>
+        <View style={styles.editableListChips}>
+          {values.map((value) => (
+            <Pressable
+              key={value}
+              accessibilityLabel={`Remove ${itemNoun} ${value}`}
+              onPress={() => removeValue(value)}
+              style={[styles.editableListChip, { backgroundColor: c.surfaceMuted, borderColor: c.border }]}
+            >
+              <Text style={[styles.editableListChipText, { color: c.text }]}>{value}</Text>
+              <Ionicons name="close" size={15} color={c.textMuted} />
+            </Pressable>
+          ))}
+        </View>
+        <View style={styles.colorPresetInputRow}>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder={placeholder}
+            placeholderTextColor={c.textSoft}
+            style={[
+              styles.colorPresetInput,
+              {
+                backgroundColor: c.surfaceMuted,
+                borderColor: c.border,
+                color: c.text,
+              },
+            ]}
+            autoCapitalize="words"
+            autoCorrect={false}
+            maxLength={32}
+            onSubmitEditing={addValue}
+            returnKeyType="done"
+          />
+          <Pressable
+            disabled={!canAdd}
+            accessibilityLabel={`Add ${itemNoun}`}
+            onPress={addValue}
+            style={[
+              styles.colorPresetAddButton,
+              { backgroundColor: canAdd ? c.primary : c.surfaceMuted },
+            ]}
+          >
+            <Ionicons name="add" size={20} color={canAdd ? "#FFFFFF" : c.textSoft} />
+          </Pressable>
+        </View>
+      </View>
+    </CollapsibleSettingsSection>
   );
 }
 

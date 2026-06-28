@@ -687,7 +687,9 @@ export default function App() {
       || settings.paydayEnabled !== next.paydayEnabled
       || settings.payday !== next.payday
       || settings.usesMobile !== next.usesMobile
-      || JSON.stringify(settings.colorPresets) !== JSON.stringify(next.colorPresets);
+      || JSON.stringify(settings.colorPresets) !== JSON.stringify(next.colorPresets)
+      || JSON.stringify(settings.categories) !== JSON.stringify(next.categories)
+      || JSON.stringify(settings.paymentMethods) !== JSON.stringify(next.paymentMethods);
 
     setSettings(next);
     void saveSettings(next);

@@ -439,6 +439,18 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  editableListChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  editableListChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingLeft: 14,
+    paddingRight: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  editableListChipText: { fontSize: 14, fontWeight: "600" },
   currencyGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   currencyOption: {
     width: "31%",
