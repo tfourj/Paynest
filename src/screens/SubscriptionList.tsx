@@ -15,6 +15,8 @@ type SubscriptionListProps = {
   subscriptions: Subscription[];
   refreshing: boolean;
   colorPresets: string[];
+  categories: string[];
+  paymentMethods: string[];
   enabledCurrencies: string[];
   convertedPrices: Record<string, number | null>;
   displayCurrency: string;
@@ -23,6 +25,8 @@ type SubscriptionListProps = {
   onRefresh: () => void;
   onUpdate: (item: Subscription, input: Omit<Subscription, "id" | "createdAt" | "updatedAt">) => void;
   onRemove: (item: Subscription) => void;
+  onAddCategory: (value: string) => void;
+  onAddPaymentMethod: (value: string) => void;
   onRequestNotificationPermission: () => Promise<boolean>;
 };
 
@@ -42,6 +46,8 @@ export function SubscriptionList({
   subscriptions,
   refreshing,
   colorPresets,
+  categories,
+  paymentMethods,
   enabledCurrencies,
   convertedPrices,
   displayCurrency,
@@ -50,6 +56,8 @@ export function SubscriptionList({
   onRefresh,
   onUpdate,
   onRemove,
+  onAddCategory,
+  onAddPaymentMethod,
   onRequestNotificationPermission,
 }: SubscriptionListProps) {
   const [filter, setFilter] = useState<SubscriptionFilter>("All");
@@ -129,8 +137,12 @@ export function SubscriptionList({
         defaultCurrency={editing?.currency ?? "EUR"}
         enabledCurrencies={enabledCurrencies}
         colorPresets={colorPresets}
+        categories={categories}
+        paymentMethods={paymentMethods}
         subscription={editing}
         onClose={() => setEditing(null)}
+        onAddCategory={onAddCategory}
+        onAddPaymentMethod={onAddPaymentMethod}
         onRequestNotificationPermission={onRequestNotificationPermission}
         onSave={(input) => {
           if (!editing) return;

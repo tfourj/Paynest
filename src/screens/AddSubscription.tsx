@@ -18,7 +18,7 @@ import { ColorPickerSheet } from "../components/ColorPickerSheet";
 import { Chip } from "../components/common";
 import { getSimpleIcon, SimpleIcon } from "../components/SimpleIcon";
 import { SubscriptionIcon } from "../components/SubscriptionIcon";
-import { categories, currencies, symbols } from "../constants";
+import { currencies, symbols } from "../constants";
 import {
   searchRemoteIcons,
   searchSimpleIcons,
@@ -43,15 +43,19 @@ type AddSubscriptionProps = {
   defaultCurrency: string;
   enabledCurrencies: string[];
   colorPresets: string[];
+  categories: string[];
+  paymentMethods: string[];
   subscription?: Subscription | null;
   onClose: () => void;
   onSave: (item: Omit<Subscription, "id" | "createdAt" | "updatedAt">) => void;
+  onAddCategory: (value: string) => void;
+  onAddPaymentMethod: (value: string) => void;
   onRequestNotificationPermission: () => Promise<boolean>;
   onDelete?: (item: Subscription) => void;
 };
 
 const noneCategory = "None";
-const categoryOptions = [noneCategory, ...categories];
+const noPaymentMethod = "None";
 const yearOptions = Array.from({ length: 6 }, (_, index) => new Date().getFullYear() + index);
 const monthOptions = Array.from({ length: 12 }, (_, index) => index);
 const visualIconOptions = [
@@ -134,9 +138,13 @@ export function AddSubscription({
   defaultCurrency,
   enabledCurrencies,
   colorPresets,
+  categories,
+  paymentMethods,
   subscription,
   onClose,
   onSave,
+  onAddCategory,
+  onAddPaymentMethod,
   onRequestNotificationPermission,
   onDelete,
 }: AddSubscriptionProps) {
@@ -149,6 +157,11 @@ export function AddSubscription({
   const [presetSearch, setPresetSearch] = useState("");
   const [basicInfoFocused, setBasicInfoFocused] = useState(false);
   const [category, setCategory] = useState(noneCategory);
+  const [paymentMethod, setPaymentMethod] = useState<string | undefined>();
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [addingPaymentMethod, setAddingPaymentMethod] = useState(false);
+  const [newPaymentMethod, setNewPaymentMethod] = useState("");
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("Monthly");
   const [currency, setCurrency] = useState(defaultCurrency);
   const [firstPaymentDate, setFirstPaymentDate] = useState(today);
@@ -181,6 +194,10 @@ export function AddSubscription({
   const [symbolSearchLoading, setSymbolSearchLoading] = useState(false);
   const [error, setError] = useState("");
   const editing = Boolean(subscription);
+  const categoryOptions = Array.from(new Set([noneCategory, ...categories, category]));
+  const paymentMethodOptions = Array.from(
+    new Set([noPaymentMethod, ...paymentMethods, ...(paymentMethod ? [paymentMethod] : [])]),
+  );
   const enabledCurrencyCodes = Array.from(new Set([currency, ...enabledCurrencies]));
   const enabledCurrencyOptions = currencies.filter((item) => enabledCurrencyCodes.includes(item.code));
   const formCurrency = currency;
@@ -255,6 +272,11 @@ export function AddSubscription({
     setPrice(subscription ? `${subscription.price}` : "");
     setPresetSearch(subscription?.name ?? "");
     setCategory(subscription?.category ?? noneCategory);
+    setPaymentMethod(subscription?.paymentMethod);
+    setAddingCategory(false);
+    setNewCategory("");
+    setAddingPaymentMethod(false);
+    setNewPaymentMethod("");
     setBillingPeriod(subscription?.billingPeriod ?? "Monthly");
     setCurrency(subscription?.currency ?? defaultCurrency);
     setFirstPaymentDate(subscription ? dateFromValue(subscription.nextRenewalDate) : today);
@@ -367,6 +389,38 @@ export function AddSubscription({
     });
   }
 
+  function confirmAddCategory() {
+    const value = newCategory.trim();
+    if (!value) return;
+
+    const existing = categoryOptions.find((item) => item.toLowerCase() === value.toLowerCase());
+    if (existing) {
+      setCategory(existing);
+    } else {
+      onAddCategory(value);
+      setCategory(value);
+    }
+
+    setNewCategory("");
+    setAddingCategory(false);
+  }
+
+  function confirmAddPaymentMethod() {
+    const value = newPaymentMethod.trim();
+    if (!value) return;
+
+    const existing = paymentMethodOptions.find((item) => item.toLowerCase() === value.toLowerCase());
+    if (existing) {
+      setPaymentMethod(existing === noPaymentMethod ? undefined : existing);
+    } else {
+      onAddPaymentMethod(value);
+      setPaymentMethod(value);
+    }
+
+    setNewPaymentMethod("");
+    setAddingPaymentMethod(false);
+  }
+
   function updateFirstPaymentDate(part: "day" | "month" | "year", value: number) {
     setFirstPaymentDate((current) => {
       const nextYear = part === "year" ? value : current.getFullYear();
@@ -423,11 +477,17 @@ export function AddSubscription({
       iconProvider,
       iconUrl,
       iconSourceTitle,
+      paymentMethod,
     });
     setName("");
     setPrice("");
     setPresetSearch("");
     setCategory(noneCategory);
+    setPaymentMethod(undefined);
+    setAddingCategory(false);
+    setNewCategory("");
+    setAddingPaymentMethod(false);
+    setNewPaymentMethod("");
     setBillingPeriod("Monthly");
     setCurrency(defaultCurrency);
     setFirstPaymentDate(today);
@@ -820,7 +880,9 @@ export function AddSubscription({
               </View>
               <View style={styles.rowText}>
                 <Text style={[styles.rowName, { color: previewTextColor }]}>{name.trim() || "Subscription"}</Text>
-                <Text style={[styles.rowMeta, { color: previewMutedColor }]}>{category} · {billingPeriod}</Text>
+                <Text style={[styles.rowMeta, { color: previewMutedColor }]}>
+                  {category} · {billingPeriod}{paymentMethod ? ` · ${paymentMethod}` : ""}
+                </Text>
               </View>
               <Text style={[styles.rowPrice, { color: previewTextColor }]}>
                 {symbols[formCurrency] ?? formCurrency} {price || "0.00"}
@@ -974,7 +1036,65 @@ export function AddSubscription({
             {categoryOptions.map((item) => (
               <Chip key={item} c={c} label={item} selected={category === item} onPress={() => setCategory(item)} />
             ))}
+            <Pressable
+              accessibilityLabel="Add a category"
+              onPress={() => setAddingCategory((current) => !current)}
+              style={[styles.inlineAddChip, { borderColor: c.primary, backgroundColor: c.surface }]}
+            >
+              <Ionicons name="add" size={16} color={c.primary} />
+              <Text style={[styles.inlineAddChipText, { color: c.primary }]}>New</Text>
+            </Pressable>
           </View>
+          {addingCategory ? (
+            <InlineAddRow
+              c={c}
+              value={newCategory}
+              placeholder="New category"
+              onChangeText={setNewCategory}
+              onConfirm={confirmAddCategory}
+              onCancel={() => {
+                setAddingCategory(false);
+                setNewCategory("");
+              }}
+            />
+          ) : null}
+
+          <Text style={[styles.formLabel, { color: c.textMuted }]}>PAYMENT METHOD</Text>
+          <View style={styles.categoryGrid}>
+            {paymentMethodOptions.map((item) => {
+              const selected = (paymentMethod ?? noPaymentMethod) === item;
+              return (
+                <Chip
+                  key={item}
+                  c={c}
+                  label={item}
+                  selected={selected}
+                  onPress={() => setPaymentMethod(item === noPaymentMethod ? undefined : item)}
+                />
+              );
+            })}
+            <Pressable
+              accessibilityLabel="Add a payment method"
+              onPress={() => setAddingPaymentMethod((current) => !current)}
+              style={[styles.inlineAddChip, { borderColor: c.primary, backgroundColor: c.surface }]}
+            >
+              <Ionicons name="add" size={16} color={c.primary} />
+              <Text style={[styles.inlineAddChipText, { color: c.primary }]}>New</Text>
+            </Pressable>
+          </View>
+          {addingPaymentMethod ? (
+            <InlineAddRow
+              c={c}
+              value={newPaymentMethod}
+              placeholder="New payment method"
+              onChangeText={setNewPaymentMethod}
+              onConfirm={confirmAddPaymentMethod}
+              onCancel={() => {
+                setAddingPaymentMethod(false);
+                setNewPaymentMethod("");
+              }}
+            />
+          ) : null}
 
           <Text style={[styles.formLabel, { color: c.textMuted }]}>RENEWAL REMINDER</Text>
           <View style={[styles.inputGroup, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -1075,6 +1195,55 @@ export function AddSubscription({
         </SafeAreaView>
       </View>
     </Modal>
+  );
+}
+
+type InlineAddRowProps = {
+  c: Colors;
+  value: string;
+  placeholder: string;
+  onChangeText: (value: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+};
+
+function InlineAddRow({ c, value, placeholder, onChangeText, onConfirm, onCancel }: InlineAddRowProps) {
+  const canConfirm = value.trim().length > 0;
+
+  return (
+    <View style={styles.inlineAddRow}>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={c.textSoft}
+        style={[
+          styles.inlineAddInput,
+          { backgroundColor: c.surface, borderColor: c.border, color: c.text },
+        ]}
+        autoCapitalize="words"
+        autoCorrect={false}
+        autoFocus
+        maxLength={32}
+        onSubmitEditing={onConfirm}
+        returnKeyType="done"
+      />
+      <Pressable
+        disabled={!canConfirm}
+        accessibilityLabel="Confirm"
+        onPress={onConfirm}
+        style={[styles.inlineAddButton, { backgroundColor: canConfirm ? c.primary : c.surfaceMuted }]}
+      >
+        <Ionicons name="checkmark" size={20} color={canConfirm ? "#FFFFFF" : c.textSoft} />
+      </Pressable>
+      <Pressable
+        accessibilityLabel="Cancel"
+        onPress={onCancel}
+        style={[styles.inlineAddButton, { backgroundColor: c.surfaceMuted }]}
+      >
+        <Ionicons name="close" size={20} color={c.textMuted} />
+      </Pressable>
+    </View>
   );
 }
 

@@ -74,9 +74,10 @@ export function SubscriptionRow({
   const rowTextColor = readableTextColor(rowBackground);
   const rowMutedColor = mutedTextColor(rowTextColor);
   const rowBorderColor = subscriptionPillBorderColor(c);
-  const rowMeta = item.paused
-    ? `${item.category} · ${item.billingPeriod} · Paused`
-    : `${item.category} · ${item.billingPeriod}`;
+  const metaParts = [item.category, item.billingPeriod];
+  if (item.paymentMethod) metaParts.push(item.paymentMethod);
+  if (item.paused) metaParts.push("Paused");
+  const rowMeta = metaParts.join(" · ");
   const renewalDate = nextRenewalDate(item);
 
   return (

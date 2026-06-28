@@ -700,6 +700,16 @@ export default function App() {
     }
   }
 
+  function addCategory(value: string) {
+    if (settings.categories.some((item) => item.toLowerCase() === value.toLowerCase())) return;
+    updateSettings({ ...settings, categories: [...settings.categories, value] });
+  }
+
+  function addPaymentMethod(value: string) {
+    if (settings.paymentMethods.some((item) => item.toLowerCase() === value.toLowerCase())) return;
+    updateSettings({ ...settings, paymentMethods: [...settings.paymentMethods, value] });
+  }
+
   function applyGlobalReminderSettings() {
     const now = new Date().toISOString();
     const next = subscriptions.map((subscription) => ({
@@ -1353,6 +1363,8 @@ export default function App() {
                   subscriptions={subscriptions}
                   refreshing={refreshingDashboard}
                   colorPresets={settings.colorPresets}
+                  categories={settings.categories}
+                  paymentMethods={settings.paymentMethods}
                   enabledCurrencies={settings.enabledCurrencies}
                   convertedPrices={convertedRenewalPrices}
                   displayCurrency={settings.currency}
@@ -1361,6 +1373,8 @@ export default function App() {
                   onRefresh={() => void refreshDashboard()}
                   onUpdate={updateSubscription}
                   onRemove={removeSubscription}
+                  onAddCategory={addCategory}
+                  onAddPaymentMethod={addPaymentMethod}
                   onRequestNotificationPermission={requestNotificationPermission}
                 />
               )}
@@ -1412,8 +1426,12 @@ export default function App() {
             defaultCurrency={settings.currency}
             enabledCurrencies={settings.enabledCurrencies}
             colorPresets={settings.colorPresets}
+            categories={settings.categories}
+            paymentMethods={settings.paymentMethods}
             onClose={() => setShowAdd(false)}
             onSave={addSubscription}
+            onAddCategory={addCategory}
+            onAddPaymentMethod={addPaymentMethod}
             onRequestNotificationPermission={requestNotificationPermission}
           />
           <SyncChoicePrompt
