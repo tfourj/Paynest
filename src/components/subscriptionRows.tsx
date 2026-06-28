@@ -7,7 +7,7 @@ import type { Colors } from "../theme";
 import type { Subscription } from "../types";
 import { colorFor, iconFor } from "../utils/category";
 import { mutedTextColor, readableTextColor } from "../utils/colors";
-import { formatMoney, renewalLabel } from "../utils/subscriptions";
+import { formatMoney, nextRenewalDate, renewalLabel } from "../utils/subscriptions";
 import type { IconSource } from "../iconSearch";
 
 export function RenewalRow({
@@ -29,6 +29,7 @@ export function RenewalRow({
   const rowTextColor = readableTextColor(rowBackground);
   const rowMutedColor = mutedTextColor(rowTextColor);
   const rowBorderColor = subscriptionPillBorderColor(c);
+  const renewalDate = nextRenewalDate(item);
 
   return (
     <View
@@ -41,7 +42,7 @@ export function RenewalRow({
       <IconBadge item={item} rowTextColor={rowTextColor} />
       <View style={styles.rowText}>
         <Text style={[styles.rowName, { color: rowTextColor }]}>{item.name}</Text>
-        <Text style={[styles.rowMeta, { color: rowMutedColor }]}>Renews {renewalLabel(item.nextRenewalDate)}</Text>
+        <Text style={[styles.rowMeta, { color: rowMutedColor }]}>Renews {renewalLabel(renewalDate)}</Text>
       </View>
       <Text style={[styles.rowPrice, { color: rowTextColor }]}>
         {formatDisplayPrice(item, convertedPrice, displayCurrency, showOriginalCurrency)}
@@ -76,6 +77,7 @@ export function SubscriptionRow({
   const rowMeta = item.paused
     ? `${item.category} · ${item.billingPeriod} · Paused`
     : `${item.category} · ${item.billingPeriod}`;
+  const renewalDate = nextRenewalDate(item);
 
   return (
     <Pressable
@@ -105,7 +107,7 @@ export function SubscriptionRow({
             { color: rowMutedColor },
           ]}
         >
-          Renews {renewalLabel(item.nextRenewalDate)}
+          Renews {renewalLabel(renewalDate)}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={19} color={rowMutedColor} />

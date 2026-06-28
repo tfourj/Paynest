@@ -145,7 +145,7 @@ export function renewalLabel(date: string) {
   const days = dayDifference(date);
   if (days === 0) return "today";
   if (days === 1) return "tomorrow";
-  if (days > 1 && days < 31) return `in ${days} days`;
+  if (days === 2) return "in 2 days";
   return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
