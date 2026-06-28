@@ -874,6 +874,8 @@ export function AddSubscription({
                   <Pressable
                     key={provider.value}
                     onPress={() => toggleIconProvider(provider.value)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: selected }}
                     style={[
                       styles.symbolProviderButton,
                       {
@@ -882,6 +884,17 @@ export function AddSubscription({
                       },
                     ]}
                   >
+                    <View
+                      style={[
+                        styles.symbolProviderCheckbox,
+                        {
+                          backgroundColor: selected ? c.primary : "transparent",
+                          borderColor: selected ? c.primary : previewMutedColor,
+                        },
+                      ]}
+                    >
+                      {selected ? <Ionicons name="checkmark" size={12} color="#FFFFFF" /> : null}
+                    </View>
                     <Text style={[styles.symbolProviderText, { color: selected ? c.primary : previewTextColor }]}>
                       {provider.label}
                     </Text>
